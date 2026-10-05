@@ -24,7 +24,7 @@ async function quote(opts: { mode: 'mock' | 'live'; amount?: string; requestHash
 
 const reserve = (uid: string, q: string, key: string, reqHash = hex64('e'), dedupe = key) =>
   asUser(uid, async (c) => (await c.query(
-    `select * from app.reserve_and_enqueue($1, $2, 'POST /references/:id/transcript-jobs', $3, $4, 'transcript_submit', $5, '{"referenceId":"r1"}')`,
+    `select * from app.reserve_and_enqueue($1, $2, 'POST /test/reserve', $3, $4, 'rank_refresh', $5, '{"referenceId":"r1"}')`,
     [ORG1, q, key, reqHash, dedupe],
   )).rows[0] as { job_id: string; replayed: boolean });
 

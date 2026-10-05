@@ -9,7 +9,7 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --project unit",
-    "test:db": "bash scripts/with-test-db.sh vitest run --project db",
+    "test:db": "bash scripts/with-test-db.sh vitest run --project db --no-file-parallelism",
     "test:all": "pnpm typecheck && pnpm test && pnpm test:db",
     "db:local": "bash scripts/with-test-db.sh --keep && DATABASE_URL=\"postgresql://postgres@localhost/xhs_test?host=$PWD/.tmp/pg&port=54329\" tsx scripts/seed-demo.ts",
     "dev:web": "DATABASE_URL=\"${DATABASE_URL:-postgresql://postgres@localhost/xhs_test?host=$PWD/.tmp/pg&port=54329}\" pnpm --filter @xhs/web dev",

@@ -1,5 +1,6 @@
 import { AppError, canonicalJson, sha256Hex, type JobKind } from '@xhs/domain';
 import { pgCode, type Ctx, type ServiceRunner } from './context.ts';
+import { orgOps } from './ops.ts';
 
 export type Operation = 'provider_search' | 'reference_analysis' | 'transcript_submit' | 'plan_generation' | 'contextual_check' | 'results_reflection';
 
@@ -42,9 +43,22 @@ export function requestHash(operation: Operation, scope: Record<string, unknown>
  * Server-generated, single-use, 5-minute quote (spec 8, 9.2). In mock mode the
  * amount is 0 and the ledger row is `demo`. In live mode an unknown price blocks.
  */
+const FEATURE_OF: Record<Operation, 'ai' | 'transcript' | 'provider_search'> = {
+  provider_search: 'provider_search', transcript_submit: 'transcript', reference_analysis: 'ai', plan_generation: 'ai', contextual_check: 'ai', results_reflection: 'ai',
+};
+
+/** Effective daily limit: org setting (admin-adjustable) falling back to the app default. */
+export async function dailyLimit(ctx: Ctx, op: Operation): Promise<number> {
+  const ops = await orgOps(ctx.db, ctx.orgId);
+  return ops.limits[FEATURE_OF[op]];
+}
+
 export async function createQuote(ctx: Ctx, service: ServiceRunner, operation: Operation, scope: Record<string, unknown>): Promise<Quote> {
+  const ops = await orgOps(ctx.db, ctx.orgId);
+  if (ops.provider.kill) throw new AppError('FEATURE_DISABLED', '관리자가 외부 작업을 모두 중지했습니다.');
+  if (!ops.features[FEATURE_OF[operation]]) throw new AppError('FEATURE_DISABLED', '관리자가 이 기능을 꺼 두었습니다.');
   const used = await usedToday(ctx, operation);
-  const { limit } = DAILY_LIMITS[operation];
+  const limit = ops.limits[FEATURE_OF[operation]];
   if (used >= limit) throw new AppError('RATE_LIMITED', `오늘 ${DAILY_LIMITS[operation].label} 한도(${limit}회)를 모두 사용했습니다.`);
   if (ctx.mode === 'live') {
     // No verified price versions exist for any endpoint yet (spec 6.3: unknown price blocks).
@@ -61,6 +75,7 @@ export async function createQuote(ctx: Ctx, service: ServiceRunner, operation: O
     expiresAt: row.expires_at.toISOString(), usedToday: used, dailyLimit: limit, requestHash: hash,
   };
 }
+
 
 const QUOTE_ERRORS: Record<string, [ConstructorParameters<typeof AppError>[0], string]> = {
   QUOTE_CONSUMED: ['CONFLICT', '이미 사용한 견적입니다. 다시 견적을 받아 주세요.'],
@@ -110,7 +125,7 @@ export async function getQuote(ctx: Ctx, id: string): Promise<(Quote & { consume
   const op = r.operation as Operation;
   return {
     id: r.id, operation: op, mode: r.data_mode, maxAmount: r.max_amount, currency: r.currency, maxBillableUnits: r.max_billable_units,
-    expiresAt: r.expires_at.toISOString(), usedToday: await usedToday(ctx, op), dailyLimit: DAILY_LIMITS[op].limit, requestHash: r.request_hash,
+    expiresAt: r.expires_at.toISOString(), usedToday: await usedToday(ctx, op), dailyLimit: await dailyLimit(ctx, op), requestHash: r.request_hash,
     consumed: r.consumed_at !== null, expired: r.expires_at <= new Date(),
   };
 }

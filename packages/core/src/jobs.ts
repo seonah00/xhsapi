@@ -53,8 +53,18 @@ export async function runJob(deps: JobDeps, jobId: string, workerId: string): Pr
 
   let outcome: JobOutcome;
   try {
+    const blocked = await deps.service(async (db) => {
+      const s = (await db.query(`select settings from organizations where id = $1`, [job.org_id])).rows[0]?.settings ?? {};
+      if (s.provider_switches?.kill === true) return 'kill_switch';
+      const feature = ({ transcript_submit: 'transcript', transcript_result: 'transcript', provider_search: 'provider_search', reference_analysis: 'ai',
+        plan_generation: 'ai', contextual_check: 'ai', results_reflection: 'ai' } as Record<string, string>)[job.kind];
+      if (feature && s.feature_switches?.[feature] === false && job.kind !== 'transcript_result') return 'feature_disabled';
+      return null;
+    });
     if (job.owner_user_id && !(await stillMember(deps.service, job.org_id, job.owner_user_id))) {
       outcome = { state: 'failed', errorCode: 'membership_revoked' };
+    } else if (blocked) {
+      outcome = { state: 'failed', errorCode: blocked };
     } else {
       outcome = await dispatch(deps, job);
     }

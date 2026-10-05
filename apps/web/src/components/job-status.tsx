@@ -41,7 +41,18 @@ function Box({ label, state, terminal }: { label: string; state: string; termina
 /** Polls a job and refreshes the server page when it finishes. */
 export function JobStatus({ jobId, label }: { jobId: string; label: string }) {
   const state = usePoll(`/api/v1/jobs/${jobId}`, JOB_TERMINAL, 'queued');
-  return <Box label={label} state={state} terminal={JOB_TERMINAL} />;
+  const [msg, setMsg] = useState<string | null>(null);
+  const cancel = async () => {
+    const res = await fetch(`/api/v1/jobs/${jobId}/cancel`, { method: 'POST' });
+    setMsg(res.ok ? '취소를 요청했습니다. 이미 외부로 보낸 작업과 비용은 취소가 보장되지 않습니다.' : '이미 실행 중이거나 끝난 작업은 취소할 수 없습니다.');
+  };
+  return (
+    <div className="space-y-1">
+      <Box label={label} state={state} terminal={JOB_TERMINAL} />
+      {(state === 'queued' || state === 'waiting_external') && <button type="button" onClick={() => void cancel()} className="text-xs text-muted underline">작업 취소</button>}
+      {msg && <p className="text-xs text-muted">{msg}</p>}
+    </div>
+  );
 }
 
 /** Polls the transcript run itself (submit + async result polling), not just the submit job. */
