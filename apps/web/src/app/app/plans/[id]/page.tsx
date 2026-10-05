@@ -4,6 +4,7 @@ import { Uploader } from '@/components/uploader';
 import { withPageCtx } from '@/server/ctx';
 import { PlanEditor } from '@/components/plan-editor';
 import { FindingItem } from '@/components/findings';
+import { ReportButton } from '@/components/report-button';
 import { JobStatus } from '@/components/job-status';
 import { QuoteConfirm } from '@/components/quote-confirm';
 import { Badge, btn, Card, DemoBadge, ErrorNotice, Notice, PageHeader, selectAuto } from '@/components/ui';
@@ -122,9 +123,9 @@ export default async function PlanPage({ params, searchParams }: { params: Promi
                   <ul className="space-y-2">
                     {selected.findings.map((f, i) => (
                       <FindingItem key={i} f={f} text={checkSections && f.fieldKey !== 'document' ? fieldText(checkSections, f.fieldKey) : null}
-                        action={f.suggestionZh && f.anchored && !checkStaleVsDraft ? (
+                        action={<>{f.suggestionZh && f.anchored && !checkStaleVsDraft ? (
                           <form action={A.applyFix} className="mt-2">{hidden({ checkRunId: selected.id, index: String(i) })}<button className={btn.small}>수정 제안 적용</button></form>
-                        ) : null} />
+                        ) : null}<ReportButton targetType="check_finding" targetId={selected.id} findingIndex={i} reasons={['false_positive', 'incorrect', 'other']} /></>} />
                     ))}
                   </ul>
                 )}

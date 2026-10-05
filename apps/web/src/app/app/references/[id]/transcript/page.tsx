@@ -3,6 +3,7 @@ import { analyzeReference, getQuote, getReference, getTranscript, pendingJobFor 
 import { withPageCtx } from '@/server/ctx';
 import { confirmTranscript, quoteTranscript, removeTranscript, saveExpressionFromTranscript } from '../actions';
 import { JobStatus, TranscriptStatus } from '@/components/job-status';
+import { ReportButton } from '@/components/report-button';
 import { QuoteConfirm } from '@/components/quote-confirm';
 import { Badge, btn, Card, DemoBadge, Empty, ErrorNotice, input, Notice, PageHeader } from '@/components/ui';
 import { FAIL_LABEL, TRANSCRIPT_STATUS_LABEL, fmtDate } from '@/components/labels';
@@ -94,6 +95,7 @@ export default async function TranscriptPage({ params, searchParams }: { params:
               </ol>
             </Card>
           )}
+          {t.status === 'succeeded' && <ReportButton targetType="transcript" targetId={t.runId} reasons={['incorrect', 'other']} label="추출 오류 신고" />}
           {!active && (
             <form action={removeTranscript}><input type="hidden" name="id" value={id} /><button className={btn.ghost}>추출 결과 삭제</button></form>
           )}

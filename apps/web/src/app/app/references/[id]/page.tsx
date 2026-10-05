@@ -4,6 +4,7 @@ import { Uploader } from '@/components/uploader';
 import { withPageCtx } from '@/server/ctx';
 import { safeExternalHref } from '@xhs/security';
 import { confirmAnalysis, quoteAnalysis, saveMeta, setTrashed, share, unshare } from './actions';
+import { ReportButton } from '@/components/report-button';
 import { AnalysisView } from '@/components/analysis-view';
 import { JobStatus } from '@/components/job-status';
 import { NoteCard } from '@/components/note-card';
@@ -118,7 +119,7 @@ export default async function ReferenceDetail({ params, searchParams }: { params
               </div>
             )}
             {d.pending && <div className="mb-3"><JobStatus jobId={d.pending} label="분석 작업" /></div>}
-            {d.analysis ? <AnalysisView a={d.analysis} /> : !d.pending && <p className="text-sm text-muted">아직 분석하지 않았습니다.</p>}
+            {d.analysis ? <><AnalysisView a={d.analysis} /><ReportButton targetType="analysis" targetId={d.analysis.id} reasons={['incorrect', 'other']} label="분석 오류 신고" /></> : !d.pending && <p className="text-sm text-muted">아직 분석하지 않았습니다.</p>}
           </Card>
         </div>
       </div>

@@ -161,7 +161,7 @@ export async function runCheck(ctx: Ctx, service: Runner, input: unknown, planRe
 export async function getCheck(ctx: Ctx, id: string): Promise<CheckRunView> {
   const r = (await ctx.db.query(`select * from check_runs where id = $1 and org_id = $2`, [id, ctx.orgId])).rows[0];
   if (!r) notFound();
-  const findings = (await ctx.db.query(`select finding_json from check_findings where check_run_id = $1 order by field_key, start_utf16 nulls first`, [id])).rows.map((x) => x.finding_json as Finding);
+  const findings = (await ctx.db.query(`select finding_json from check_findings where check_run_id = $1 order by field_key, start_utf16 nulls first, id`, [id])).rows.map((x) => x.finding_json as Finding);
   return { id: r.id, status: r.status, contentHash: r.content_hash, rulesVersion: r.rules_version, completeness: r.completeness_json, planVersionId: r.plan_version_id, createdAt: r.created_at.toISOString(), findings, dataMode: r.data_mode };
 }
 

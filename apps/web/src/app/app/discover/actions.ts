@@ -3,8 +3,8 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { createReference, toggleSave } from '@xhs/core';
-import { withPageCtx } from '@/server/ctx';
+import { createQuote, createReference, reserveJob, toggleSave } from '@xhs/core';
+import { service, withPageCtx } from '@/server/ctx';
 import { orRedirectWithError } from '@/server/actions-util';
 
 const COMPARE = 'xhs_compare';
@@ -39,4 +39,30 @@ export async function toggleCompare(f: FormData) {
 export async function clearCompare() {
   (await cookies()).delete(COMPARE);
   redirect('/app/discover/compare');
+}
+
+const RefreshScope = z.object({ query: z.string().trim().min(1, '검색어를 입력하세요.').max(50), topic: z.string().max(40).optional(), days: z.enum(['7', '14', '30']).optional() });
+const refreshScope = (f: FormData) => {
+  const s = RefreshScope.parse({ query: String(f.get('q') ?? ''), topic: String(f.get('topic') ?? '') || undefined, days: String(f.get('days') ?? '') || undefined });
+  return { query: s.query, ...(s.topic ? { topic: s.topic } : {}), ...(s.days ? { days: s.days } : {}) };
+};
+
+/** "외부 자료 새로 조회": quote first (spec F04 step 3). In mock mode the provider returns synthetic fixtures only. */
+export async function quoteRefresh(f: FormData) {
+  const scope = await orRedirectWithError(back(f), async () => refreshScope(f));
+  const q = await orRedirectWithError(back(f), () => withPageCtx((ctx) => createQuote(ctx, service, 'provider_search', scope)));
+  const qs = new URLSearchParams({ ...scope, q: scope.query, refresh: '1', quote: q.id });
+  qs.delete('query');
+  redirect(`/app/discover?${qs}#refresh`);
+}
+
+export async function confirmRefresh(f: FormData) {
+  const scope = await orRedirectWithError(back(f), async () => refreshScope(f));
+  const quoteId = id.parse(f.get('quoteId'));
+  const { jobId } = await orRedirectWithError(back(f), () => withPageCtx((ctx) => reserveJob(ctx, {
+    quoteId, route: 'POST /discover/refresh', idempotencyKey: id.parse(f.get('idem')), operation: 'provider_search', scope,
+    jobKind: 'provider_search', dedupeKey: `provider_search:${quoteId}`, inputRef: { query: scope.query, ...(scope.topic ? { topic: scope.topic } : {}), ...(scope.days ? { days: Number(scope.days) } : {}) },
+  })));
+  const qs = new URLSearchParams({ q: scope.query, ...(scope.topic ? { topic: scope.topic } : {}), ...(scope.days ? { days: scope.days } : {}), job: jobId });
+  redirect(`/app/discover?${qs}#refresh`);
 }

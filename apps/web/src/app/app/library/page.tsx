@@ -3,6 +3,7 @@ import { safeExternalHref } from '@xhs/security';
 import { withPageCtx } from '@/server/ctx';
 import { Badge, btn, DemoBadge, Empty, input, PageHeader } from '@/components/ui';
 import { fmtDate } from '@/components/labels';
+import { ReportButton } from '@/components/report-button';
 
 export const metadata = { title: '공통 자료실' };
 
@@ -24,6 +25,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
                 {i.memo && <p className="mt-1 text-sm">메모: {i.memo}</p>}
                 {i.userText && <p className="zh mt-1 line-clamp-4 whitespace-pre-wrap text-sm text-muted">{i.userText}</p>}
                 <p className="mt-2 text-xs text-muted">공개 {fmtDate(i.publishedAt)}{href && !href.includes('.invalid') && <> · <a href={href} target="_blank" rel="noopener noreferrer" className="text-accent underline">원문 ↗</a></>}</p>
+                <ReportButton targetType="library_item" targetId={i.id} reasons={['rights_issue', 'source_removed', 'incorrect', 'other']} label="권리·오류 신고" />
               </li>
             );
           })}

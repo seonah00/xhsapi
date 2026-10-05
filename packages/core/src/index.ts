@@ -23,3 +23,6 @@ export * from './assets.ts';
 export * from './ops.ts';
 export * from './library.ts';
 export * from './deletion.ts';
+export * from './refaccounts.ts';
+export * from './reports.ts';
+export * from './taxonomy.ts';
