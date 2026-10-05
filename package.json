@@ -1,0 +1,27 @@
+{
+  "name": "xhs-studio",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --project unit",
+    "test:db": "bash scripts/with-test-db.sh vitest run --project db",
+    "test:all": "pnpm typecheck && pnpm test && pnpm test:db",
+    "db:local": "bash scripts/with-test-db.sh --keep"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.1",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7",
+    "zod": "^3.25.76",
+    "@xhs/domain": "workspace:*",
+    "@xhs/security": "workspace:*",
+    "@xhs/providers": "workspace:*"
+  }
+}
