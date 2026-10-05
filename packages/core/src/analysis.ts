@@ -84,3 +84,22 @@ export function analyzeReference(input: AnalysisInput): AnalysisOutput {
     generator: 'mock-rules-v1',
   };
 }
+
+export type StoredAnalysis = { id: string; status: string; dataMode: string; createdAt: string; output: AnalysisOutput | null; analysisScope: string[] };
+
+export async function getLatestAnalysis(ctx: import('./context.ts').Ctx, referenceId: string): Promise<StoredAnalysis | null> {
+  const r = (await ctx.db.query(
+    `select id, status, data_mode, created_at, output_json, analysis_scope from analyses
+     where org_id = $1 and owner_user_id = $2 and target_type = 'reference' and target_id = $3 order by created_at desc limit 1`,
+    [ctx.orgId, ctx.uid, referenceId],
+  )).rows[0];
+  return r ? { id: r.id, status: r.status, dataMode: r.data_mode, createdAt: r.created_at.toISOString(), output: r.output_json, analysisScope: r.analysis_scope } : null;
+}
+
+export async function pendingJobFor(ctx: import('./context.ts').Ctx, kind: string, referenceId: string): Promise<string | null> {
+  const r = (await ctx.db.query(
+    `select id from app_jobs where org_id = $1 and owner_user_id = $2 and kind = $3 and state in ('queued', 'running', 'waiting_external')
+       and input_ref ->> 'referenceId' = $4 order by created_at desc limit 1`, [ctx.orgId, ctx.uid, kind, referenceId],
+  )).rows[0];
+  return r?.id ?? null;
+}

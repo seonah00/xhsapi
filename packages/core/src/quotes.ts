@@ -97,3 +97,17 @@ export async function getJob(ctx: Ctx, id: string): Promise<JobView | null> {
   )).rows[0];
   return r ? { id: r.id, kind: r.kind, state: r.state, errorCode: r.error_code, createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString(), dataMode: r.data_mode } : null;
 }
+
+export async function getQuote(ctx: Ctx, id: string): Promise<(Quote & { consumed: boolean; expired: boolean }) | null> {
+  const r = (await ctx.db.query(
+    `select id, operation, data_mode, max_amount, currency, max_billable_units, expires_at, request_hash, consumed_at from cost_quotes where id = $1 and org_id = $2 and owner_user_id = $3`,
+    [id, ctx.orgId, ctx.uid],
+  )).rows[0];
+  if (!r) return null;
+  const op = r.operation as Operation;
+  return {
+    id: r.id, operation: op, mode: r.data_mode, maxAmount: r.max_amount, currency: r.currency, maxBillableUnits: r.max_billable_units,
+    expiresAt: r.expires_at.toISOString(), usedToday: await usedToday(ctx, op), dailyLimit: DAILY_LIMITS[op].limit, requestHash: r.request_hash,
+    consumed: r.consumed_at !== null, expired: r.expires_at <= new Date(),
+  };
+}

@@ -11,9 +11,13 @@
     "test": "vitest run --project unit",
     "test:db": "bash scripts/with-test-db.sh vitest run --project db",
     "test:all": "pnpm typecheck && pnpm test && pnpm test:db",
-    "db:local": "bash scripts/with-test-db.sh --keep"
+    "db:local": "bash scripts/with-test-db.sh --keep && DATABASE_URL=\"postgresql://postgres@localhost/xhs_test?host=$PWD/.tmp/pg&port=54329\" tsx scripts/seed-demo.ts",
+    "dev:web": "DATABASE_URL=\"${DATABASE_URL:-postgresql://postgres@localhost/xhs_test?host=$PWD/.tmp/pg&port=54329}\" pnpm --filter @xhs/web dev",
+    "dev:worker": "DATABASE_URL=\"${DATABASE_URL:-postgresql://postgres@localhost/xhs_test?host=$PWD/.tmp/pg&port=54329}\" tsx apps/worker/src/index.ts",
+    "test:e2e": "bash scripts/e2e.sh"
   },
   "devDependencies": {
+    "@playwright/test": "1.56.1",
     "@types/node": "^22.20.5",
     "@types/pg": "^8.23.1",
     "@xhs/core": "workspace:*",

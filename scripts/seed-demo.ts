@@ -53,15 +53,12 @@ async function main() {
       await ingestSearchResult(client as never, { orgId, provider: 'mock', endpoint: result.endpoint, query: { query: '', seed: true } }, result);
 
       for (const e of EXPRESSIONS) {
-        const id = (await client.query(
+        // Editorial examples stay in explanations.example ("작성 예시"); expression_evidence is only for observed quotes.
+        await client.query(
           `insert into expressions (org_id, expression, explanations_json, tone, topics, expression_type, provenance, review_status, data_mode)
-           values ($1, $2, $3, $4, $5, $6, 'editorial', 'published', 'mock') returning id`,
+           values ($1, $2, $3, $4, $5, $6, 'editorial', 'published', 'mock')`,
           [orgId, e.expression, e.ex, e.tone, e.topics, e.type],
-        )).rows[0].id;
-        if (e.ex.example) {
-          const note = (await client.query(`select id from notes where org_id = $1 and not is_fallback order by published_at desc nulls last limit 1`, [orgId])).rows[0];
-          if (note) await client.query(`insert into expression_evidence (expression_id, note_id, observed_at, quote_excerpt) values ($1, $2, now(), $3)`, [id, note.id, `【作成例】${e.ex.example}`.slice(0, 200)]);
-        }
+        );
       }
       for (const [zh, ko, topic] of [['护肤', '스킨케어', 'beauty'], ['探店', '가게 탐방', 'food-places'], ['穿搭', '코디', 'fashion'], ['育儿', '육아', 'parenting'], ['旅行攻略', '여행 가이드', 'travel-outing'], ['日常vlog', '일상 브이로그', 'daily-life']] as const) {
         await client.query(

@@ -11,7 +11,7 @@
 | 단계 | 상태 |
 |---|---|
 | M0 기초·권한 경계 | 완료: 패키지 골격, DB 마이그레이션·RLS, 데모 시드, mock provider, live 게이트, 테스트 |
-| M1 발견·저장 | 예정 (Next.js 웹앱, 온보딩·탐색·레퍼런스·표현) |
+| M1 발견·저장 | 완료: 데모 로그인, 계정 온보딩, 홈 추천, 탐색·비교, 레퍼런스·분석, F15 음성 문안(mock), 해시태그, 표현 사전 |
 | M2 기획·검사·검수 | 예정 |
 | M3 운영·성과 | 예정 |
 | M4 전체 P0 검수 | 예정 |
@@ -19,7 +19,9 @@
 ## 구조
 
 ```text
-apps/worker/            # 백그라운드 작업 (M0: 환경 검증 골격)
+apps/web/               # Next.js 웹앱 (화면 + /api/v1)
+apps/worker/            # app_jobs 폴링 워커 (검색 적재·분석·음성 문안 추출)
+packages/core/          # 서비스 로직 (RLS 트랜잭션 위에서 동작, Next 의존 없음)
 packages/domain/        # Zod 스키마, 상태 전이, 지표 파싱, 해시, 환경변수 검증
 packages/providers/     # RedFox 엔드포인트 레지스트리, live 게이트, mock/live 어댑터
 packages/security/      # SSRF 방어 URL 검사, 샤오홍슈 URL 정규화, 로그 마스킹
@@ -40,14 +42,24 @@ pnpm typecheck     # TypeScript strict
 pnpm test          # 단위 테스트 (DB 불필요)
 pnpm test:db       # 임시 PostgreSQL을 띄워 마이그레이션+시드 적용 후 DB 테스트, 종료 시 삭제
 pnpm test:all      # 위 세 가지
-pnpm db:local      # 임시 DB를 띄운 채로 두고 접속 URL 출력
+pnpm test:e2e      # 새 DB+시드+워커+웹(3100)을 띄워 Playwright 실행 후 정리. 화면 캡처는 docs/screenshots/
 ```
+
+### 로컬에서 직접 써 보기
+
+```bash
+pnpm db:local      # 임시 DB(54329) + 데모 콘텐츠 시드
+pnpm dev:worker    # 다른 터미널: 작업 워커
+pnpm dev:web       # 다른 터미널: http://localhost:3000 → 데모 계정 선택
+```
+
+DB 중지: `pg_ctl -D .tmp/pg/data stop` (root면 `runuser -u postgres --` 앞에 붙임).
 
 `test:db`는 실제 Supabase 대신 `supabase/test/00_supabase_shim.sql`로 `auth.users`, `auth.uid()`, 역할(anon/authenticated/service_role)을 흉내 냅니다. 마이그레이션은 실제 Supabase에도 그대로 적용됩니다. root로 실행하면 `postgres` OS 사용자로 DB를 띄웁니다.
 
 ## 데모 계정 (시드)
 
-모두 가상 데이터이며 이메일은 예약 도메인 `.invalid`를 씁니다. 비밀번호는 시드에 넣지 않습니다(로그인 화면은 M1).
+모두 가상 데이터이며 이메일은 예약 도메인 `.invalid`를 씁니다. 로그인 화면에서 계정을 눌러 들어갑니다(데모 모드 전용, 비밀번호 없음). student-a는 계정 설정이 끝난 상태, student-b는 처음 시작하는 상태입니다.
 
 | 사용자 | 역할 |
 |---|---|
@@ -74,4 +86,5 @@ pnpm db:local      # 임시 DB를 띄운 채로 두고 접속 URL 출력
 
 - `docs/XHS_STUDIO_ACCEPTANCE_TESTS.md`는 아직 저장소에 없습니다. 받으면 테스트 매트릭스를 맞춥니다.
 - RedFox 문서 사이트(redfox.hk)는 개발 환경에서 접근이 막혀 있어, 공유받은 문서 ID 중 DCZW5V7A, 9UHXOXSF, tool/QPNFJRG1은 내용을 확인하지 못했습니다.
-- 웹앱(Next.js), 작업 큐 dispatcher, 실제 Supabase 로컬 스택 연동은 M1 이후입니다.
+- 로그인은 데모 로그인입니다. 실제 Supabase Auth 연동은 배포 환경 결정 후 진행합니다(ADR 0002).
+- 기획실·표현 점검·강사 제출(M2), 성과 기록·관리자(M3)는 아직 없습니다.

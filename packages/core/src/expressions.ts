@@ -50,7 +50,7 @@ export async function listExpressions(ctx: Ctx, input: unknown = {}): Promise<Ex
 }
 
 /** Save a phrase heard in a transcript as a personal, unreviewed entry (F15 → F07). */
-export async function savePersonalExpression(ctx: Ctx, input: { expression: string; meaningKo?: string; referenceId?: string; quote?: string }): Promise<string> {
+export async function savePersonalExpression(ctx: Ctx, input: { expression: string; meaningKo?: string | undefined; referenceId?: string | undefined }): Promise<string> {
   const expression = z.string().trim().min(1).max(60).parse(input.expression);
   let provenance: 'transcript_observed' | 'observed' = 'observed';
   if (input.referenceId) {
