@@ -1,7 +1,8 @@
 import pg from 'pg';
 import { loadEnv, publicCapabilities } from '@xhs/domain';
 import { createXhsProvider } from '@xhs/providers';
-import { claimableJobIds, runJob, type Runner } from '@xhs/core';
+import { resolve } from 'node:path';
+import { claimableJobIds, LocalPrivateStorage, purgeExpired, runJob, type Runner } from '@xhs/core';
 
 /**
  * Worker: polls `app_jobs` (the domain source of truth) and claims rows with a
@@ -46,14 +47,20 @@ async function main() {
   const workerId = `worker-${process.pid}`;
   const intervalMs = Number(process.env.WORKER_POLL_MS ?? 1000);
   console.info('worker ready', { workerId, ...capabilities });
+  const storage = new LocalPrivateStorage(process.env.ASSET_STORAGE_DIR ?? resolve(process.cwd(), '.data/assets'));
+  let lastPurge = 0;
   let stopping = false;
   process.on('SIGTERM', () => { stopping = true; });
   process.on('SIGINT', () => { stopping = true; });
   while (!stopping) {
     try {
       for (const id of await claimableJobIds(service)) {
-        const outcome = await runJob({ service, provider, pollBaseMs: 2000 }, id, workerId);
+        const outcome = await runJob({ service, provider, storage, pollBaseMs: 2000 }, id, workerId);
         if (outcome) console.info('job', id, outcome.state);
+      }
+      if (Date.now() - lastPurge > 3600_000) {
+        lastPurge = Date.now();
+        console.info('expiry purge', await service((db) => purgeExpired(db)));
       }
     } catch (e) {
       console.error('worker loop error', e instanceof Error ? e.message : e);

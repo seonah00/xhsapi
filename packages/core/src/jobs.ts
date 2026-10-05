@@ -9,6 +9,7 @@ import { FactSheet, PlanContent, PlanDraft, insertProposalVersion, sectionsOf } 
 import { findInventedNumbers, generatePlan } from './generation.ts';
 import { mockContextual } from './checks.ts';
 import { reflect, type ResultMetrics } from './results.ts';
+import { processDeletion } from './deletion.ts';
 
 export type Runner = <T>(fn: (db: Db) => Promise<T>) => Promise<T>;
 
@@ -26,6 +27,7 @@ export type JobOutcome =
 export type JobDeps = {
   service: Runner;
   provider: XhsDataProvider;
+  storage?: import('./storage.ts').ObjectStorage;
   now?: () => Date;
   /** Poll interval for async provider results; small in mock mode. */
   pollBaseMs?: number;
@@ -55,10 +57,12 @@ export async function runJob(deps: JobDeps, jobId: string, workerId: string): Pr
   try {
     const blocked = await deps.service(async (db) => {
       const s = (await db.query(`select settings from organizations where id = $1`, [job.org_id])).rows[0]?.settings ?? {};
-      if (s.provider_switches?.kill === true) return 'kill_switch';
       const feature = ({ transcript_submit: 'transcript', transcript_result: 'transcript', provider_search: 'provider_search', reference_analysis: 'ai',
         plan_generation: 'ai', contextual_check: 'ai', results_reflection: 'ai' } as Record<string, string>)[job.kind];
-      if (feature && s.feature_switches?.[feature] === false && job.kind !== 'transcript_result') return 'feature_disabled';
+      // Housekeeping (deletion, expiry) is never blocked by the kill switch.
+      if (!feature) return null;
+      if (s.provider_switches?.kill === true) return 'kill_switch';
+      if (s.feature_switches?.[feature] === false && job.kind !== 'transcript_result') return 'feature_disabled';
       return null;
     });
     if (job.owner_user_id && !(await stillMember(deps.service, job.org_id, job.owner_user_id))) {
@@ -111,6 +115,11 @@ async function dispatch(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
     case 'plan_generation': return planGeneration(deps, job);
     case 'contextual_check': return contextualCheck(deps, job);
     case 'results_reflection': return resultsReflection(deps, job);
+    case 'user_deletion': {
+      const { deletionRequestId } = job.input_ref as { deletionRequestId: string };
+      const summary = await deps.service((db) => processDeletion(db, deps.storage ?? null, deletionRequestId));
+      return { state: 'succeeded', result: summary };
+    }
     default: return { state: 'failed', errorCode: 'job_kind_not_implemented' };
   }
 }

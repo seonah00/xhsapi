@@ -10,7 +10,7 @@ async function login(page: Page, email: string) {
 test('admin: cohort, invite, join, suspend, audit; students cannot reach /admin', async ({ page }) => {
   const errors: string[] = [];
   let expect404 = false;
-  page.on('console', (m) => { if (m.type() === 'error' && !(expect404 && m.text().includes('status of 404'))) errors.push(m.text()); });
+  page.on('console', (m) => { if (m.type() === 'error' && !(expect404 && m.text().includes('status of 404'))) { console.log('[browser error]', page.url(), m.text()); errors.push(m.text()); } });
 
   // Non-admin: no admin nav, /admin is a 404.
   await login(page, 'student-a@demo.invalid');

@@ -2,6 +2,7 @@
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import {
+  requestSharing, revokeSharing,
   assertTranscriptAllowed, createQuote, deleteTranscript, reserveJob, savePersonalExpression, trashReference, updateReference,
 } from '@xhs/core';
 import { service, withPageCtx } from '@/server/ctx';
@@ -87,4 +88,16 @@ export async function saveExpressionFromTranscript(f: FormData) {
     expression: String(f.get('expression') ?? ''), meaningKo: String(f.get('meaning') ?? '').trim() || undefined, referenceId: id,
   })));
   redirect(`${back}?savedExpr=1`);
+}
+
+export async function share(f: FormData) {
+  const id = uuid.parse(f.get('id'));
+  await orRedirectWithError(refPath(id), () => withPageCtx((ctx) => requestSharing(ctx, id, { confirm: f.get('consent') === 'on' })));
+  redirect(`${refPath(id)}?shared=1`);
+}
+
+export async function unshare(f: FormData) {
+  const id = uuid.parse(f.get('id'));
+  await orRedirectWithError(refPath(id), () => withPageCtx((ctx) => revokeSharing(ctx, id)));
+  redirect(`${refPath(id)}?unshared=1`);
 }

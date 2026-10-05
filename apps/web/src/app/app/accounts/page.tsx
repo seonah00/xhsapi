@@ -11,7 +11,7 @@ export default async function AccountsPage() {
   return (
     <>
       <PageHeader title="내 계정" description="계정 방향은 추천과 기획의 기준이 됩니다. 사용자당 활성 계정은 최대 3개입니다."
-        actions={accounts.length < 3 ? <LinkButton href="/app/accounts/new" variant="primary">+ 계정 추가</LinkButton> : undefined} />
+        actions={<>{accounts.length < 3 && <LinkButton href="/app/accounts/new" variant="primary">+ 계정 추가</LinkButton>}<LinkButton href="/app/privacy">개인정보·데이터 삭제</LinkButton></>} />
       {accounts.length === 0 ? (
         <Empty title="아직 계정이 없습니다"><Link className="text-accent underline" href="/app/accounts/new">계정 방향 설정하기</Link></Empty>
       ) : (

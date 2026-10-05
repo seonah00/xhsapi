@@ -14,7 +14,7 @@ test.beforeEach(({ page }) => {
   consoleErrors.length = 0;
   expect404 = false;
   // Only the isolation step expects a 404 document.
-  page.on('console', (m) => { if (m.type() === 'error' && !(expect404 && m.text().includes('status of 404'))) consoleErrors.push(m.text()); });
+  page.on('console', (m) => { if (m.type() === 'error' && !(expect404 && m.text().includes('status of 404'))) { console.log('[browser error]', page.url(), m.text()); consoleErrors.push(m.text()); } });
   page.on('pageerror', (e) => consoleErrors.push(e.message));
 });
 test.afterEach(() => {
@@ -115,7 +115,7 @@ test('student onboarding → discover → reference → analysis → transcript 
 
 test('mobile home and discover render without horizontal overflow @mobile', async ({ page }) => {
   await login(page, 'student-a@demo.invalid');
-  for (const path of ['/app', '/app/discover', '/app/references', '/app/expressions', '/app/keywords', '/app/plans', '/app/plans/new', '/app/check', '/app/submissions']) {
+  for (const path of ['/app', '/app/discover', '/app/references', '/app/expressions', '/app/keywords', '/app/plans', '/app/plans/new', '/app/check', '/app/submissions', '/app/results', '/app/library', '/app/privacy']) {
     await page.goto(path);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `${path} horizontal overflow`).toBeLessThanOrEqual(1);

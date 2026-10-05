@@ -12,7 +12,7 @@ test('plan → AI proposal → check & fix → submit → reviewer feedback → 
   test.setTimeout(120_000);
   const errors: string[] = [];
   let allow404 = false;
-  page.on('console', (m) => { if (m.type() === 'error' && !(allow404 && m.text().includes('status of 404'))) errors.push(m.text()); });
+  page.on('console', (m) => { if (m.type() === 'error' && !(allow404 && m.text().includes('status of 404'))) { console.log('[browser error]', page.url(), m.text()); errors.push(m.text()); } });
 
   // Reviewer adds an editorial rule with a suggestion and a dictionary entry.
   await login(page, 'reviewer@demo.invalid');

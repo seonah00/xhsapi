@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 /** Captures core screens for review: `pnpm test:e2e --grep @screens`. Output: docs/screenshots/. */
 async function login(page: Page, email: string) {
+  await page.context().clearCookies();
   await page.goto('/login');
   await page.getByRole('button', { name: new RegExp(email.replace(/[.]/g, '\\.')) }).click();
   await page.waitForURL(/\/app/);
@@ -10,7 +11,7 @@ async function login(page: Page, email: string) {
 for (const [name, viewport] of [['desktop', { width: 1280, height: 900 }], ['mobile', { width: 360, height: 780 }]] as const) {
   test(`capture ${name} screens @screens`, async ({ page }) => {
     const errors: string[] = [];
-    page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+    page.on('console', (m) => { if (m.type() === 'error') { console.log('[browser error]', page.url(), m.text()); errors.push(m.text()); } });
     await page.setViewportSize(viewport);
     await login(page, 'student-a@demo.invalid');
     const shots: [string, string][] = [
@@ -59,6 +60,19 @@ for (const [name, viewport] of [['desktop', { width: 1280, height: 900 }], ['mob
     await page.getByRole('button', { name: '점검' }).click();
     await page.getByRole('heading', { name: /결과/ }).waitFor();
     await page.screenshot({ path: `docs/screenshots/m2-${name}-check.png`, fullPage: name === 'desktop', caret: 'initial' });
+    for (const [file, path] of [['results', '/app/results'], ['library', '/app/library']] as const) {
+      await page.goto(path);
+      await page.waitForLoadState('networkidle');
+      await page.screenshot({ path: `docs/screenshots/m3-${name}-${file}.png`, fullPage: name === 'desktop', caret: 'initial' });
+    }
+    if (name === 'desktop') {
+      await login(page, 'admin@demo.invalid');
+      for (const [file, path] of [['providers', '/admin/providers'], ['usage', '/admin/usage']] as const) {
+        await page.goto(path);
+        await page.waitForLoadState('networkidle');
+        await page.screenshot({ path: `docs/screenshots/m3-admin-${file}.png`, fullPage: true, caret: 'initial' });
+      }
+    }
     expect(errors, 'browser console errors').toEqual([]);
   });
 }
