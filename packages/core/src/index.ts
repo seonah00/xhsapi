@@ -12,3 +12,8 @@ export * from './keywords.ts';
 export * from './expressions.ts';
 export * from './home.ts';
 export * from './admin.ts';
+export * from './plans.ts';
+export * from './generation.ts';
+export * from './checks.ts';
+export * from './submissions.ts';
+export * from './staff.ts';

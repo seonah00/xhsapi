@@ -5,6 +5,9 @@ import { analyzeReference } from './analysis.ts';
 import type { Db } from './context.ts';
 import { ingestSearchResult } from './ingest.ts';
 import { storeTranscriptResult, transcriptStoragePolicy } from './transcripts.ts';
+import { FactSheet, PlanContent, PlanDraft, insertProposalVersion, sectionsOf } from './plans.ts';
+import { findInventedNumbers, generatePlan } from './generation.ts';
+import { mockContextual } from './checks.ts';
 
 export type Runner = <T>(fn: (db: Db) => Promise<T>) => Promise<T>;
 
@@ -94,6 +97,8 @@ async function dispatch(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
     case 'reference_analysis': return referenceAnalysis(deps, job);
     case 'transcript_submit': return transcriptSubmit(deps, job);
     case 'transcript_result': return transcriptResult(deps, job);
+    case 'plan_generation': return planGeneration(deps, job);
+    case 'contextual_check': return contextualCheck(deps, job);
     default: return { state: 'failed', errorCode: 'job_kind_not_implemented' };
   }
 }
@@ -193,4 +198,62 @@ async function transcriptResult(deps: JobDeps, job: JobRow): Promise<JobOutcome>
     : null;
   await deps.service((db) => storeTranscriptResult(db, runId, result, transcriptStoragePolicy(job.data_mode, permission)));
   return result.status === 'succeeded' ? { state: 'succeeded', result: { segments: result.segments.length } } : { state: 'failed', errorCode: result.failCode };
+}
+
+async function planGeneration(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
+  const { planId } = job.input_ref as { planId: string };
+  return deps.service(async (db) => {
+    const plan = (await db.query(
+      `select p.*, a.current_profile_version_id, v.profile_json from plans p join creator_accounts a on a.id = p.account_id
+       join account_profile_versions v on v.id = a.current_profile_version_id
+       where p.id = $1 and p.org_id = $2 and p.owner_user_id = $3 and p.deleted_at is null`, [planId, job.org_id, job.owner_user_id],
+    )).rows[0];
+    if (!plan) return { state: 'failed', errorCode: 'plan_unavailable' } as const;
+    const draft = PlanDraft.parse(plan.draft_json);
+    const refIds: string[] = Array.isArray(plan.draft_json?.sourceRefs) ? plan.draft_json.sourceRefs : [];
+    const refs = refIds.length
+      ? (await db.query(`select r.id, coalesce(r.title, n.title) as title, coalesce(n.provider_tags, r.tags) as tags from reference_items r left join notes n on n.id = r.note_id
+           where r.id = any($1::uuid[]) and r.owner_user_id = $2 and r.deleted_at is null`, [refIds, job.owner_user_id])).rows
+      : [];
+    const output = generatePlan({ facts: draft.facts, profile: plan.profile_json, references: refs.map((r) => ({ id: r.id, title: r.title, tags: r.tags ?? [] })) });
+    let proposalId: string | null = null;
+    if (output.kind === 'proposal') {
+      const content = PlanContent.parse(output.content);
+      if (findInventedNumbers(content, FactSheet.parse(draft.facts)).length) return { state: 'failed', errorCode: 'output_validation_failed' } as const;
+      // Evidence ids must come from the inputs (spec 5.4).
+      if (output.evidenceRefs.some((id) => !refIds.includes(id))) return { state: 'failed', errorCode: 'output_validation_failed' } as const;
+      proposalId = await insertProposalVersion(db, { orgId: job.org_id, planId, ownerId: job.owner_user_id!, content, facts: draft.facts, sourceRefs: refIds, profileVersionId: plan.current_profile_version_id, jobId: job.id });
+    }
+    await db.query(
+      `insert into analyses (org_id, owner_user_id, target_type, target_id, input_hash, analysis_scope, schema_version, prompt_version, model, data_mode, output_json, status)
+       values ($1, $2, 'plan_version', $3, $4, '{user_notes_only}', 'plan-generation-v1', 'mock-template-v1', null, $5, $6, 'succeeded')`,
+      [job.org_id, job.owner_user_id, proposalId ?? plan.current_version_id, contentHash(draft), job.data_mode, { planId, output }],
+    );
+    return { state: 'succeeded', result: { kind: output.kind, proposalVersionId: proposalId } } as const;
+  });
+}
+
+async function contextualCheck(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
+  const { checkRunId } = job.input_ref as { checkRunId: string };
+  return deps.service(async (db) => {
+    const run = (await db.query(
+      `select r.id, v.content_json from check_runs r join plan_versions v on v.id = r.plan_version_id
+       where r.id = $1 and r.org_id = $2 and r.owner_user_id = $3`, [checkRunId, job.org_id, job.owner_user_id],
+    )).rows[0];
+    if (!run) return { state: 'failed', errorCode: 'check_unavailable' } as const;
+    const res = mockContextual(sectionsOf(PlanContent.parse(run.content_json)));
+    if (!res.ok) {
+      // Rule results stay valid; the run remains partial with the AI layer marked failed (spec F09).
+      await db.query(`update check_runs set status = 'partial', completeness_json = completeness_json || '{"contextual":"failed"}' where id = $1`, [checkRunId]);
+      return { state: 'failed', errorCode: 'contextual_failed' } as const;
+    }
+    for (const f of res.findings) {
+      await db.query(
+        `insert into check_findings (check_run_id, field_key, start_utf16, end_utf16, finding_type, severity, confidence, rule_id, anchored, finding_json)
+         values ($1, 'document', null, null, $2, $3, $4, null, false, $5)`, [checkRunId, f.type, f.severity, f.confidence, f],
+      );
+    }
+    await db.query(`update check_runs set status = 'completed', completeness_json = completeness_json || '{"contextual":"completed"}' where id = $1`, [checkRunId]);
+    return { state: 'succeeded', result: { findings: res.findings.length } } as const;
+  });
 }

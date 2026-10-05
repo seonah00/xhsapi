@@ -1,13 +1,15 @@
 import { AppError, canonicalJson, sha256Hex, type JobKind } from '@xhs/domain';
 import { pgCode, type Ctx, type ServiceRunner } from './context.ts';
 
-export type Operation = 'provider_search' | 'reference_analysis' | 'transcript_submit';
+export type Operation = 'provider_search' | 'reference_analysis' | 'transcript_submit' | 'plan_generation' | 'contextual_check';
 
 /** App policy limits per student per day (spec 9.2; adjustable later by admins). */
 export const DAILY_LIMITS: Record<Operation, { limit: number; label: string; kinds: JobKind[] }> = {
   provider_search: { limit: 10, label: '외부 검색', kinds: ['provider_search'] },
   reference_analysis: { limit: 20, label: 'AI 작업', kinds: ['reference_analysis', 'query_expansion', 'plan_generation', 'contextual_check', 'results_reflection'] },
   transcript_submit: { limit: 5, label: '음성 문안 추출', kinds: ['transcript_submit'] },
+  plan_generation: { limit: 20, label: 'AI 작업', kinds: ['reference_analysis', 'query_expansion', 'plan_generation', 'contextual_check', 'results_reflection'] },
+  contextual_check: { limit: 20, label: 'AI 작업', kinds: ['reference_analysis', 'query_expansion', 'plan_generation', 'contextual_check', 'results_reflection'] },
 };
 
 export async function usedToday(ctx: Ctx, op: Operation): Promise<number> {
