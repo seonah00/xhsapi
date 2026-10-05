@@ -32,6 +32,7 @@ test('admin: cohort, invite, join, suspend, audit; students cannot reach /admin'
   await expect(page.getByRole('heading', { name: 'E2E 기수' })).toBeVisible();
   await page.getByLabel('추가할 멤버').selectOption({ label: 'student-b@demo.invalid (학생)' });
   await page.getByRole('button', { name: '배정', exact: true }).click();
+  await expect(page.getByText('학생 1명 · 강사 0명')).toBeVisible();
   await page.getByLabel('추가할 멤버').selectOption({ label: 'reviewer-other-cohort@demo.invalid (강사)' });
   await page.getByRole('button', { name: '배정', exact: true }).click();
   await expect(page.getByText('학생 1명 · 강사 1명')).toBeVisible();

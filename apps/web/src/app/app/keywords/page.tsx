@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { listKeywords, KeywordQuery, toggleSave } from '@xhs/core';
 import { withPageCtx } from '@/server/ctx';
-import { orRedirectWithError } from '@/server/actions-util';
+import { orRedirectWithError, safeLocalPath } from '@/server/actions-util';
 import { Badge, btn, DemoBadge, Empty, input, selectAuto, Notice, PageHeader } from '@/components/ui';
 import { PROVENANCE_LABEL, TOPIC_LABEL, fmtDate, topicLabel } from '@/components/labels';
 
@@ -9,9 +9,9 @@ export const metadata = { title: '해시태그·키워드' };
 
 async function save(f: FormData) {
   'use server';
-  const back = String(f.get('back') ?? '/app/keywords');
+  const back = safeLocalPath(f.get('back'), '/app/keywords');
   await orRedirectWithError(back, () => withPageCtx((ctx) => toggleSave(ctx, 'keyword', String(f.get('id')))));
-  redirect(back.startsWith('/app/keywords') ? back : '/app/keywords');
+  redirect(back);
 }
 
 export default async function Keywords({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {

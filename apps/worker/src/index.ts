@@ -2,6 +2,8 @@ import pg from 'pg';
 import { loadEnv, publicCapabilities } from '@xhs/domain';
 import { createXhsProvider } from '@xhs/providers';
 import { resolve } from 'node:path';
+import { hostsFromUrl, installMockNetworkGuard } from '@xhs/security/network-guard';
+import { redactString } from '@xhs/security';
 import { claimableJobIds, LocalPrivateStorage, purgeExpired, runJob, type Runner } from '@xhs/core';
 
 /**
@@ -42,6 +44,12 @@ async function main() {
     return;
   }
   if (!env.DATABASE_URL) throw new Error('DATABASE_URL is required');
+  // Mock mode: refuse every outbound connection except loopback and the database (spec 12.2).
+  installMockNetworkGuard({
+    allowHosts: hostsFromUrl(env.DATABASE_URL),
+    onBlock: (c) => console.error(`[network-guard] blocked outbound connection to ${c.host}:${c.port ?? '?'} (mock mode)`),
+  });
+  console.info('mock mode: outbound network guard active (worker)');
   const pool = new pg.Pool({ connectionString: env.DATABASE_URL, max: 4 });
   const service = makeRunner(pool);
   const workerId = `worker-${process.pid}`;
@@ -63,7 +71,7 @@ async function main() {
         console.info('expiry purge', await service((db) => purgeExpired(db)));
       }
     } catch (e) {
-      console.error('worker loop error', e instanceof Error ? e.message : e);
+      console.error('worker loop error', redactString(e instanceof Error ? e.message : String(e)));
     }
     await new Promise((r) => setTimeout(r, intervalMs));
   }
@@ -72,7 +80,7 @@ async function main() {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((e) => {
-    console.error(e);
+    console.error('worker fatal', redactString(e instanceof Error ? `${e.name}: ${e.message}` : String(e)));
     process.exit(1);
   });
 }

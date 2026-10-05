@@ -5,11 +5,11 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createQuote, createReference, reserveJob, toggleSave } from '@xhs/core';
 import { service, withPageCtx } from '@/server/ctx';
-import { orRedirectWithError } from '@/server/actions-util';
+import { orRedirectWithError, safeLocalPath } from '@/server/actions-util';
 
 const COMPARE = 'xhs_compare';
 const id = z.string().uuid();
-const back = (f: FormData) => { const b = String(f.get('back') ?? '/app/discover'); return b.startsWith('/app') ? b : '/app/discover'; };
+const back = (f: FormData) => { const b = safeLocalPath(f.get('back'), '/app'); return b === '/app' ? '/app/discover' : b; };
 
 export async function toggleSaveNote(f: FormData) {
   await orRedirectWithError(back(f), () => withPageCtx((ctx) => toggleSave(ctx, 'note', id.parse(f.get('noteId')))));

@@ -6,7 +6,8 @@
   --color-ink: #1f1a17;
   --color-muted: #6b625c;
   --color-line: #e8e1dc;
-  --color-accent: #d6334f;
+  --color-accent: #c42a45; /* ≥4.5:1 on white, bg and accent-soft (WCAG AA) */
+  --color-on-accent: #ffffff;
   --color-accent-soft: #fde8ec;
   --color-warn: #a15c00;
   --color-warn-soft: #fff4e0;
@@ -25,6 +26,7 @@
     --color-muted: #a99f98;
     --color-line: #332c28;
     --color-accent: #ff5c75;
+    --color-on-accent: #1f1a17;
     --color-accent-soft: #3a1c23;
     --color-warn: #f0b259;
     --color-warn-soft: #33270f;

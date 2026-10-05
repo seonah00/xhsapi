@@ -12,6 +12,8 @@ for (const [name, viewport] of [['desktop', { width: 1280, height: 900 }], ['mob
   test(`capture ${name} screens @screens`, async ({ page }) => {
     const errors: string[] = [];
     page.on('console', (m) => { if (m.type() === 'error') { console.log('[browser error]', page.url(), m.text()); errors.push(m.text()); } });
+    const external: string[] = [];
+    page.on('request', (r) => { const u = new URL(r.url()); if (/^https?:$|^wss?:$/.test(u.protocol) && u.hostname !== 'localhost' && u.hostname !== '127.0.0.1') external.push(r.url()); });
     await page.setViewportSize(viewport);
     await login(page, 'student-a@demo.invalid');
     const shots: [string, string][] = [
@@ -74,5 +76,6 @@ for (const [name, viewport] of [['desktop', { width: 1280, height: 900 }], ['mob
       }
     }
     expect(errors, 'browser console errors').toEqual([]);
+    expect(external, 'browser requests leaving the app origin').toEqual([]);
   });
 }

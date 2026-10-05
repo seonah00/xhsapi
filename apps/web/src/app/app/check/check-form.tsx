@@ -17,7 +17,7 @@ export function CheckForm() {
         <label className="block text-sm">자막<textarea name="subtitles" defaultValue={s?.subtitles} rows={2} className={`${box} mt-1`} /></label>
         <label className="block text-sm">광고·협찬 여부
           <select name="sponsorship" defaultValue="unknown" className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm"><option value="unknown">미확인</option><option value="no">아님</option><option value="yes">광고·협찬임</option></select></label>
-        <button disabled={pending} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{pending ? '점검 중…' : '점검'}</button>
+        <button disabled={pending} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-on-accent disabled:opacity-50">{pending ? '점검 중…' : '점검'}</button>
       </form>
       {state.error && <p role="alert" className="mt-3 rounded-xl bg-accent-soft px-4 py-3 text-sm text-accent">{state.error}</p>}
       {state.findings && <Results state={state} />}

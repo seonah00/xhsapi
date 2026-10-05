@@ -65,3 +65,14 @@ describe('output safety', () => {
     expect(q.startsWith('<untrusted source="transcript">')).toBe(true);
   });
 });
+
+describe('safeLocalPath (post-action redirects)', () => {
+  it('keeps same-origin paths under the prefix and rejects everything else', async () => {
+    const { safeLocalPath } = await import('@xhs/security');
+    expect(safeLocalPath('/app/keywords?q=a', '/app/keywords')).toBe('/app/keywords?q=a');
+    expect(safeLocalPath('/app/discover?q=x#refresh', '/app')).toBe('/app/discover?q=x#refresh');
+    for (const bad of ['https://evil.example/app', '//evil.example/app', '/\\evil.example', '/admin', '/apple', 'javascript:alert(1)', null, 42]) {
+      expect(safeLocalPath(bad, '/app')).toBe('/app');
+    }
+  });
+});

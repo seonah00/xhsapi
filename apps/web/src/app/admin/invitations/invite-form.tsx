@@ -22,7 +22,7 @@ export function InviteForm({ cohorts }: { cohorts: { id: string; name: string }[
         <label className="text-sm">유효 기간
           <select name="expiresInDays" defaultValue="7" className={`${input} mt-1 w-full`}>{[1, 3, 7].map((d) => <option key={d} value={d}>{d}일</option>)}</select>
         </label>
-        <div className="flex items-end"><button disabled={pending} className="w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{pending ? '만드는 중…' : '초대 링크 만들기'}</button></div>
+        <div className="flex items-end"><button disabled={pending} className="w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-on-accent disabled:opacity-50">{pending ? '만드는 중…' : '초대 링크 만들기'}</button></div>
       </form>
       {state.error && <p role="alert" className="mt-3 rounded-xl bg-accent-soft px-4 py-3 text-sm text-accent">{state.error}</p>}
       {state.link && (

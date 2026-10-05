@@ -62,7 +62,7 @@ export function Notice({ children, tone = 'info' }: { children: ReactNode; tone?
 }
 
 export const btn = {
-  primary: 'inline-flex items-center justify-center gap-1 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50',
+  primary: 'inline-flex items-center justify-center gap-1 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-on-accent hover:opacity-90 disabled:opacity-50',
   secondary: 'inline-flex items-center justify-center gap-1 rounded-xl border border-line bg-surface px-4 py-2 text-sm font-medium hover:bg-bg',
   ghost: 'inline-flex items-center justify-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-bg hover:text-ink',
   small: 'inline-flex items-center justify-center gap-1 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs font-medium hover:bg-bg',

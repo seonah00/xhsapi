@@ -16,3 +16,5 @@ export async function orRedirectWithError<T>(back: string, fn: () => Promise<T>)
     redirect(url.pathname + url.search);
   }
 }
+
+export { safeLocalPath } from '@xhs/security';

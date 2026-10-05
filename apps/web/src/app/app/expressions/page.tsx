@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { deletePersonalExpression, explainSentence, ExpressionQuery, listExpressions, toggleSave } from '@xhs/core';
 import { withPageCtx } from '@/server/ctx';
-import { orRedirectWithError } from '@/server/actions-util';
+import { orRedirectWithError, safeLocalPath } from '@/server/actions-util';
 import { Badge, btn, Card, DemoBadge, Empty, ErrorNotice, input, selectAuto, PageHeader } from '@/components/ui';
 import { EXPR_TYPE_LABEL, TOPIC_LABEL, topicLabel } from '@/components/labels';
 
@@ -11,7 +11,7 @@ const TONE: Record<string, string> = { friendly: '친근', informative: '정보�
 async function save(f: FormData) {
   'use server';
   await orRedirectWithError('/app/expressions', () => withPageCtx((ctx) => toggleSave(ctx, 'expression', String(f.get('id')))));
-  redirect(String(f.get('back') ?? '/app/expressions'));
+  redirect(safeLocalPath(f.get('back'), '/app/expressions'));
 }
 async function remove(f: FormData) {
   'use server';

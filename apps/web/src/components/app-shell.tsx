@@ -31,7 +31,7 @@ export async function AppShell({ children, area }: { children: React.ReactNode; 
       <header className={`sticky top-0 z-20 border-b border-line backdrop-blur ${area === 'admin' ? 'bg-ink/95 text-bg' : 'bg-surface/95'}`}>
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5">
           <Link href={area === 'admin' ? '/admin' : '/app'} className="shrink-0 whitespace-nowrap font-bold tracking-tight">
-            XHS 스튜디오{area === 'admin' && <span className="ml-1.5 rounded bg-accent px-1.5 py-0.5 text-[10px] text-white">관리자</span>}
+            XHS 스튜디오{area === 'admin' && <span className="ml-1.5 rounded bg-accent px-1.5 py-0.5 text-[10px] text-on-accent">관리자</span>}
           </Link>
           <div className={`flex min-w-0 items-center gap-2 text-xs ${area === 'admin' ? 'text-bg/70' : 'text-muted'}`}>
             {org && <Link href="/app/select-organization" className="min-w-0 truncate hover:underline" title={org.name}>{org.name} · {ROLE[org.role] ?? org.role}</Link>}

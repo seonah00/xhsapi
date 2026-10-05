@@ -84,3 +84,12 @@ export function normalizeXhsNoteUrl(input: string): XhsNoteUrl {
   for (const k of ACCESS_PARAMS) canonical.searchParams.delete(k);
   return { noteId, canonicalUrl: canonical.toString(), accessUrl: access.toString() };
 }
+
+/** Same-origin path under `prefix` for post-action redirects; anything else falls back (no open redirects). */
+export function safeLocalPath(value: unknown, prefix: string): string {
+  const v = typeof value === 'string' ? value : '';
+  if (!v.startsWith('/') || v.startsWith('//') || v.includes('\\')) return prefix;
+  const u = new URL(v, 'http://local.invalid');
+  if (u.origin !== 'http://local.invalid' || !(u.pathname === prefix || u.pathname.startsWith(`${prefix}/`) || u.pathname.startsWith(`${prefix}?`))) return prefix;
+  return u.pathname + u.search + u.hash;
+}

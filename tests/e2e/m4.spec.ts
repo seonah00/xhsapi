@@ -11,6 +11,8 @@ test('reference accounts, mock external refresh, reports queue and taxonomy admi
   test.setTimeout(120_000);
   const errors: string[] = [];
   page.on('console', (m) => { if (m.type() === 'error') { console.log('[browser error]', page.url(), m.text()); errors.push(m.text()); } });
+  const external: string[] = [];
+  page.on('request', (r) => { const u = new URL(r.url()); if (/^https?:$|^wss?:$/.test(u.protocol) && u.hostname !== 'localhost' && u.hostname !== '127.0.0.1') external.push(r.url()); });
 
   // F14: save two author candidates from stored notes and compare them
   await login(page, 'student-a@demo.invalid');
@@ -69,6 +71,7 @@ test('reference accounts, mock external refresh, reports queue and taxonomy admi
   await expect(page.locator('li', { hasText: 'seoul-e2e' }).getByRole('button', { name: '다시 활성화' })).toBeVisible();
 
   expect(errors).toEqual([]);
+  expect(external, 'browser requests leaving the app origin').toEqual([]);
 
   // Students cannot open staff/admin pages (the 404 itself logs a console error, so it is checked last)
   await login(page, 'student-b@demo.invalid');

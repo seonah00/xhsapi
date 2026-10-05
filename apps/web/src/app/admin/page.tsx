@@ -18,10 +18,10 @@ export default async function AdminHome() {
       <PageHeader title="관리자 개요" description="조직의 멤버·기수·초대를 관리합니다. 학생의 비공개 초안과 자료는 관리자도 볼 수 없습니다." />
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {stats.map(([label, n, href]) => (
-          <Link key={label} href={href} className="rounded-2xl border border-line bg-surface p-4 hover:border-accent">
-            <dt className="text-xs text-muted">{label}</dt>
+          <div key={label} className="relative rounded-2xl border border-line bg-surface p-4 hover:border-accent">
+            <dt className="text-xs text-muted"><Link href={href} className="after:absolute after:inset-0">{label}</Link></dt>
             <dd className="mt-1 text-2xl font-bold tabular-nums">{n}</dd>
-          </Link>
+          </div>
         ))}
       </dl>
       <Card className="mt-6">

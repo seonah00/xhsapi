@@ -15,18 +15,21 @@ export async function accountCandidates(ctx: Ctx, input: { q?: string; topic?: s
   const q = z.object({ q: z.string().trim().max(50).optional(), topic: z.string().max(40).optional() }).parse(input);
   const like = q.q ? `%${q.q.replace(/[%_\\]/g, (c) => `\\${c}`)}%` : null;
   return (await ctx.db.query(
-    `with a as (
+    `with base as (
+       select * from notes n where n.org_id = $1 and n.data_mode = $2 and not n.is_fallback and n.author_ref is not null),
+     a as (
        select n.author_ref, max(n.author_display_name) as name, count(*)::int as notes, max(n.observed_at) as observed,
               (array_agg(n.author_followers order by n.observed_at desc nulls last))[1] as followers,
-              array(select distinct t.slug from note_taxonomy nt join taxonomy_terms t on t.id = nt.taxonomy_id join notes n2 on n2.id = nt.note_id
-                    where n2.author_ref = n.author_ref and n2.org_id = $1 and n2.data_mode = $2 and t.kind = 'topic') as topics,
-              array(select distinct t.slug from note_taxonomy nt join taxonomy_terms t on t.id = nt.taxonomy_id join notes n2 on n2.id = nt.note_id
-                    where n2.author_ref = n.author_ref and n2.org_id = $1 and n2.data_mode = $2 and t.kind = 'format') as formats,
               bool_or(n.title ilike $3 or n.author_display_name ilike $3) as matched
-       from notes n where n.org_id = $1 and n.data_mode = $2 and not n.is_fallback and n.author_ref is not null
-       group by n.author_ref)
-     select a.*, exists (select 1 from reference_accounts r where r.owner_user_id = $5 and r.provider_user_id = a.author_ref and r.data_mode = $2) as saved
-     from a where ($3::text is null or a.matched) and ($4::text is null or $4 = any(a.topics))
+       from base n group by n.author_ref),
+     tax as (
+       select n.author_ref, t.kind, array_agg(distinct t.slug) as slugs
+       from base n join note_taxonomy nt on nt.note_id = n.id join taxonomy_terms t on t.id = nt.taxonomy_id
+       where t.kind in ('topic', 'format') group by n.author_ref, t.kind)
+     select a.*, coalesce(tp.slugs, '{}') as topics, coalesce(fm.slugs, '{}') as formats,
+            exists (select 1 from reference_accounts r where r.owner_user_id = $5 and r.provider_user_id = a.author_ref and r.data_mode = $2) as saved
+     from a left join tax tp on tp.author_ref = a.author_ref and tp.kind = 'topic' left join tax fm on fm.author_ref = a.author_ref and fm.kind = 'format'
+     where ($3::text is null or a.matched) and ($4::text is null or $4 = any(coalesce(tp.slugs, '{}')))
      order by a.notes desc, a.name limit 50`,
     [ctx.orgId, ctx.mode, like, q.topic ?? null, ctx.uid],
   )).rows.map((r) => ({ authorRef: r.author_ref, displayName: r.name ?? r.author_ref, followers: r.followers, noteCount: r.notes, topics: r.topics, formats: r.formats,
