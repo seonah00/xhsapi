@@ -14,7 +14,8 @@
     "db:local": "bash scripts/with-test-db.sh --keep && DATABASE_URL=\"postgresql://postgres@localhost/xhs_test?host=$PWD/.tmp/pg&port=54329\" tsx scripts/seed-demo.ts",
     "dev:web": "DATABASE_URL=\"${DATABASE_URL:-postgresql://postgres@localhost/xhs_test?host=$PWD/.tmp/pg&port=54329}\" pnpm --filter @xhs/web dev",
     "dev:worker": "DATABASE_URL=\"${DATABASE_URL:-postgresql://postgres@localhost/xhs_test?host=$PWD/.tmp/pg&port=54329}\" tsx apps/worker/src/index.ts",
-    "test:e2e": "bash scripts/e2e.sh"
+    "test:e2e": "bash scripts/e2e.sh",
+    "perf": "bash scripts/with-test-db.sh --keep >/dev/null && DATABASE_URL=\"postgresql://postgres@localhost/xhs_test?host=$PWD/.tmp/pg&port=54329\" tsx scripts/seed-demo.ts && DATABASE_URL=\"postgresql://postgres@localhost/xhs_test?host=$PWD/.tmp/pg&port=54329\" tsx scripts/perf.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
