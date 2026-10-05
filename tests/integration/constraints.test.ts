@@ -59,7 +59,7 @@ describe('data integrity rules', () => {
     ));
     const visible = await rows<{ platform_note_id: string }>(U.studentA, `select platform_note_id from notes where platform_note_id in ('expired-note', 'fresh-note')`);
     expect(visible.map((r) => r.platform_note_id)).toEqual(['fresh-note']);
-    expect(await rows(U.studentC, `select id from notes where platform_note_id = 'fresh-note'`)).toEqual([]);
+    expect(await rows(U.admin2, `select id from notes where platform_note_id = 'fresh-note'`)).toEqual([]);
   });
 
   it('provider permission approval requires a named approver and evidence', async () => {

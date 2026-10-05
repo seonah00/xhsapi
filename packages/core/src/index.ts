@@ -11,3 +11,4 @@ export * from './jobs.ts';
 export * from './keywords.ts';
 export * from './expressions.ts';
 export * from './home.ts';
+export * from './admin.ts';

@@ -14,3 +14,13 @@ Date: 2026-10-05. Status: accepted.
 | 8 | Reference analysis in mock mode is a deterministic rule-based generator that reports scope and limitations; it is labelled “규칙 기반 데모 분석(AI 아님)”. | No AI calls in P0 mock; spec F05 scope rules. |
 | 9 | “외부 자료 새로 조회” is shown but disabled in mock mode. Demo notes are loaded by `scripts/seed-demo.ts` through the same ingestion code the `provider_search` job uses. | Spec F04: external refresh needs admin approval and cost checks. |
 | 10 | Production CSP forbids `eval`; development allows it for React dev tooling only. | React dev mode needs eval. |
+
+## Admin phase 1 (same date)
+
+| # | Decision | Reason |
+|---|---|---|
+| 11 | Member emails come from `app.member_directory(org)` (SECURITY DEFINER, returns rows only for that org's admins). | `authenticated` cannot read `auth.users`. |
+| 12 | Invitation tokens are returned once in the server-action result and shown on screen; never put in a URL, cookie or log; stored as SHA-256. No email is sent. | Spec F01. |
+| 13 | Non-admins get 404 on `/admin/*` (not 403), so admin routes are not revealed. | Least disclosure. |
+| 14 | Changing an org role deactivates cohort seats that no longer match (DB trigger also rejects mismatched seats). | A demoted reviewer must stop seeing cohort submissions immediately. |
+| 15 | Membership, invitation and cohort changes are audited by DB triggers with redacted metadata only. | Spec F01, F12. |

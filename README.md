@@ -12,7 +12,8 @@
 |---|---|
 | M0 기초·권한 경계 | 완료: 패키지 골격, DB 마이그레이션·RLS, 데모 시드, mock provider, live 게이트, 테스트 |
 | M1 발견·저장 | 완료: 데모 로그인, 계정 온보딩, 홈 추천, 탐색·비교, 레퍼런스·분석, F15 음성 문안(mock), 해시태그, 표현 사전 |
-| M2 기획·검사·검수 | 예정 |
+| 관리자 1단계 | 완료: `/admin` 개요, 멤버(역할 변경·중지, 확인 필수), 초대 링크(1회용·최대 7일·해시 저장), 기수(생성·보관·학생/강사 배정), 감사 기록 |
+| M2 기획·검사·검수 | 예정 (표현 사전 검수·점검 규칙 관리 화면 포함) |
 | M3 운영·성과 | 예정 |
 | M4 전체 P0 검수 | 예정 |
 
@@ -67,7 +68,7 @@ DB 중지: `pg_ctl -D .tmp/pg/data stop` (root면 `runuser -u postgres --` 앞�
 | student-b@demo.invalid | 학생, 데모 조직, 1기 |
 | reviewer@demo.invalid | 강사, 1기 검수 |
 | reviewer-other-cohort@demo.invalid | 강사, 2기 검수 (1기 제출물 접근 불가) |
-| admin@demo.invalid | 조직 관리자 (학생 초안 접근 불가) |
+| admin@demo.invalid | 조직 관리자 — 상단 메뉴 “관리자”로 `/admin` 진입 (학생 초안 접근 불가) |
 | student-c@other-org.demo.invalid | 다른 조직 학생 |
 | admin@other-org.demo.invalid | 다른 조직 관리자 |
 
