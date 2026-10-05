@@ -1,6 +1,7 @@
-import { AppError, canonicalJson, sha256Hex, type JobKind } from '@xhs/domain';
+import { AppError, canonicalJson, loadEnv, sha256Hex, type AppEnv, type JobKind } from '@xhs/domain';
 import { pgCode, type Ctx, type ServiceRunner } from './context.ts';
 import { orgOps } from './ops.ts';
+import { OPERATION_ENDPOINTS, priceLiveOperation, recordLiveConsent, type LiveOperation } from './live.ts';
 
 export type Operation = 'provider_search' | 'reference_analysis' | 'transcript_submit' | 'plan_generation' | 'contextual_check' | 'results_reflection';
 
@@ -53,18 +54,29 @@ export async function dailyLimit(ctx: Ctx, op: Operation): Promise<number> {
   return ops.limits[FEATURE_OF[op]];
 }
 
-export async function createQuote(ctx: Ctx, service: ServiceRunner, operation: Operation, scope: Record<string, unknown>): Promise<Quote> {
+export async function createQuote(ctx: Ctx, service: ServiceRunner, operation: Operation, scope: Record<string, unknown>, opts: { env?: AppEnv } = {}): Promise<Quote> {
   const ops = await orgOps(ctx.db, ctx.orgId);
   if (ops.provider.kill) throw new AppError('FEATURE_DISABLED', '관리자가 외부 작업을 모두 중지했습니다.');
   if (!ops.features[FEATURE_OF[operation]]) throw new AppError('FEATURE_DISABLED', '관리자가 이 기능을 꺼 두었습니다.');
   const used = await usedToday(ctx, operation);
   const limit = ops.limits[FEATURE_OF[operation]];
   if (used >= limit) throw new AppError('RATE_LIMITED', `오늘 ${DAILY_LIMITS[operation].label} 한도(${limit}회)를 모두 사용했습니다.`);
-  if (ctx.mode === 'live') {
-    // No verified price versions exist for any endpoint yet (spec 6.3: unknown price blocks).
-    throw new AppError('LIVE_BLOCKED', '실제 단가가 확인되지 않아 실행할 수 없습니다.');
-  }
   const hash = requestHash(operation, scope);
+  if (ctx.mode === 'live') {
+    // Unknown price, blocked gate, zero budget or a provider without a contract refuse here (spec 6.3, 9.2).
+    const priced = await priceLiveOperation(ctx, service, operation, opts.env ?? loadEnv(process.env));
+    const row = await service(async (db) => (await db.query<{ id: string; expires_at: Date }>(
+      `insert into cost_quotes (org_id, owner_user_id, operation, request_hash, data_mode, scope_json, max_billable_units, max_amount, currency, price_version_ids, permission_versions)
+       values ($1, $2, $3, $4, 'live', $5, $6, $7, $8, $9, $10) returning id, expires_at`,
+      [ctx.orgId, ctx.uid, operation, hash,
+       { ...scope, provider: 'redfox', endpoint: priced.prices[0]!.endpoint, prices: priced.prices.map((p) => ({ endpoint: p.endpoint, units: p.units, unitCost: p.unitCost, unit: p.unit })) },
+       priced.maxUnits, priced.maxAmount, priced.currency, priced.prices.map((p) => p.priceVersionId), {}],
+    )).rows[0]!);
+    return {
+      id: row.id, operation, mode: 'live', maxAmount: priced.maxAmount, currency: priced.currency, maxBillableUnits: priced.maxUnits,
+      expiresAt: row.expires_at.toISOString(), usedToday: used, dailyLimit: limit, requestHash: hash,
+    };
+  }
   const row = await service(async (db) => (await db.query<{ id: string; expires_at: Date }>(
     `insert into cost_quotes (org_id, owner_user_id, operation, request_hash, data_mode, scope_json, max_billable_units, max_amount, currency)
      values ($1, $2, $3, $4, 'mock', $5, 1, 0, 'CNY') returning id, expires_at`,
@@ -90,7 +102,15 @@ const QUOTE_ERRORS: Record<string, [ConstructorParameters<typeof AppError>[0], s
 export async function reserveJob(ctx: Ctx, args: {
   quoteId: string; route: string; idempotencyKey: string; operation: Operation; scope: Record<string, unknown>;
   jobKind: JobKind; dedupeKey: string; inputRef: Record<string, unknown>;
+  /** Live quotes need the student's explicit consent to send the request to the provider. */
+  consent?: boolean;
 }): Promise<{ jobId: string; replayed: boolean }> {
+  const live = (await ctx.db.query(`select data_mode from cost_quotes where id = $1 and owner_user_id = $2`, [args.quoteId, ctx.uid])).rows[0]?.data_mode === 'live';
+  if (live) {
+    if (!(args.operation in OPERATION_ENDPOINTS)) throw new AppError('LIVE_BLOCKED', '이 기능은 아직 실제 연결이 없습니다.');
+    if (!args.consent) throw new AppError('VALIDATION_FAILED', '외부 공급자에 요청을 보내는 것에 동의해야 실행할 수 있습니다.');
+    await recordLiveConsent(ctx, args.operation as LiveOperation);
+  }
   try {
     const r = await ctx.db.query<{ job_id: string; replayed: boolean }>(
       `select * from app.reserve_and_enqueue($1, $2, $3, $4, $5, $6, $7, $8)`,

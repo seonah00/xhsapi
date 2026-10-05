@@ -1,6 +1,7 @@
-import { contentHash, type DataMode, type JobKind } from '@xhs/domain';
+import { contentHash, type AppEnv, type DataMode, type JobKind } from '@xhs/domain';
 import { redactString } from '@xhs/security';
-import type { XhsDataProvider } from '@xhs/providers';
+import { isNotSentError, LiveCallBlockedError, ProviderContractError, type EndpointCapability, type EndpointId, type GateContextFor, type XhsDataProvider } from '@xhs/providers';
+import { liveGateForJob, MAX_TRANSCRIPT_POLLS } from './live.ts';
 import { analyzeReference } from './analysis.ts';
 import type { Db } from './context.ts';
 import { ingestSearchResult } from './ingest.ts';
@@ -21,7 +22,8 @@ export type JobRow = {
 export type JobOutcome =
   | { state: 'succeeded'; result?: Record<string, unknown> }
   | { state: 'waiting_external'; retryInMs: number }
-  | { state: 'failed'; errorCode: string }
+  /** sent: false = refused before any provider request, so a live reservation is released. */
+  | { state: 'failed'; errorCode: string; sent?: false }
   | { state: 'unknown_outcome'; errorCode: string };
 
 export type JobDeps = {
@@ -31,6 +33,9 @@ export type JobDeps = {
   now?: () => Date;
   /** Poll interval for async provider results; small in mock mode. */
   pollBaseMs?: number;
+  /** Live mode only: builds the provider for one job from its stored gate state. Absent = live jobs are refused. */
+  liveProvider?: (gate: { gateFor: GateContextFor; capabilities: Record<EndpointId, EndpointCapability> }) => XhsDataProvider;
+  env?: AppEnv;
 };
 
 const MAX_TRANSCRIPT_WAIT_MS = 24 * 3600_000;
@@ -67,14 +72,22 @@ export async function runJob(deps: JobDeps, jobId: string, workerId: string): Pr
     });
     // Deletion must still run for members who left or were suspended after requesting it.
     if (job.owner_user_id && job.kind !== 'user_deletion' && !(await stillMember(deps.service, job.org_id, job.owner_user_id))) {
-      outcome = { state: 'failed', errorCode: 'membership_revoked' };
+      outcome = { state: 'failed', errorCode: 'membership_revoked', sent: false };
     } else if (blocked) {
-      outcome = { state: 'failed', errorCode: blocked };
+      outcome = { state: 'failed', errorCode: blocked, sent: false };
+    } else if (job.data_mode === 'live' && job.kind !== 'user_deletion') {
+      if (!deps.liveProvider || !deps.env) {
+        outcome = { state: 'failed', errorCode: 'live_not_configured', sent: false };
+      } else {
+        const gate = await deps.service((db) => liveGateForJob(db, job, deps.env!));
+        outcome = await dispatch({ ...deps, provider: deps.liveProvider(gate) }, job);
+      }
     } else {
       outcome = await dispatch(deps, job);
     }
   } catch (e) {
-    outcome = { state: 'failed', errorCode: redactString(e instanceof Error ? `${e.name}: ${e.message}` : 'error').slice(0, 200) };
+    const errorCode = redactString(e instanceof Error ? `${e.name}: ${e.message}` : 'error').slice(0, 200);
+    outcome = isNotSentError(e) ? { state: 'failed', errorCode, sent: false } : { state: 'failed', errorCode };
   }
   await finish(deps, job, outcome);
   return outcome;
@@ -100,6 +113,9 @@ async function finish(deps: JobDeps, job: JobRow, o: JobOutcome): Promise<void> 
       // Mock ledger rows are `demo` and never settle.
       if (o.state === 'succeeded') {
         await db.query(`select app.settle_usage($1, 'settled', (select reserved_amount from usage_ledger where id = $1))`, [job.reserved_usage_id]);
+      } else if (o.state === 'failed' && o.sent === false) {
+        // Nothing reached the provider: give the reservation back.
+        await db.query(`select app.settle_usage($1, 'released')`, [job.reserved_usage_id]);
       } else {
         await db.query(`select app.settle_usage($1, 'unknown_outcome')`, [job.reserved_usage_id]);
       }
@@ -175,16 +191,21 @@ async function transcriptSubmit(deps: JobDeps, job: JobRow): Promise<JobOutcome>
     )).rows[0]!.id;
     return { runId, note };
   });
-  if (!prep) return { state: 'failed', errorCode: 'reference_unavailable' };
+  if (!prep) return { state: 'failed', errorCode: 'reference_unavailable', sent: false };
   if (prep.note.note_type !== 'video') {
     await deps.service((db) => db.query(`update transcript_runs set status = 'failed', fail_code = 'not_video' where id = $1`, [prep.runId]));
-    return { state: 'failed', errorCode: 'not_video' };
+    return { state: 'failed', errorCode: 'not_video', sent: false };
   }
   let taskId: string;
   try {
     // Mock: the canonical URL stands in for the access URL. Live access URLs are supplied per request and never stored.
     taskId = (await deps.provider.submitTranscript({ platformNoteId: prep.note.platform_note_id, accessUrl: prep.note.canonical_url })).taskId;
   } catch (e) {
+    if (isNotSentError(e)) {
+      await deps.service((db) => db.query(`update transcript_runs set status = 'failed', fail_code = $2 where id = $1`,
+        [prep.runId, e instanceof LiveCallBlockedError ? 'permission_revoked' : 'unknown']));
+      return { state: 'failed', errorCode: redactString(e instanceof Error ? e.message : 'blocked').slice(0, 200), sent: false };
+    }
     // RF13 submit is not idempotent: if we cannot tell whether it ran, never resend (spec 9.4).
     await deps.service((db) => db.query(`update transcript_runs set status = 'unknown_outcome' where id = $1`, [prep.runId]));
     return { state: 'unknown_outcome', errorCode: redactString(e instanceof Error ? e.name : 'submit_error') };
@@ -204,7 +225,22 @@ async function transcriptResult(deps: JobDeps, job: JobRow): Promise<JobOutcome>
   const { runId, taskId } = job.input_ref as { runId: string; taskId: string };
   const run = await deps.service(async (db) => (await db.query(`select id, created_at, status from transcript_runs where id = $1 and org_id = $2`, [runId, job.org_id])).rows[0]);
   if (!run) return { state: 'failed', errorCode: 'transcript_run_deleted' };
-  const result = await deps.provider.transcriptResult({ taskId });
+  const failRun = (code: string) => deps.service((db) => db.query(`update transcript_runs set status = 'failed', fail_code = $2 where id = $1`, [runId, code]));
+  // Live polls were reserved up front (MAX_TRANSCRIPT_POLLS); never poll beyond what was paid for.
+  if (job.data_mode === 'live' && job.attempts > MAX_TRANSCRIPT_POLLS) {
+    await failRun('unknown');
+    return { state: 'failed', errorCode: 'transcript_poll_limit_needs_review' };
+  }
+  let result: Awaited<ReturnType<XhsDataProvider['transcriptResult']>>;
+  try {
+    result = await deps.provider.transcriptResult({ taskId });
+  } catch (e) {
+    if (e instanceof LiveCallBlockedError) { await failRun('permission_revoked'); return { state: 'failed', errorCode: 'live_blocked', sent: false }; }
+    if (e instanceof ProviderContractError) { await failRun('unknown'); return { state: 'failed', errorCode: 'contract_violation' }; }
+    // Result polling is a read: transient provider/network errors retry with backoff.
+    const base = deps.pollBaseMs ?? 30_000;
+    return { state: 'waiting_external', retryInMs: Math.min(base * 2 ** Math.max(0, job.attempts - 1), 600_000) };
+  }
   if (result.status === 'processing') {
     const age = (deps.now?.() ?? new Date()).getTime() - new Date(run.created_at).getTime();
     if (age > MAX_TRANSCRIPT_WAIT_MS) {

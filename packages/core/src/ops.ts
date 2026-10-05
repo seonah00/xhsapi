@@ -1,5 +1,5 @@
 import { AppError, type AppEnv } from '@xhs/domain';
-import { evaluateLiveGate, REDFOX_CAPABILITIES, type EndpointCapability, type EndpointId, type GateReason, type PermissionPurpose } from '@xhs/providers';
+import { REDFOX_CAPABILITIES } from '@xhs/providers';
 import { z } from 'zod';
 import { notFound, pgCode, type Ctx, type Db } from './context.ts';
 import { requireAdmin } from './admin.ts';
@@ -80,14 +80,18 @@ export const PermissionCreate = z.object({
 
 export async function providerOverview(ctx: Ctx) {
   requireAdmin(ctx);
-  const caps = (await ctx.db.query(`select * from provider_capabilities order by endpoint`)).rows;
+  const caps = (await ctx.db.query(
+    `select c.*, v.unit, v.unit_cost::text as unit_cost, v.currency from provider_capabilities c
+     left join lateral (select * from provider_price_versions p where p.provider = c.provider and p.endpoint = c.endpoint and p.effective_at <= now()
+                        order by effective_at desc limit 1) v on true order by c.endpoint`)).rows;
   const perms = (await ctx.db.query(
     `select p.*, (select original_name from assets a where a.id = p.evidence_private_file_id) as evidence_name
      from provider_permissions p where p.org_id = $1 order by p.created_at desc`, [ctx.orgId],
   )).rows;
   return {
     capabilities: caps.map((c) => ({ endpoint: c.endpoint as string, path: c.path as string, paramsStatus: c.params_status as string, verificationStatus: c.verification_status as string,
-      priceStatus: c.price_status as string, phase: c.phase as string, note: c.note as string | null })),
+      priceStatus: c.price_status as string, phase: c.phase as string, note: c.note as string | null,
+      price: c.unit_cost ? `${c.unit_cost} ${c.currency}/${c.unit}` : null })),
     permissions: perms.map((p) => ({
       id: p.id as string, provider: p.provider as string, scope: p.scope as string, status: p.status as string, endpoints: p.allowed_endpoints as string[],
       allows: { fetch: p.allow_fetch, metadata: p.allow_metadata_display, excerpt: p.allow_excerpt_display, media: p.allow_media_display, ai: p.allow_ai_processing, cache: p.allow_cache } as Record<string, boolean>,
@@ -215,45 +219,3 @@ export async function cancelJob(ctx: Ctx, id: string): Promise<void> {
   if (!ok) throw new AppError('CONFLICT', '대기 중인 작업만 취소할 수 있습니다.');
 }
 
-// ---------------------------------------------------------------- live readiness (read-only)
-
-export type ReadinessRow = { endpoint: string; purpose: string; phase: string; ready: boolean; reasons: (GateReason | 'budget_zero')[] };
-
-/**
- * Admin checklist: evaluates the real live gate (spec 6.3) per endpoint against this org's
- * stored state, without calling anything. Consent and the per-request quote approval are
- * checked at request time, so they are assumed here and listed separately.
- */
-export async function liveReadiness(ctx: Ctx, env: AppEnv): Promise<{ rows: ReadinessRow[]; liveBudget: { limit: string; currency: string } | null; perRequest: string[] }> {
-  requireAdmin(ctx);
-  const ops = await orgOps(ctx.db, ctx.orgId);
-  const dbCaps = new Map((await ctx.db.query(`select * from provider_capabilities where provider = 'redfox'`)).rows.map((c) => [c.endpoint as string, c]));
-  const p = (await ctx.db.query(
-    `select * from provider_permissions where org_id = $1 and provider = 'redfox' order by (status = 'approved') desc, created_at desc limit 1`, [ctx.orgId],
-  )).rows[0];
-  const permission = p ? {
-    id: p.id as string, status: p.status, expiresAt: p.expires_at as Date | null, allowedEndpoints: p.allowed_endpoints as string[],
-    allows: { fetch: p.allow_fetch, metadata_display: p.allow_metadata_display, excerpt_display: p.allow_excerpt_display, media_display: p.allow_media_display,
-      ai_processing: p.allow_ai_processing, cache: p.allow_cache } as Record<PermissionPurpose, boolean>,
-  } : null;
-  const budget = (await ctx.db.query(
-    `select amount_limit, currency from usage_budgets where org_id = $1 and subject_type = 'org' and period_start <= current_date and period_end > current_date
-     order by amount_limit desc limit 1`, [ctx.orgId],
-  )).rows[0];
-  const hasBudget = !!budget && Number(budget.amount_limit) > 0;
-  const rows = (Object.keys(REDFOX_CAPABILITIES) as EndpointId[]).map((id) => {
-    const base = REDFOX_CAPABILITIES[id];
-    const db = dbCaps.get(id);
-    const endpoint: EndpointCapability = { ...base, ...(db ? { paramsStatus: db.params_status, priceStatus: db.price_status } : {}) };
-    const purposes: PermissionPurpose[] = id === 'RF13' || id === 'RF14' ? ['fetch', 'ai_processing'] : ['fetch', 'metadata_display'];
-    const g = evaluateLiveGate({ env, endpoint, orgLiveEnabled: ops.provider.live && !ops.provider.kill, permission, purposes,
-      consentRecorded: true, budgetReserved: true, userApproved: true });
-    const reasons: ReadinessRow['reasons'] = g.allowed ? [] : [...g.reasons];
-    if (!hasBudget) reasons.push('budget_zero');
-    return { endpoint: id, purpose: base.purpose, phase: base.phase, ready: reasons.length === 0, reasons };
-  });
-  return {
-    rows, liveBudget: budget ? { limit: String(budget.amount_limit), currency: budget.currency } : null,
-    perRequest: ['학생 동의 기록', '요청별 견적 확인(5분·1회용)', '예산 예약(트랜잭션)'],
-  };
-}

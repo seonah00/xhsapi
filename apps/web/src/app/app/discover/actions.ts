@@ -61,7 +61,7 @@ export async function confirmRefresh(f: FormData) {
   const quoteId = id.parse(f.get('quoteId'));
   const { jobId } = await orRedirectWithError(back(f), () => withPageCtx((ctx) => reserveJob(ctx, {
     quoteId, route: 'POST /discover/refresh', idempotencyKey: id.parse(f.get('idem')), operation: 'provider_search', scope,
-    jobKind: 'provider_search', dedupeKey: `provider_search:${quoteId}`, inputRef: { query: scope.query, ...(scope.topic ? { topic: scope.topic } : {}), ...(scope.days ? { days: Number(scope.days) } : {}) },
+    jobKind: 'provider_search', dedupeKey: `provider_search:${quoteId}`, consent: f.get('consent') === 'on', inputRef: { query: scope.query, ...(scope.topic ? { topic: scope.topic } : {}), ...(scope.days ? { days: Number(scope.days) } : {}) },
   })));
   const qs = new URLSearchParams({ q: scope.query, ...(scope.topic ? { topic: scope.topic } : {}), ...(scope.days ? { days: scope.days } : {}), job: jobId });
   redirect(`/app/discover?${qs}#refresh`);

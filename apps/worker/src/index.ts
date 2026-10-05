@@ -1,6 +1,6 @@
 import pg from 'pg';
 import { loadEnv, publicCapabilities } from '@xhs/domain';
-import { createXhsProvider } from '@xhs/providers';
+import { createXhsProvider, MockXhsProvider, RedfoxXhsProvider } from '@xhs/providers';
 import { resolve } from 'node:path';
 import { hostsFromUrl, installMockNetworkGuard } from '@xhs/security/network-guard';
 import { redactString } from '@xhs/security';
@@ -13,11 +13,18 @@ import { claimableJobIds, LocalPrivateStorage, purgeExpired, runJob, type Runner
  */
 export function bootstrap(source: Record<string, string | undefined> = process.env) {
   const env = loadEnv(source);
-  if (env.APP_DATA_MODE !== 'mock') {
-    // Live provider wiring (gate context from DB permission/price/budget) is not built in P0.
-    throw new Error('worker: live mode is not supported in P0');
+  const mock = { transcriptProcessingMs: 2000 };
+  if (env.APP_DATA_MODE !== 'live') {
+    return { env, provider: createXhsProvider(env, { mock }), liveProvider: undefined, capabilities: publicCapabilities(env) };
   }
-  return { env, provider: createXhsProvider(env, { mock: { transcriptProcessingMs: 2000 } }), capabilities: publicCapabilities(env) };
+  // Live: the key stays in this process; each job gets an adapter whose gate is built from stored
+  // permission/price/budget/consent state (core liveGateForJob). Jobs created in mock mode keep the mock provider.
+  const key = env.REDFOX_API_KEY;
+  if (!key) throw new Error('live mode requires REDFOX_API_KEY (server secret)');
+  return {
+    env, provider: new MockXhsProvider(mock), capabilities: publicCapabilities(env),
+    liveProvider: (g: Parameters<NonNullable<import('@xhs/core').JobDeps['liveProvider']>>[0]) => new RedfoxXhsProvider(key, g.gateFor, fetch, g.capabilities),
+  };
 }
 
 export function makeRunner(pool: pg.Pool): Runner {
@@ -38,18 +45,19 @@ export function makeRunner(pool: pg.Pool): Runner {
 }
 
 async function main() {
-  const { env, provider, capabilities } = bootstrap();
+  const { env, provider, liveProvider, capabilities } = bootstrap();
   if (!env.WORKER_ENABLED) {
     console.info('worker disabled (WORKER_ENABLED=false)');
     return;
   }
   if (!env.DATABASE_URL) throw new Error('DATABASE_URL is required');
-  // Mock mode: refuse every outbound connection except loopback and the database (spec 12.2).
+  // Mock: only loopback and the database (spec 12.2). Live: additionally the provider host, nothing else.
+  const live = env.APP_DATA_MODE === 'live';
   installMockNetworkGuard({
-    allowHosts: hostsFromUrl(env.DATABASE_URL),
-    onBlock: (c) => console.error(`[network-guard] blocked outbound connection to ${c.host}:${c.port ?? '?'} (mock mode)`),
+    allowHosts: [...hostsFromUrl(env.DATABASE_URL), ...(live ? ['redfox.hk'] : [])],
+    onBlock: (c) => console.error(`[network-guard] blocked outbound connection to ${c.host}:${c.port ?? '?'} (${env.APP_DATA_MODE} mode)`),
   });
-  console.info('mock mode: outbound network guard active (worker)');
+  console.info(`${env.APP_DATA_MODE} mode: outbound network guard active (worker)`);
   const pool = new pg.Pool({ connectionString: env.DATABASE_URL, max: 4 });
   const service = makeRunner(pool);
   const workerId = `worker-${process.pid}`;
@@ -63,7 +71,7 @@ async function main() {
   while (!stopping) {
     try {
       for (const id of await claimableJobIds(service)) {
-        const outcome = await runJob({ service, provider, storage, pollBaseMs: 2000 }, id, workerId);
+        const outcome = await runJob({ service, provider, storage, env, pollBaseMs: live ? 30_000 : 2000, ...(liveProvider ? { liveProvider } : {}) }, id, workerId);
         if (outcome) console.info('job', id, outcome.state);
       }
       if (Date.now() - lastPurge > 3600_000) {

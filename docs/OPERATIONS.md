@@ -63,8 +63,26 @@
 4. RF08·RF10 파라미터와 미확인 문서(DCZW5V7A, 9UHXOXSF, tool/QPNFJRG1) 확인.
 5. AI/OCR 제공자, 학생 데이터 전송 정책 결정.
 6. 소량 실측(M5)으로 계약 fixture 확보. 그 전까지 live 어댑터는 "미검증"입니다.
-7. 워커의 live 연결(게이트 컨텍스트를 DB 허가·가격·예산에서 구성)은 P0 범위 밖이라, live 모드로 시작하면 워커가 시작을 거부합니다.
+7. 워커는 live 모드에서 `REDFOX_API_KEY`가 없으면 시작하지 않습니다. 실제 호출 경로가 연결된 것은 음성 문안 추출(RF13/RF14)뿐입니다. 검색(RF01) 등은 응답 형식을 확인하기 전까지 요청 전에 거부되고 예약도 반환됩니다(ADR 0007).
 
-## 8. 성능 기준 확인
+## 8. 첫 실측(M5) 절차
+
+승인된 범위 안에서만 진행합니다. 순서를 지켜 주세요.
+
+1. **단가 등록**(운영자, 서버):
+   ```bash
+   pnpm price register --endpoint RF13 --unit call --unit-cost <단가> --currency CNY --evidence "<견적서/계약서 식별>" --verified-by <확인자 이메일>
+   pnpm price register --endpoint RF14 --unit call --unit-cost <단가> --currency CNY --evidence "..." --verified-by <확인자 이메일>
+   pnpm price list
+   ```
+2. **이용 허가**: `/admin/providers`에서 허가를 만들고(RF13·RF14, 수집·발췌 표시 등 계약 범위만 체크), 증빙 파일을 붙여 승인합니다.
+3. **예산**: `/admin/usage`에서 이번 기간 조직 live 예산을 실측 상한으로 설정합니다. 학생별 예산도 따로 둘 수 있습니다.
+4. **서버 설정**: 웹·워커 환경에 `APP_DATA_MODE=live`, `LIVE_PROVIDER_CALLS_ENABLED=true`, `TRANSCRIPT_ENABLED=true`를 넣고, 워커에는 `REDFOX_API_KEY`를 서버 secret으로 넣습니다. 그다음 `/admin/providers`에서 조직 live 스위치를 켭니다.
+5. **점검표 확인**: `/admin/providers`의 live 전환 점검표에서 RF13·RF14가 "준비됨"인지 봅니다. 아니면 표시된 이유부터 해결합니다.
+6. **1건 실행**: 학생 계정으로 영상 노트의 음성 문안 추출을 요청합니다. 견적의 실제 최대 비용을 확인하고 동의한 뒤 실행합니다.
+7. **결과 확인**: `/admin/jobs`(작업 상태), `/admin/usage`(원장·예산)를 봅니다. `unknown_outcome`이 생기면 RedFox 측 사용 내역과 대조해 정산합니다.
+8. **되돌리기**: 즉시 막으려면 kill 스위치를 켜거나 조직 live 스위치를 끕니다. 단가를 다시 막으려면 `pnpm price unverify --endpoint RF13`을 실행합니다.
+
+## 9. 성능 기준 확인
 
 `pnpm perf`를 실행하면 임시 DB에 합성 노트를 약 1만 건까지 복제한 뒤 주요 조회를 측정합니다. 측정 범위는 사용자 1명 반복과 동시 20명 혼합입니다. 명세 11장 파일럿 목표는 저장된 탐색 p95 2초, 일반 CRUD p95 1초입니다. 측정이 끝난 DB는 `pg_ctl -D .tmp/pg/data stop`으로 멈춥니다.

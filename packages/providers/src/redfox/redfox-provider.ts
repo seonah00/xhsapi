@@ -15,6 +15,17 @@ export class ProviderBusinessError extends Error {
   }
 }
 
+/** Refused before any request left the server (no cost can have been incurred). */
+export class ProviderNotReadyError extends Error {
+  override name = 'ProviderNotReadyError';
+  readonly sent = false;
+}
+
+/** True when an error is known to have happened before a request was sent. */
+export function isNotSentError(e: unknown): boolean {
+  return e instanceof LiveCallBlockedError || e instanceof ProviderNotReadyError;
+}
+
 export type GateContextFor = (endpoint: EndpointId) => Omit<LiveGateContext, 'endpoint'>;
 
 /**
@@ -34,12 +45,13 @@ export class RedfoxXhsProvider implements XhsDataProvider {
 
   async searchNotes(_input: { query: string; topic?: TopicSlug; days?: 7 | 14 | 30 }): Promise<SearchResult> {
     this.assertAllowed('RF01');
-    throw new ProviderContractError('RF01 contract fixture not verified');
+    // No verified response contract yet (provider doc not received): refuse instead of guessing fields.
+    throw new ProviderNotReadyError('RF01 response contract not verified');
   }
 
   async noteDetail(_input: { platformNoteId: string }): Promise<ProviderNote | null> {
     this.assertAllowed('RF09');
-    throw new ProviderContractError('RF09 contract fixture not verified');
+    throw new ProviderNotReadyError('RF09 response contract not verified');
   }
 
   async submitTranscript(input: { platformNoteId: string; accessUrl: string }): Promise<TranscriptSubmit> {

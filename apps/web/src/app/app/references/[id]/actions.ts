@@ -68,7 +68,7 @@ export async function confirmTranscript(f: FormData) {
     const scope = { referenceId: id, noteId };
     return reserveJob(ctx, {
       quoteId, route: 'POST /references/:id/transcript-jobs', idempotencyKey: uuid.parse(f.get('idem')), operation: 'transcript_submit', scope,
-      jobKind: 'transcript_submit', dedupeKey: `transcript_submit:${quoteId}`, inputRef: scope,
+      jobKind: 'transcript_submit', dedupeKey: `transcript_submit:${quoteId}`, inputRef: scope, consent: f.get('consent') === 'on',
     });
   }));
   redirect(`${back}?job=${jobId}`);

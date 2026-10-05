@@ -14,7 +14,7 @@ export function QuoteConfirm({ quote, title, scopeLines, action, hidden, cancelH
       <h2 id="quote-title" className="font-semibold">{title}</h2>
       <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
         {scopeLines.map((l) => <li key={l}>{l}</li>)}
-        <li>최대 비용: {quote.mode === 'mock' ? '0 (데모 모드, 실제 과금 없음)' : `${quote.maxAmount} ${quote.currency}`}</li>
+        <li>최대 비용: {quote.mode === 'mock' ? '0 (데모 모드, 실제 과금 없음)' : <strong>{`${quote.maxAmount} ${quote.currency} (실제 비용, 조직 예산에서 예약)`}</strong>}</li>
         <li>오늘 사용: {quote.usedToday} / {quote.dailyLimit}회</li>
         <li>견적 만료: 5분 이내 확인 필요</li>
       </ul>
@@ -22,8 +22,14 @@ export function QuoteConfirm({ quote, title, scopeLines, action, hidden, cancelH
       {unusable ? (
         <p className="mt-3 text-sm text-warn">{quote.consumed ? '이미 사용한 견적입니다.' : '견적이 만료되었습니다.'} 다시 요청하세요.</p>
       ) : (
-        <form action={action} className="mt-3 flex gap-2">
+        <form action={action} className="mt-3 flex flex-wrap gap-2">
           {Object.entries({ ...hidden, quoteId: quote.id, idem: randomUUID() }).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+          {quote.mode === 'live' && (
+            <label className="flex basis-full items-start gap-2 text-sm">
+              <input type="checkbox" name="consent" required className="mt-1" />
+              <span>요청 정보(검색어 또는 노트 링크)가 외부 공급자(RedFox)로 전송되고 비용이 발생하는 것에 동의합니다. 내 문안·개인정보는 보내지 않습니다.</span>
+            </label>
+          )}
           <button className={btn.primary}>확인하고 실행</button>
           <Link href={cancelHref} className={btn.secondary}>취소</Link>
         </form>

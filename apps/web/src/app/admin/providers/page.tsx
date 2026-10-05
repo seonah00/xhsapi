@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { approvePermission, createPermission, effectiveSwitches, listMyAssets, liveReadiness, orgOps, providerOverview, revokePermission, setFeatureSwitches, setProviderSwitches } from '@xhs/core';
+import { approvePermission, createPermission, effectiveSwitches, GATE_REASON_KO, listMyAssets, liveReadiness, orgOps, providerOverview, revokePermission, setFeatureSwitches, setProviderSwitches } from '@xhs/core';
 import { publicCapabilities } from '@xhs/domain';
 import { withAdmin } from '../forbidden-guard';
 import { orRedirectWithError } from '@/server/actions-util';
@@ -9,12 +9,6 @@ import { Badge, btn, Card, ErrorNotice, input, Notice, PageHeader } from '@/comp
 import { fmtDate } from '@/components/labels';
 
 export const metadata = { title: '공급자·스위치' };
-const GATE: Record<string, string> = {
-  mode_not_live: '데모 모드', live_calls_disabled: '환경 설정 live 꺼짐', feature_disabled: '기능 환경 설정 꺼짐', org_switch_off: '조직 live 스위치 꺼짐/중지',
-  parameter_unverified: '파라미터 미확인', not_implemented: '미구현', price_unknown: '단가 미확인', permission_missing: '이용 허가 없음',
-  permission_inactive: '허가 미승인', permission_expired: '허가 만료', endpoint_not_permitted: '허가 범위 밖', purpose_not_permitted: '용도 미허가',
-  consent_missing: '동의 없음', budget_not_reserved: '예산 미예약', not_user_approved: '사용자 미승인', budget_zero: 'live 예산 0',
-};
 const ALLOW: [string, string][] = [['allowFetch', '수집'], ['allowMetadataDisplay', '메타데이터 표시'], ['allowExcerptDisplay', '발췌 표시'], ['allowMediaDisplay', '미디어 표시'], ['allowAiProcessing', 'AI 가공'], ['allowCache', '캐시 보관']];
 const back = '/admin/providers';
 
@@ -101,13 +95,13 @@ export default async function Providers({ searchParams }: { searchParams: Promis
               <tr key={c.endpoint} className="border-b border-line last:border-0">
                 <td className="py-1.5 font-mono text-xs">{c.endpoint}</td><td className="max-w-[260px] truncate font-mono text-xs" title={c.path}>{c.path}</td>
                 <td><Badge tone={c.paramsStatus === 'documented' ? 'neutral' : 'warn'}>{c.paramsStatus}</Badge></td><td><Badge>{c.verificationStatus}</Badge></td>
-                <td><Badge tone={c.priceStatus === 'unknown' ? 'warn' : 'ok'}>{c.priceStatus === 'unknown' ? '미확인' : '확인'}</Badge></td>
+                <td><Badge tone={c.priceStatus === 'unknown' ? 'warn' : 'ok'}>{c.priceStatus === 'unknown' ? '미확인' : '확인'}</Badge>{c.price && <span className="ml-1 text-xs text-muted">{c.price}</span>}</td>
                 <td>{c.phase === 'excluded' ? <Badge tone="accent">제외</Badge> : c.phase}</td>
               </tr>
             ))}</tbody>
           </table>
         </div>
-        <p className="mt-2 text-xs text-muted">모든 엔드포인트는 문서 확인 단계이며 실제 호출로 검증하지 않았습니다. 단가가 미확인이면 live 호출은 차단됩니다.</p>
+        <p className="mt-2 text-xs text-muted">모든 엔드포인트는 문서 확인 단계이며 실제 호출로 검증하지 않았습니다. 단가가 미확인이면 live 호출은 차단됩니다. 단가는 운영자가 근거와 함께 서버에서 등록합니다(<code>pnpm price</code>).</p>
       </Card>
 
       <Card className="mt-4">
@@ -119,7 +113,7 @@ export default async function Providers({ searchParams }: { searchParams: Promis
             <li key={r.endpoint} className="flex flex-wrap items-center gap-2 py-2">
               <span className="w-12 font-mono text-xs">{r.endpoint}</span>
               {r.ready ? <Badge tone="ok">준비됨</Badge> : <Badge tone="warn">차단 {r.reasons.length}</Badge>}
-              <span className="text-xs text-muted">{r.reasons.map((x) => GATE[x] ?? x).join(' · ')}</span>
+              <span className="text-xs text-muted">{r.reasons.map((x) => GATE_REASON_KO[x] ?? x).join(' · ')}</span>
             </li>
           ))}
         </ul>
