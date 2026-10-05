@@ -103,7 +103,7 @@ function stripWebp(b: Uint8Array): Stripped {
     const size = u32le(b, i + 4);
     const end = i + 8 + size + (size % 2);
     if (i + 8 + size > b.length) throw new FileRejectedError('corrupt');
-    let chunk = b.slice(i, Math.min(end, b.length));
+    const chunk = b.slice(i, Math.min(end, b.length));
     if (fourcc === 'VP8X' && size >= 10) {
       chunk[8] = chunk[8]! & ~0x0c; // clear EXIF (0x08) and XMP (0x04) flags
       width = u24le(b, i + 12) + 1;

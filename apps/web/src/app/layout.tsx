@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -8,7 +9,9 @@ export const metadata: Metadata = {
 };
 export const viewport: Viewport = { width: 'device-width', initialScale: 1 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Reading request headers keeps every page dynamically rendered, so Next.js can apply the CSP nonce from src/proxy.ts.
+  await headers();
   return (
     <html lang="ko">
       <body className="min-h-dvh bg-bg text-ink">{children}</body>

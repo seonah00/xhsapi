@@ -3,7 +3,7 @@ import { comparePublications, getQuote, listAccounts, listPublications, listRefl
 import { withPageCtx } from '@/server/ctx';
 import { JobStatus } from '@/components/job-status';
 import { QuoteConfirm } from '@/components/quote-confirm';
-import { Badge, btn, Card, Empty, ErrorNotice, input, label, LinkButton, Notice, PageHeader, selectAuto } from '@/components/ui';
+import { Badge, btn, Card, Empty, ErrorNotice, input, label, LinkButton, Notice, PageHeader } from '@/components/ui';
 import { FORMAT_LABEL, TOPIC_LABEL, fmtDate, formatLabel, topicLabel } from '@/components/labels';
 import { addPublication, confirmReflection, quoteReflection } from './actions';
 

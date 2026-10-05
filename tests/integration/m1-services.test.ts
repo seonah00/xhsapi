@@ -4,7 +4,6 @@ import {
   listExpressions, listKeywords, recommend, reserveJob, runJob, savePersonalExpression, trashReference, updateReference,
   assertTranscriptAllowed, listReferences, getAccount, updateAccountProfile, type Ctx, type Runner,
 } from '@xhs/core';
-import { AppError } from '@xhs/domain';
 import { MockXhsProvider, mockFixtures } from '@xhs/providers';
 import { ORG1, ORG2, pool, U } from './db.ts';
 
