@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { getLatestAnalysis, getQuote, getReference, getTranscript, listCollections, pendingJobFor } from '@xhs/core';
+import { getLatestAnalysis, getQuote, getReference, getTranscript, listCollections, pendingJobFor, referenceAssets } from '@xhs/core';
+import { Uploader } from '@/components/uploader';
 import { withPageCtx } from '@/server/ctx';
 import { safeExternalHref } from '@xhs/security';
 import { confirmAnalysis, quoteAnalysis, saveMeta, setTrashed } from './actions';
@@ -20,6 +21,7 @@ export default async function ReferenceDetail({ params, searchParams }: { params
     return {
       ref,
       collections: await listCollections(ctx),
+      images: await referenceAssets(ctx, id),
       analysis: await getLatestAnalysis(ctx, id),
       transcript: await getTranscript(ctx, id),
       pending: sp.job ?? (await pendingJobFor(ctx, 'reference_analysis', id)),
@@ -43,6 +45,15 @@ export default async function ReferenceDetail({ params, searchParams }: { params
               {ref.userText && <p className="zh mt-2 whitespace-pre-wrap text-sm" lang="zh-CN">{ref.userText}</p>}
             </Card>
           )}
+          <Card>
+            <h2 className="font-semibold">첨부 이미지 <span className="text-xs font-normal text-muted">(비공개, 분석은 이후 단계)</span></h2>
+            {d.images.length > 0 && (
+              <ul className="mt-2 grid grid-cols-3 gap-2">
+                {d.images.map((a) => <li key={a.id}><a href={`/api/v1/assets/${a.id}`} target="_blank" rel="noopener noreferrer"><img src={`/api/v1/assets/${a.id}`} alt={a.originalName ?? '첨부 이미지'} className="aspect-square w-full rounded-lg object-cover" /></a></li>)}
+              </ul>
+            )}
+            {!ref.deletedAt && <div className="mt-2"><Uploader purpose="reference_image" referenceId={ref.id} label="이미지 추가" /></div>}
+          </Card>
           <Card>
             <h2 className="font-semibold">내 메모·정리</h2>
             <form action={saveMeta} className="mt-3 space-y-3">

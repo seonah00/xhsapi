@@ -26,21 +26,28 @@ export const SubmitInput = z.object({
   cohortId: z.string().uuid(),
   checkRunId: z.string().uuid(),
   acknowledgeIncompleteCheck: z.boolean().default(false),
+  assetIds: z.array(z.string().uuid()).max(5).default([]),
 });
 
 /** Shares exactly one immutable version + its check run with the cohort's reviewers (spec F10). */
 export async function submitPlan(ctx: Ctx, input: unknown): Promise<string> {
   const d = SubmitInput.parse(input);
   try {
-    return (await ctx.db.query<{ id: string }>(
+    const id = (await ctx.db.query<{ id: string }>(
       `insert into submissions (org_id, owner_user_id, cohort_id, plan_version_id, check_run_id, acknowledged_incomplete_check)
        values ($1, $2, $3, $4, $5, $6) returning id`,
       [ctx.orgId, ctx.uid, d.cohortId, d.planVersionId, d.checkRunId, d.acknowledgeIncompleteCheck],
     )).rows[0]!.id;
+    // Only explicitly selected, shareable attachments of the student (trigger re-validates).
+    for (const assetId of new Set(d.assetIds)) {
+      await ctx.db.query(`insert into submission_assets (submission_id, asset_id, org_id, shared_by) values ($1, $2, $3, $4)`, [id, assetId, ctx.orgId, ctx.uid]);
+    }
+    return id;
   } catch (e) {
     const code = pgCode(e);
     if (code && ERR[code]) throw new AppError('VALIDATION_FAILED', ERR[code]);
     if (/submissions_one_active/.test(String(e))) throw new AppError('CONFLICT', '이 버전은 이미 이 기수에 제출되어 있습니다.');
+    if (/SUBMISSION_ASSET_NOT_ALLOWED/.test(String(e))) throw new AppError('VALIDATION_FAILED', '공유할 수 없는 첨부가 포함되어 있습니다.');
     throw e;
   }
 }
@@ -86,6 +93,7 @@ export type ReviewDetail = {
   check: CheckRunView;
   feedback: { id: string; content: string; status: string; reviewer: string; createdAt: string; checklist: string[] }[];
   isOwner: boolean;
+  attachments: { id: string; name: string; mime: string }[];
 };
 
 export async function getSubmission(ctx: Ctx, id: string): Promise<ReviewDetail> {
@@ -106,6 +114,9 @@ export async function getSubmission(ctx: Ctx, id: string): Promise<ReviewDetail>
     id: s.id, status: s.status, cohortName: s.cohort_name, author: s.author, submittedAt: s.submitted_at.toISOString(), acknowledgedIncompleteCheck: s.acknowledged_incomplete_check,
     version: { number: v.version, content: PlanContent.parse(v.content_json), facts: FactSheet.parse(v.fact_sheet_json), createdAt: v.created_at.toISOString() },
     check: await getCheck(ctx, s.check_run_id),
+    attachments: (await ctx.db.query(
+      `select sa.asset_id as id, m.original_name as name, m.mime from submission_assets sa cross join lateral app.asset_meta(sa.asset_id) m where sa.submission_id = $1`, [id],
+    )).rows.map((r) => ({ id: r.id, name: r.name ?? 'file', mime: r.mime })),
     feedback: feedback.map((f) => ({ id: f.id, content: f.content, status: f.status, reviewer: f.email ?? '강사', createdAt: f.created_at.toISOString(), checklist: f.checklist_json ?? [] })),
     isOwner,
   };

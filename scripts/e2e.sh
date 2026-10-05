@@ -6,6 +6,7 @@ cd "$ROOT"
 export TEST_PG_PORT=54330
 export DATABASE_URL="postgresql://postgres@localhost/xhs_test?host=$ROOT/.tmp/pg&port=$TEST_PG_PORT"
 export WEB_PORT="${WEB_PORT:-3100}"
+export ASSET_STORAGE_DIR="$ROOT/.tmp/e2e-assets"
 LOG="$ROOT/.tmp/e2e"
 PIDS=()
 cleanup() {

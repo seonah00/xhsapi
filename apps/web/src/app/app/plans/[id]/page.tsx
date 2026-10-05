@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { CHECK_DISCLAIMER, checksForVersion, fieldText, getCheck, getPlan, getQuote, listGenerations, listMySubmissions, myCohorts, sectionsOf } from '@xhs/core';
+import { CHECK_DISCLAIMER, checksForVersion, fieldText, getCheck, getPlan, getQuote, listGenerations, listMySubmissions, myCohorts, planAssets, sectionsOf } from '@xhs/core';
+import { Uploader } from '@/components/uploader';
 import { withPageCtx } from '@/server/ctx';
 import { PlanEditor } from '@/components/plan-editor';
 import { FindingItem } from '@/components/findings';
@@ -25,6 +26,7 @@ export default async function PlanPage({ params, searchParams }: { params: Promi
       generations: await listGenerations(ctx, id),
       cohorts: await myCohorts(ctx),
       submissions: await listMySubmissions(ctx, id),
+      attachments: await planAssets(ctx, id),
       quote: sp.quote ? await getQuote(ctx, sp.quote) : null,
     };
   });
@@ -144,12 +146,17 @@ export default async function PlanPage({ params, searchParams }: { params: Promi
                   <ul className="list-disc pl-5 text-xs">
                     <li>기획 버전 {latestEdit.version} (제목·본문·태그·자막·촬영표·사실 입력)</li>
                     <li>선택한 점검 결과 1건</li>
-                    <li>첨부 없음</li>
+                    <li>아래에서 고른 첨부 이미지만</li>
                   </ul>
                   <p className="mt-1 text-xs text-muted">다른 버전·비공개 레퍼런스·계정 프로필 전체는 공유되지 않습니다.</p>
                 </div>
                 <label className="block">기수<select name="cohortId" className={`${selectAuto} ml-2`}>{d.cohorts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
                 <label className="block">점검 결과<select name="checkRunId" className={`${selectAuto} ml-2`}>{usableChecks.map((c) => <option key={c.id} value={c.id}>{fmtDate(c.createdAt, true)} · {c.status === 'completed' ? '완료' : '부분 완료'} · {c.findings.length}건</option>)}</select></label>
+                {d.attachments.length > 0 && (
+                  <fieldset><legend className="text-xs text-muted">함께 보낼 첨부</legend>
+                    {d.attachments.map((a) => <label key={a.id} className="flex items-center gap-2 text-xs"><input type="checkbox" name="assetIds" value={a.id} /> {a.originalName}</label>)}
+                  </fieldset>
+                )}
                 {usableChecks.some((c) => c.status === 'partial') && <label className="flex items-center gap-2 text-xs"><input type="checkbox" name="ack" /> 부분 점검이면 AI 문맥 점검이 빠진 것을 확인했습니다</label>}
                 <button className={btn.primary}>제출</button>
               </form>
@@ -170,6 +177,12 @@ export default async function PlanPage({ params, searchParams }: { params: Promi
             )}
           </Card>
 
+          <Card>
+            <h2 className="font-semibold">제출용 첨부 이미지</h2>
+            <p className="mt-1 text-xs text-muted">제출할 때 고른 것만 강사에게 보입니다. 철회하면 강사도 볼 수 없습니다.</p>
+            {d.attachments.length > 0 && <ul className="mt-2 grid grid-cols-3 gap-2">{d.attachments.map((a) => <li key={a.id}><img src={`/api/v1/assets/${a.id}`} alt={a.originalName ?? '첨부'} className="aspect-square w-full rounded-lg object-cover" /></li>)}</ul>}
+            <div className="mt-2"><Uploader purpose="submission_attachment" planId={p} label="이미지 추가" /></div>
+          </Card>
           <Card>
             <h2 className="font-semibold">버전</h2>
             <ul className="mt-2 space-y-1 text-sm">

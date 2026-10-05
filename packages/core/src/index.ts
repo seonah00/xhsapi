@@ -18,3 +18,5 @@ export * from './checks.ts';
 export * from './submissions.ts';
 export * from './staff.ts';
 export * from './results.ts';
+export * from './storage.ts';
+export * from './assets.ts';

@@ -27,6 +27,12 @@ export function SubmissionView({ s }: { s: ReviewDetail }) {
           {c.meaningKo && <details className="mt-3 text-sm"><summary className="cursor-pointer text-muted">한국어 의미</summary><p className="mt-1 whitespace-pre-wrap">{c.meaningKo}</p></details>}
           {c.shots.length > 0 && <div className="mt-3 text-sm"><p className="font-medium">촬영표</p><ol className="list-decimal pl-5">{c.shots.map((x, i) => <li key={i}>{x.scene}{x.note && <span className="text-muted"> — {x.note}</span>}</li>)}</ol></div>}
         </Card>
+        {s.attachments.length > 0 && (
+          <Card>
+            <h2 className="font-semibold">첨부 이미지</h2>
+            <ul className="mt-2 grid grid-cols-3 gap-2">{s.attachments.map((a) => <li key={a.id}><a href={`/api/v1/assets/${a.id}`} target="_blank" rel="noopener noreferrer"><img src={`/api/v1/assets/${a.id}`} alt={a.name} className="aspect-square w-full rounded-lg object-cover" /></a></li>)}</ul>
+          </Card>
+        )}
         <Card>
           <h2 className="font-semibold">사실 입력</h2>
           <dl className="mt-2 space-y-1 text-sm">

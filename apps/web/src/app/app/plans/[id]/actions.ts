@@ -96,7 +96,7 @@ export async function submit(f: FormData) {
   const id = uuid.parse(f.get('planId'));
   await orRedirectWithError(path(id, '#submit'), () => withPageCtx((ctx) => submitPlan(ctx, {
     planVersionId: String(f.get('versionId')), cohortId: String(f.get('cohortId')), checkRunId: String(f.get('checkRunId')),
-    acknowledgeIncompleteCheck: f.get('ack') === 'on',
+    acknowledgeIncompleteCheck: f.get('ack') === 'on', assetIds: f.getAll('assetIds').map(String),
   })));
   redirect(path(id, '?submitted=1#submit'));
 }
