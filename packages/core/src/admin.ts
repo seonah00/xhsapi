@@ -8,7 +8,7 @@ export function requireAdmin(ctx: Ctx): void {
   if (ctx.role !== 'org_admin') throw new AppError('FORBIDDEN', '조직 관리자만 사용할 수 있습니다.');
 }
 
-export type Member = { userId: string; email: string; role: OrgRole; status: 'active' | 'suspended'; joinedAt: string; cohorts: { id: string; name: string; role: string }[] };
+export type Member = { userId: string; email: string; role: OrgRole; status: 'active' | 'suspended' | 'left'; joinedAt: string; cohorts: { id: string; name: string; role: string }[] };
 
 export async function listMembers(ctx: Ctx): Promise<Member[]> {
   requireAdmin(ctx);
@@ -40,7 +40,7 @@ export async function changeMemberRole(ctx: Ctx, input: { userId: string; role: 
   const { userId } = ConfirmedChange.parse(input);
   const role = z.enum(['student', 'reviewer', 'org_admin']).parse(input.role);
   try {
-    const r = await ctx.db.query(`update memberships set role = $3 where org_id = $1 and user_id = $2`, [ctx.orgId, userId, role]);
+    const r = await ctx.db.query(`update memberships set role = $3 where org_id = $1 and user_id = $2 and status <> 'left'`, [ctx.orgId, userId, role]);
     if (!r.rowCount) notFound();
     // A cohort seat that no longer matches the org role is deactivated (e.g. reviewer → student).
     await ctx.db.query(
@@ -57,7 +57,7 @@ export async function setMemberStatus(ctx: Ctx, input: { userId: string; status:
   const { userId } = ConfirmedChange.parse(input);
   const status = z.enum(['active', 'suspended']).parse(input.status);
   try {
-    const r = await ctx.db.query(`update memberships set status = $3 where org_id = $1 and user_id = $2`, [ctx.orgId, userId, status]);
+    const r = await ctx.db.query(`update memberships set status = $3 where org_id = $1 and user_id = $2 and status <> 'left'`, [ctx.orgId, userId, status]);
     if (!r.rowCount) notFound();
   } catch (e) {
     mapAdminError(e);

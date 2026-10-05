@@ -17,13 +17,15 @@ async function choose(formData: FormData) {
   redirect('/app');
 }
 
-export default async function SelectOrg() {
+export default async function SelectOrg({ searchParams }: { searchParams: Promise<{ left?: string }> }) {
+  const { left } = await searchParams;
   const s = await readSession();
   if (!s) redirect('/login');
   const orgs = await myMemberships(s.uid);
   return (
     <main className="mx-auto max-w-md px-4 py-10">
       <h1 className="text-xl font-bold">조직 선택</h1>
+      {left && <p role="status" className="mt-3 rounded-xl bg-ok-soft px-4 py-3 text-sm text-ok">조직에서 나갔습니다. 그 조직의 내 데이터는 삭제 작업으로 지워집니다.</p>}
       <div className="mt-4 space-y-2">
         {orgs.length === 0 && <Empty title="참여한 조직이 없습니다">초대 링크로 참여할 수 있습니다.</Empty>}
         {orgs.map((o) => (

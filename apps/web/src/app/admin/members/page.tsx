@@ -36,9 +36,11 @@ export default async function Members({ searchParams }: { searchParams: Promise<
                 <p className="font-medium">{m.email}</p>
                 <Badge tone={m.role === 'org_admin' ? 'accent' : m.role === 'reviewer' ? 'info' : 'neutral'}>{ROLE_LABEL[m.role]}</Badge>
                 {m.status === 'suspended' && <Badge tone="warn">중지됨</Badge>}
+                {m.status === 'left' && <Badge>탈퇴함</Badge>}
                 {m.cohorts.map((c) => <Badge key={c.id + c.role}>{c.name} · {ROLE_LABEL[c.role]}</Badge>)}
                 <span className="text-xs text-muted">가입 {fmtDate(m.joinedAt)}</span>
               </div>
+              {m.status === 'left' ? <p className="mt-2 text-xs text-muted">스스로 조직을 나갔습니다. 데이터는 삭제 작업으로 지워지며, 다시 참여하려면 새 초대 링크가 필요합니다.</p> : (
               <div className="mt-3 flex flex-wrap gap-4">
                 <form action={changeRole} className="flex flex-wrap items-center gap-2 text-sm">
                   <input type="hidden" name="userId" value={m.userId} />
@@ -56,6 +58,7 @@ export default async function Members({ searchParams }: { searchParams: Promise<
                   <button className={btn.small}>{m.status === 'active' ? '중지' : '재활성화'}</button>
                 </form>
               </div>
+              )}
             </li>
           ))}
         </ul>

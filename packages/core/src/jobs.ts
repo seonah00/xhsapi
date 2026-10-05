@@ -65,7 +65,8 @@ export async function runJob(deps: JobDeps, jobId: string, workerId: string): Pr
       if (s.feature_switches?.[feature] === false && job.kind !== 'transcript_result') return 'feature_disabled';
       return null;
     });
-    if (job.owner_user_id && !(await stillMember(deps.service, job.org_id, job.owner_user_id))) {
+    // Deletion must still run for members who left or were suspended after requesting it.
+    if (job.owner_user_id && job.kind !== 'user_deletion' && !(await stillMember(deps.service, job.org_id, job.owner_user_id))) {
       outcome = { state: 'failed', errorCode: 'membership_revoked' };
     } else if (blocked) {
       outcome = { state: 'failed', errorCode: blocked };

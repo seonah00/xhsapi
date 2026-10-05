@@ -15,8 +15,31 @@ export async function requestDeletion(ctx: Ctx, confirmText: string): Promise<st
   if (confirmText.trim() !== DELETE_CONFIRM_TEXT) throw new AppError('VALIDATION_FAILED', `확인 문구를 정확히 입력하세요: ${DELETE_CONFIRM_TEXT}`);
   const open = await ctx.db.query(`select 1 from deletion_requests where owner_user_id = $1 and org_id = $2 and state in ('requested', 'access_blocked')`, [ctx.uid, ctx.orgId]);
   if (open.rowCount) throw new AppError('CONFLICT', '이미 처리 중인 삭제 요청이 있습니다.');
+  return createBlockedRequest(ctx, 'all_my_data');
+}
+
+export const LEAVE_CONFIRM_TEXT = '조직에서 나갑니다';
+
+/**
+ * Voluntary leave (F01): the same immediate blocking as a deletion request, then the
+ * membership becomes 'left' in the same transaction. The last active admin cannot leave.
+ * The caller enqueues the deletion job with service rights afterwards.
+ */
+export async function leaveOrganization(ctx: Ctx, confirmText: string): Promise<string> {
+  if (confirmText.trim() !== LEAVE_CONFIRM_TEXT) throw new AppError('VALIDATION_FAILED', `확인 문구를 정확히 입력하세요: ${LEAVE_CONFIRM_TEXT}`);
+  const id = await createBlockedRequest(ctx, 'leave_org');
+  try {
+    await ctx.db.query(`select app.leave_org($1)`, [ctx.orgId]);
+  } catch (e) {
+    if (/LAST_ADMIN/.test(String(e))) throw new AppError('CONFLICT', '마지막 관리자는 나갈 수 없습니다. 다른 관리자를 먼저 지정하세요.');
+    throw e;
+  }
+  return id;
+}
+
+async function createBlockedRequest(ctx: Ctx, scope: 'all_my_data' | 'leave_org'): Promise<string> {
   const id = (await ctx.db.query<{ id: string }>(
-    `insert into deletion_requests (org_id, owner_user_id, scope, state) values ($1, $2, 'all_my_data', 'requested') returning id`, [ctx.orgId, ctx.uid],
+    `insert into deletion_requests (org_id, owner_user_id, scope, state) values ($1, $2, $3, 'requested') returning id`, [ctx.orgId, ctx.uid, scope],
   )).rows[0]!.id;
   for (const r of (await ctx.db.query<{ id: string }>(`select id from reference_items where owner_user_id = $1 and org_id = $2 and share_requested_at is not null`, [ctx.uid, ctx.orgId])).rows) {
     await ctx.db.query(`select app.revoke_reference_sharing($1)`, [r.id]);

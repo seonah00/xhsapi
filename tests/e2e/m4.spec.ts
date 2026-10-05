@@ -70,6 +70,17 @@ test('reference accounts, mock external refresh, reports queue and taxonomy admi
   await row.getByRole('button', { name: '비활성화' }).click();
   await expect(page.locator('li', { hasText: 'seoul-e2e' }).getByRole('button', { name: '다시 활성화' })).toBeVisible();
 
+  // Voluntary leave (student-c's last use in the suite): wrong text is refused, then access ends.
+  await login(page, 'student-c@other-org.demo.invalid');
+  await page.goto('/app/privacy');
+  await page.getByLabel(/조직에서 나갑니다/).fill('나가기');
+  await page.getByRole('button', { name: '조직에서 나가기' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: '확인 문구' })).toBeVisible();
+  await page.getByLabel(/조직에서 나갑니다/).fill('조직에서 나갑니다');
+  await page.getByRole('button', { name: '조직에서 나가기' }).click();
+  await page.waitForURL(/\/app\/select-organization\?left=1/);
+  await expect(page.getByText('조직에서 나갔습니다.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: '선택' })).toHaveCount(0);
   expect(errors).toEqual([]);
   expect(external, 'browser requests leaving the app origin').toEqual([]);
 

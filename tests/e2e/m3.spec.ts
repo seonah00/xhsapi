@@ -118,7 +118,7 @@ test('results, uploads, library sharing, admin switches and data deletion', asyn
   // Data deletion (student-c is active only in the other org after the admin spec)
   await login(page, 'student-c@other-org.demo.invalid');
   await page.goto('/app/privacy');
-  await page.getByLabel(/를 입력하세요/).fill('내 데이터를 삭제합니다');
+  await page.getByLabel(/내 데이터를 삭제합니다/).fill('내 데이터를 삭제합니다');
   await page.getByRole('button', { name: '내 데이터 삭제 요청' }).click();
   await expect(page.getByText('삭제를 요청했습니다.', { exact: false })).toBeVisible();
   await expect(async () => {
