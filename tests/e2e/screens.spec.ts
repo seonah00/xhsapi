@@ -45,6 +45,20 @@ for (const [name, viewport] of [['desktop', { width: 1280, height: 900 }], ['mob
     }
     await page.getByText('관찰 사실', { exact: true }).waitFor({ timeout: 20_000 });
     await page.screenshot({ path: `docs/screenshots/m1-${name}-reference.png`, fullPage: name === 'desktop', caret: 'initial' });
+    // M2 screens (a plan exists from the M2 spec, which runs earlier in the same database).
+    await page.goto('/app/plans');
+    const first = page.locator('a[href^="/app/plans/"]').filter({ hasNotText: '새 기획' }).first();
+    if (await first.count()) {
+      await first.click();
+      await page.waitForURL(/\/app\/plans\/[0-9a-f-]{36}$/);
+      await page.waitForLoadState('networkidle');
+      await page.screenshot({ path: `docs/screenshots/m2-${name}-plan.png`, fullPage: name === 'desktop', caret: 'initial' });
+    }
+    await page.goto('/app/check');
+    await page.getByLabel('본문 (최대 10,000자)').fill('这款面霜是最好的，100%有效！');
+    await page.getByRole('button', { name: '점검' }).click();
+    await page.getByRole('heading', { name: /결과/ }).waitFor();
+    await page.screenshot({ path: `docs/screenshots/m2-${name}-check.png`, fullPage: name === 'desktop', caret: 'initial' });
     expect(errors, 'browser console errors').toEqual([]);
   });
 }

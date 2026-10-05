@@ -31,7 +31,7 @@ export default async function ReferenceDetail({ params, searchParams }: { params
   return (
     <>
       <PageHeader title={ref.title ?? ref.note?.title ?? '레퍼런스'} description={<>추가 {fmtDate(ref.createdAt, true)} · 비공개 · 권리: {ref.licenseAssertion === 'reference_only' ? '참고용' : ref.licenseAssertion === 'own_content' ? '내 콘텐츠' : '사용 허락'}</>}
-        actions={<Link className={btn.secondary} href="/app/references">목록</Link>} />
+        actions={<><Link className={btn.primary} href={`/app/plans/new?ref=${ref.id}`}>이 자료로 기획</Link><Link className={btn.secondary} href="/app/references">목록</Link></>} />
       <ErrorNotice message={sp.error} />
       {ref.deletedAt && <div className="mb-4"><Notice tone="warn">휴지통에 있는 레퍼런스입니다.</Notice></div>}
       {sp.saved && <div className="mb-4"><Notice tone="ok">저장했습니다.</Notice></div>}

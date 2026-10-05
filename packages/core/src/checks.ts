@@ -93,7 +93,10 @@ export function runRules(sections: CheckSections, facts: FactSheet, rules: Rule[
     for (const m of all(EMAIL, text)) out.push(builtin(f, m, 'personal_information', 'high', '이메일 주소로 보이는 개인정보입니다.'));
     for (const m of all(NAMED_SCHOOL, text)) out.push(builtin(f, m, 'child_privacy', 'medium', '아이의 학교·기관 이름은 위치를 특정할 수 있습니다. 일반 명칭으로 바꾸는 것을 권합니다.'));
     if (f === 'title' || f === 'body' || f === 'cover') {
+      const pii = out.filter((x) => x.fieldKey === f && x.type === 'personal_information');
       for (const m of all(/\d+(?:\.\d+)?/g, text.replace(/^\s*\d+\.\s/gm, (s) => ' '.repeat(s.length)))) {
+        // Digits inside a phone number are already reported as personal information.
+        if (pii.some((p) => m.index < p.end! && m.index + m[0].length > p.start!)) continue;
         if (!factNumbers.has(m[0])) out.push({ ...builtin(f, m, 'source_uncertain', 'low', '사실 입력에 없는 숫자입니다. 가격·기간·결과라면 근거를 확인하세요.'), confidence: 'low' });
       }
     }
@@ -197,3 +200,23 @@ export function mockContextual(sections: CheckSections): { ok: boolean; findings
 }
 
 export const CHECK_DISCLAIMER = '현재 검사 범위에서 위험 표현을 찾지 못했습니다. 게시 승인이나 법적 안전을 보장하지 않습니다.';
+
+/**
+ * Applies one rule suggestion to the working draft, only if the flagged span is
+ * still at the same place. Returns before/after for display; older versions remain for undo.
+ */
+export async function applySuggestion(ctx: Ctx, planId: string, checkId: string, findingIndex: number, revision: number): Promise<{ before: string; after: string; field: string }> {
+  const { getPlan, saveDraft } = await import('./plans.ts');
+  const check = await getCheck(ctx, checkId);
+  const f = check.findings[findingIndex];
+  if (!f || !f.suggestionZh || !f.anchored || f.start === null || f.end === null || !['title', 'cover', 'body', 'subtitles'].includes(f.fieldKey)) {
+    throw new AppError('VALIDATION_FAILED', '적용할 수 있는 수정 제안이 없습니다.');
+  }
+  const plan = await getPlan(ctx, planId);
+  const field = f.fieldKey as 'title' | 'cover' | 'body' | 'subtitles';
+  const text = plan.draft.content[field];
+  if (text.slice(f.start, f.end) !== f.originalSpan) throw new AppError('CONFLICT', '초안이 바뀌어 이 제안을 자동 적용할 수 없습니다. 직접 수정하세요.');
+  const after = text.slice(0, f.start) + f.suggestionZh + text.slice(f.end);
+  await saveDraft(ctx, planId, { content: { ...plan.draft.content, [field]: after }, facts: plan.draft.facts }, revision);
+  return { before: text, after, field };
+}

@@ -115,7 +115,7 @@ test('student onboarding → discover → reference → analysis → transcript 
 
 test('mobile home and discover render without horizontal overflow @mobile', async ({ page }) => {
   await login(page, 'student-a@demo.invalid');
-  for (const path of ['/app', '/app/discover', '/app/references', '/app/expressions', '/app/keywords']) {
+  for (const path of ['/app', '/app/discover', '/app/references', '/app/expressions', '/app/keywords', '/app/plans', '/app/plans/new', '/app/check', '/app/submissions']) {
     await page.goto(path);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `${path} horizontal overflow`).toBeLessThanOrEqual(1);

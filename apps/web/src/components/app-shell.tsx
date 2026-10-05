@@ -9,10 +9,12 @@ import { MockBanner } from './ui';
 const ROLE: Record<string, string> = { student: '학생', reviewer: '강사', org_admin: '관리자' };
 
 export const STUDENT_NAV = [
-  ['/app', '홈'], ['/app/discover', '탐색'], ['/app/references', '레퍼런스'], ['/app/keywords', '해시태그'], ['/app/expressions', '표현 사전'], ['/app/accounts', '내 계정'],
+  ['/app', '홈'], ['/app/discover', '탐색'], ['/app/references', '레퍼런스'], ['/app/keywords', '해시태그'], ['/app/expressions', '표현 사전'],
+  ['/app/plans', '기획실'], ['/app/check', '점검'], ['/app/submissions', '제출'], ['/app/accounts', '내 계정'],
 ] as const;
+export const STAFF_NAV = [['/review/submissions', '검토함'], ['/review/expressions', '표현 검수'], ['/review/rules', '점검 규칙']] as const;
 export const ADMIN_NAV = [
-  ['/admin', '개요'], ['/admin/members', '멤버'], ['/admin/invitations', '초대'], ['/admin/cohorts', '기수'], ['/admin/audit', '감사 기록'], ['/app', '← 학습 화면'],
+  ['/admin', '개요'], ['/admin/members', '멤버'], ['/admin/invitations', '초대'], ['/admin/cohorts', '기수'], ['/review/expressions', '표현 검수'], ['/review/rules', '점검 규칙'], ['/admin/audit', '감사 기록'], ['/app', '← 학습 화면'],
 ] as const;
 
 export async function AppShell({ children, area }: { children: React.ReactNode; area: 'app' | 'admin' }) {
@@ -21,7 +23,8 @@ export async function AppShell({ children, area }: { children: React.ReactNode; 
   const [orgs, email] = await Promise.all([myMemberships(s.uid), currentUserEmail(s.uid)]);
   const org = orgs.find((o) => o.org_id === s.orgId);
   const isAdmin = org?.role === 'org_admin';
-  const nav = area === 'admin' ? ADMIN_NAV : [...STUDENT_NAV, ...(isAdmin ? [['/admin', '관리자'] as const] : [])];
+  const isStaff = org?.role === 'reviewer' || isAdmin;
+  const nav = area === 'admin' ? ADMIN_NAV : [...STUDENT_NAV, ...(isStaff ? STAFF_NAV : []), ...(isAdmin ? [['/admin', '관리자'] as const] : [])];
   return (
     <div className="min-h-dvh">
       <MockBanner mode={env().APP_DATA_MODE} />

@@ -65,6 +65,7 @@ export default async function Expressions({ searchParams }: { searchParams: Prom
                 <p className="zh text-xl font-semibold" lang="zh-CN">{e.expression}</p>
                 <div className="flex gap-1">
                   <form action={save}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="back" value={back} /><button className={btn.small} aria-pressed={e.saved}>{e.saved ? '★ 저장됨' : '☆ 저장'}</button></form>
+                  <a href={`/app/plans/new?seed=${encodeURIComponent(e.expression)}`} className={btn.ghost}>기획에 쓰기</a>
                   {e.personal && <form action={remove}><input type="hidden" name="id" value={e.id} /><button className={btn.ghost}>삭제</button></form>}
                 </div>
               </div>

@@ -81,3 +81,10 @@ describe('mockContextual', () => {
     expect(mockContextual({ body: 'MOCK_AI_FAIL' }).ok).toBe(false);
   });
 });
+
+describe('runRules overlap', () => {
+  it('does not double-report digits inside a phone number', () => {
+    const f = runRules({ body: '电话13812345678' }, FactSheet.parse({ sponsorship: 'no' }), []);
+    expect(f.map((x) => x.type)).toEqual(['personal_information']);
+  });
+});

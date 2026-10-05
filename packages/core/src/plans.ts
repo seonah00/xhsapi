@@ -193,3 +193,9 @@ export async function listGenerations(ctx: Ctx, planId: string): Promise<Generat
        and a.output_json ->> 'planId' = $3::text order by a.created_at desc limit 10`, [ctx.orgId, ctx.uid, planId],
   )).rows.map((r) => ({ id: r.id, createdAt: r.created_at.toISOString(), output: r.output_json.output, proposalVersionId: r.output_json.output.kind === 'proposal' ? r.target_id : null }));
 }
+
+/** Restores an older version into the working draft (the version itself stays immutable). */
+export async function restoreVersion(ctx: Ctx, planId: string, versionId: string, revision: number): Promise<number> {
+  const v = await getVersion(ctx, planId, versionId);
+  return (await saveDraft(ctx, planId, { content: v.content, facts: v.facts }, revision)).revision;
+}

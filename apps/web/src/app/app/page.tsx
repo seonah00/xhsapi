@@ -5,6 +5,7 @@ import { getCompareIds } from './discover/actions';
 import { NoteCard } from '@/components/note-card';
 import { Badge, Card, Empty, LinkButton, Notice, PageHeader } from '@/components/ui';
 import { fmtDate, formatLabel, topicLabel } from '@/components/labels';
+import { PLAN_STATUS, SUBMISSION_STATUS } from '@/components/plan-labels';
 
 export const metadata = { title: '홈' };
 
@@ -67,8 +68,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <h2 className="font-semibold">진행 중 기획</h2>
-          {data.activePlans.length === 0 ? <p className="mt-2 text-sm text-muted">아직 기획이 없습니다. 기획실은 다음 단계(M2)에서 열립니다.</p> : (
-            <ul className="mt-2 space-y-1 text-sm">{data.activePlans.map((pl) => <li key={pl.id}>{pl.title} <Badge>{pl.status}</Badge></li>)}</ul>
+          {data.activePlans.length === 0 ? <p className="mt-2 text-sm text-muted">아직 기획이 없습니다. <Link href="/app/plans/new" className="text-accent underline">새 기획</Link></p> : (
+            <ul className="mt-2 space-y-1 text-sm">{data.activePlans.map((pl) => <li key={pl.id}><Link href={`/app/plans/${pl.id}`} className="underline">{pl.title}</Link> <Badge>{PLAN_STATUS[pl.status] ?? pl.status}</Badge></li>)}</ul>
           )}
         </Card>
         <Card>
@@ -80,7 +81,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
         <Card>
           <h2 className="font-semibold">강사 피드백</h2>
           {data.feedback.length === 0 ? <p className="mt-2 text-sm text-muted">제출한 기획이 없습니다.</p> : (
-            <ul className="mt-2 space-y-1 text-sm">{data.feedback.map((f) => <li key={f.submissionId}>{f.latest ?? '검토 대기'} <Badge>{f.status}</Badge></li>)}</ul>
+            <ul className="mt-2 space-y-1 text-sm">{data.feedback.map((f) => <li key={f.submissionId}><Link href={`/app/submissions/${f.submissionId}`} className="underline">{f.latest ?? '검토 대기'}</Link> <Badge>{SUBMISSION_STATUS[f.status]?.[0] ?? f.status}</Badge></li>)}</ul>
           )}
         </Card>
       </div>
