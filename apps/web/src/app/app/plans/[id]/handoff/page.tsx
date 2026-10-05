@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { withPageCtx } from '@/server/ctx';
 import { loadHandoff } from '@/server/handoff';
 import { CopyButton } from '@/components/copy-button';
-import { btn, Card, DemoBadge, Notice, PageHeader } from '@/components/ui';
+import { btn, Card, DemoBadge, input, Notice, PageHeader } from '@/components/ui';
+import { addPublication } from '@/app/app/results/actions';
 
 export const metadata = { title: '최종본 전달' };
 
@@ -38,7 +39,16 @@ export default async function Handoff({ params, searchParams }: { params: Promis
         <div className="md:col-span-2">{block('촬영표', c.shots.map((s, i) => `${i + 1}. ${s.scene}${s.note ? ` — ${s.note}` : ''}`).join('\n'), false)}</div>
         <div className="md:col-span-2">{block('한국어 의미', c.meaningKo, false)}</div>
       </div>
-      <p className="mt-6 text-sm text-muted">발행한 뒤에는 성과 기록에서 게시물을 등록하세요(다음 단계에서 제공).</p>
+      <Card className="mt-6">
+        <h2 className="font-semibold">발행했나요? 발행 기록 등록</h2>
+        <form action={addPublication} className="mt-3 flex flex-wrap items-end gap-2 text-sm">
+          <input type="hidden" name="accountId" value={h.accountId} /><input type="hidden" name="planVersionId" value={h.version.id} /><input type="hidden" name="title" value={c.title || h.planTitle} />
+          <label>게시물 링크<input name="noteUrl" type="url" className={`${input} mt-1 w-72`} /></label>
+          <label>발행일시<input name="publishedAt" type="datetime-local" className={`${input} mt-1`} /></label>
+          <button className={btn.primary}>성과 기록에 등록</button>
+        </form>
+        <p className="mt-2 text-xs text-muted">이 버전(v{h.version.version})과 연결됩니다. 발행은 샤오홍슈 앱에서 직접 하세요.</p>
+      </Card>
     </>
   );
 }

@@ -17,3 +17,4 @@ export * from './generation.ts';
 export * from './checks.ts';
 export * from './submissions.ts';
 export * from './staff.ts';
+export * from './results.ts';

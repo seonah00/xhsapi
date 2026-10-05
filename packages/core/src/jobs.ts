@@ -8,6 +8,7 @@ import { storeTranscriptResult, transcriptStoragePolicy } from './transcripts.ts
 import { FactSheet, PlanContent, PlanDraft, insertProposalVersion, sectionsOf } from './plans.ts';
 import { findInventedNumbers, generatePlan } from './generation.ts';
 import { mockContextual } from './checks.ts';
+import { reflect, type ResultMetrics } from './results.ts';
 
 export type Runner = <T>(fn: (db: Db) => Promise<T>) => Promise<T>;
 
@@ -99,6 +100,7 @@ async function dispatch(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
     case 'transcript_result': return transcriptResult(deps, job);
     case 'plan_generation': return planGeneration(deps, job);
     case 'contextual_check': return contextualCheck(deps, job);
+    case 'results_reflection': return resultsReflection(deps, job);
     default: return { state: 'failed', errorCode: 'job_kind_not_implemented' };
   }
 }
@@ -255,5 +257,24 @@ async function contextualCheck(deps: JobDeps, job: JobRow): Promise<JobOutcome> 
     }
     await db.query(`update check_runs set status = 'completed', completeness_json = completeness_json || '{"contextual":"completed"}' where id = $1`, [checkRunId]);
     return { state: 'succeeded', result: { findings: res.findings.length } } as const;
+  });
+}
+
+async function resultsReflection(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
+  const { accountId, snapshotIds } = job.input_ref as { accountId: string; snapshotIds: string[] };
+  return deps.service(async (db) => {
+    // Only the owner's snapshots for that account (re-checked at run time).
+    const rows = (await db.query(
+      `select s.id, s.values_json, p.title, p.topic, p.format, p.paid_promotion from result_snapshots s join publication_records p on p.id = s.publication_id
+       where s.id = any($1::uuid[]) and p.owner_user_id = $2 and p.account_id = $3 and p.org_id = $4`, [snapshotIds, job.owner_user_id, accountId, job.org_id],
+    )).rows;
+    if (rows.length !== snapshotIds.length) return { state: 'failed', errorCode: 'snapshots_unavailable' } as const;
+    const output = reflect(rows.map((r) => ({ title: r.title, topic: r.topic, format: r.format, metrics: r.values_json as ResultMetrics, paid: r.paid_promotion })), snapshotIds);
+    await db.query(
+      `insert into analyses (org_id, owner_user_id, target_type, target_id, input_hash, analysis_scope, schema_version, prompt_version, model, data_mode, output_json, status)
+       values ($1, $2, 'result_set', $3, $4, '{user_notes_only}', 'results-reflection-v1', 'mock-rules-v1', null, $5, $6, 'succeeded')`,
+      [job.org_id, job.owner_user_id, accountId, contentHash(snapshotIds.slice().sort()), job.data_mode, output],
+    );
+    return { state: 'succeeded', result: { posts: rows.length } } as const;
   });
 }

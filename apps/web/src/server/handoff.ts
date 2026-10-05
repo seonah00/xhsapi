@@ -2,7 +2,7 @@ import 'server-only';
 import { checksForVersion, getPlan, type Ctx, type PlanVersion, type CheckRunView } from '@xhs/core';
 import { notFound } from 'next/navigation';
 
-export type Handoff = { planTitle: string; version: PlanVersion; check: CheckRunView | null; checkState: 'none' | 'partial' | 'ok'; unresolved: number; dataMode: string };
+export type Handoff = { planTitle: string; accountId: string; version: PlanVersion; check: CheckRunView | null; checkState: 'none' | 'partial' | 'ok'; unresolved: number; dataMode: string };
 
 export async function loadHandoff(ctx: Ctx, planId: string, versionId?: string): Promise<Handoff> {
   const plan = await getPlan(ctx, planId);
@@ -10,7 +10,7 @@ export async function loadHandoff(ctx: Ctx, planId: string, versionId?: string):
   if (!version) notFound();
   const check = (await checksForVersion(ctx, version.id))[0] ?? null;
   return {
-    planTitle: plan.title, version, check,
+    planTitle: plan.title, accountId: plan.accountId, version, check,
     checkState: !check ? 'none' : check.status === 'completed' ? 'ok' : 'partial',
     unresolved: check?.findings.filter((f) => f.requiresHumanReview).length ?? 0,
     dataMode: ctx.mode,

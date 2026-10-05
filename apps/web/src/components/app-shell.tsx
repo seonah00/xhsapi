@@ -10,7 +10,7 @@ const ROLE: Record<string, string> = { student: '학생', reviewer: '강사', or
 
 export const STUDENT_NAV = [
   ['/app', '홈'], ['/app/discover', '탐색'], ['/app/references', '레퍼런스'], ['/app/keywords', '해시태그'], ['/app/expressions', '표현 사전'],
-  ['/app/plans', '기획실'], ['/app/check', '점검'], ['/app/submissions', '제출'], ['/app/accounts', '내 계정'],
+  ['/app/plans', '기획실'], ['/app/check', '점검'], ['/app/submissions', '제출'], ['/app/results', '성과'], ['/app/accounts', '내 계정'],
 ] as const;
 export const STAFF_NAV = [['/review/submissions', '검토함'], ['/review/expressions', '표현 검수'], ['/review/rules', '점검 규칙']] as const;
 export const ADMIN_NAV = [

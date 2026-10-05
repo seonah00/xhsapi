@@ -1,7 +1,7 @@
 import { AppError, canonicalJson, sha256Hex, type JobKind } from '@xhs/domain';
 import { pgCode, type Ctx, type ServiceRunner } from './context.ts';
 
-export type Operation = 'provider_search' | 'reference_analysis' | 'transcript_submit' | 'plan_generation' | 'contextual_check';
+export type Operation = 'provider_search' | 'reference_analysis' | 'transcript_submit' | 'plan_generation' | 'contextual_check' | 'results_reflection';
 
 /** App policy limits per student per day (spec 9.2; adjustable later by admins). */
 export const DAILY_LIMITS: Record<Operation, { limit: number; label: string; kinds: JobKind[] }> = {
@@ -9,6 +9,7 @@ export const DAILY_LIMITS: Record<Operation, { limit: number; label: string; kin
   reference_analysis: { limit: 20, label: 'AI 작업', kinds: ['reference_analysis', 'query_expansion', 'plan_generation', 'contextual_check', 'results_reflection'] },
   transcript_submit: { limit: 5, label: '음성 문안 추출', kinds: ['transcript_submit'] },
   plan_generation: { limit: 20, label: 'AI 작업', kinds: ['reference_analysis', 'query_expansion', 'plan_generation', 'contextual_check', 'results_reflection'] },
+  results_reflection: { limit: 20, label: 'AI 작업', kinds: ['reference_analysis', 'query_expansion', 'plan_generation', 'contextual_check', 'results_reflection'] },
   contextual_check: { limit: 20, label: 'AI 작업', kinds: ['reference_analysis', 'query_expansion', 'plan_generation', 'contextual_check', 'results_reflection'] },
 };
 
