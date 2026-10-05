@@ -17,6 +17,8 @@
 | M2 기획·검사·검수 | 완료: 기획실(사실 입력·자동 저장·버전·AI 제안(mock)·되돌리기), 발행 전 점검(규칙·탐지기·AI 문맥(mock)·수정 제안 적용), 강사 제출·검토함·피드백·철회, 최종본 전달·내보내기, 표현 사전 검수, 점검 규칙 관리 |
 | M3 운영·성과 | 완료: 성과 기록·비교·회고(mock), 비공개 파일 업로드(메타데이터 제거·게이트웨이), 공급자 허가·기능/중지 스위치·한도·예산·정산·작업 화면, 공통 자료실(동의·검토·철회), 데이터 삭제 요청·만료 정리 |
 | M4 전체 P0 검수 | 완료: F14 참고 계정, 외부 자료 새로 조회(mock 견적·작업), 조직 분류 관리, 오류·권리 신고·신고함, mock 외부 연결 런타임 차단, 프로덕션 빌드 E2E, 접근성(axe) 검사, 보안 점검, 성능 측정(노트 1만·동시 20명) |
+| 출시 준비 | 완료: ESLint, nonce 기반 CSP(스크립트 unsafe-inline 제거), 자발적 조직 탈퇴, live 전환 점검표(외부 호출 없음) |
+| M5 실데이터 검증 | **대기**: 공급자 허가·실제 단가·예산·테스트 범위·서버 secret 승인 필요 |
 
 ## 구조
 
@@ -45,7 +47,8 @@ pnpm install
 pnpm typecheck     # TypeScript strict
 pnpm test          # 단위 테스트 (DB 불필요)
 pnpm test:db       # 임시 PostgreSQL을 띄워 마이그레이션+시드 적용 후 DB 테스트, 종료 시 삭제
-pnpm test:all      # 위 세 가지
+pnpm lint          # ESLint (경고 0)
+pnpm test:all      # 타입·린트·단위·DB
 pnpm test:e2e      # 새 DB+시드+워커+프로덕션 빌드 웹(3100)으로 Playwright 실행 후 정리(E2E_DEV=1이면 next dev)
                    # 외부 연결 시도가 로그에 하나라도 있으면 실패. 화면 캡처는 docs/screenshots/
 pnpm perf          # 임시 DB에 합성 노트 ~1만 건으로 조회 성능 측정(동시 20명 포함)
@@ -91,9 +94,7 @@ DB 중지: `pg_ctl -D .tmp/pg/data stop` (root면 `runuser -u postgres --` 앞�
 ## 알려진 제한
 
 - `docs/XHS_STUDIO_ACCEPTANCE_TESTS.md`는 아직 저장소에 없습니다. 명세 F01~F15·10~12장 기준으로 대조했고, 문서를 받으면 테스트 매트릭스를 맞춥니다.
-- 린트(ESLint)는 구성하지 않았습니다. TypeScript strict 검사만 합니다.
-- 자발적 조직 탈퇴는 P0에서 제외했습니다(ADR 0005).
-- CSP `script-src`에 `'unsafe-inline'`이 남아 있습니다(Next.js 인라인 스크립트). 배포 전 nonce 기반으로 바꾸는 것을 권합니다.
+- 워커의 live 실행 경로는 M5에서 실제 가격 체계와 함께 만듭니다. 지금은 `/admin/providers`의 live 전환 점검표로 차단 이유만 확인합니다(ADR 0006).
 - RedFox 문서 사이트(redfox.hk)는 개발 환경에서 접근이 막혀 있어, 공유받은 문서 ID 중 DCZW5V7A, 9UHXOXSF, tool/QPNFJRG1은 내용을 확인하지 못했습니다.
 - 로그인은 데모 로그인입니다. 실제 Supabase Auth 연동은 배포 환경 결정 후 진행합니다(ADR 0002).
 - 파일은 개발 환경에서 로컬 비공개 디렉터리(`.data/assets`, `ASSET_STORAGE_DIR`)에 저장됩니다. 배포 시 Supabase 비공개 Storage로 교체합니다.

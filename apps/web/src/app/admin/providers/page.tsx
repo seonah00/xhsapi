@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { approvePermission, createPermission, effectiveSwitches, listMyAssets, orgOps, providerOverview, revokePermission, setFeatureSwitches, setProviderSwitches } from '@xhs/core';
+import { approvePermission, createPermission, effectiveSwitches, listMyAssets, liveReadiness, orgOps, providerOverview, revokePermission, setFeatureSwitches, setProviderSwitches } from '@xhs/core';
 import { publicCapabilities } from '@xhs/domain';
 import { withAdmin } from '../forbidden-guard';
 import { orRedirectWithError } from '@/server/actions-util';
@@ -9,6 +9,12 @@ import { Badge, btn, Card, ErrorNotice, input, Notice, PageHeader } from '@/comp
 import { fmtDate } from '@/components/labels';
 
 export const metadata = { title: '공급자·스위치' };
+const GATE: Record<string, string> = {
+  mode_not_live: '데모 모드', live_calls_disabled: '환경 설정 live 꺼짐', feature_disabled: '기능 환경 설정 꺼짐', org_switch_off: '조직 live 스위치 꺼짐/중지',
+  parameter_unverified: '파라미터 미확인', not_implemented: '미구현', price_unknown: '단가 미확인', permission_missing: '이용 허가 없음',
+  permission_inactive: '허가 미승인', permission_expired: '허가 만료', endpoint_not_permitted: '허가 범위 밖', purpose_not_permitted: '용도 미허가',
+  consent_missing: '동의 없음', budget_not_reserved: '예산 미예약', not_user_approved: '사용자 미승인', budget_zero: 'live 예산 0',
+};
 const ALLOW: [string, string][] = [['allowFetch', '수집'], ['allowMetadataDisplay', '메타데이터 표시'], ['allowExcerptDisplay', '발췌 표시'], ['allowMediaDisplay', '미디어 표시'], ['allowAiProcessing', 'AI 가공'], ['allowCache', '캐시 보관']];
 const back = '/admin/providers';
 
@@ -48,7 +54,7 @@ export default async function Providers({ searchParams }: { searchParams: Promis
   const sp = await searchParams;
   const d = await withAdmin(async (ctx) => {
     const ops = await orgOps(ctx.db, ctx.orgId);
-    return { overview: await providerOverview(ctx), ops, effective: effectiveSwitches(env(), ops), evidence: await listMyAssets(ctx, 'permission_evidence') };
+    return { overview: await providerOverview(ctx), readiness: await liveReadiness(ctx, env()), ops, effective: effectiveSwitches(env(), ops), evidence: await listMyAssets(ctx, 'permission_evidence') };
   });
   const caps = publicCapabilities(env());
   return (
@@ -102,6 +108,21 @@ export default async function Providers({ searchParams }: { searchParams: Promis
           </table>
         </div>
         <p className="mt-2 text-xs text-muted">모든 엔드포인트는 문서 확인 단계이며 실제 호출로 검증하지 않았습니다. 단가가 미확인이면 live 호출은 차단됩니다.</p>
+      </Card>
+
+      <Card className="mt-4">
+        <h2 className="font-semibold">live 전환 점검표</h2>
+        <p className="mt-1 text-xs text-muted">명세 6.3 게이트를 이 조직의 현재 설정으로 평가한 결과입니다(외부 호출 없음). 요청할 때 따로 확인하는 항목: {d.readiness.perRequest.join(', ')}.</p>
+        <p className="mt-1 text-xs">live 예산: {d.readiness.liveBudget ? `${d.readiness.liveBudget.limit} ${d.readiness.liveBudget.currency}` : '설정 없음'}</p>
+        <ul className="mt-3 divide-y divide-line text-sm">
+          {d.readiness.rows.map((r) => (
+            <li key={r.endpoint} className="flex flex-wrap items-center gap-2 py-2">
+              <span className="w-12 font-mono text-xs">{r.endpoint}</span>
+              {r.ready ? <Badge tone="ok">준비됨</Badge> : <Badge tone="warn">차단 {r.reasons.length}</Badge>}
+              <span className="text-xs text-muted">{r.reasons.map((x) => GATE[x] ?? x).join(' · ')}</span>
+            </li>
+          ))}
+        </ul>
       </Card>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
