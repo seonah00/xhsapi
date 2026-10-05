@@ -16,12 +16,14 @@
   "devDependencies": {
     "@types/node": "^22.20.5",
     "@types/pg": "^8.23.1",
+    "@xhs/core": "workspace:*",
+    "@xhs/domain": "workspace:*",
+    "@xhs/providers": "workspace:*",
+    "@xhs/security": "workspace:*",
     "pg": "^8.23.1",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7",
-    "zod": "^3.25.76",
-    "@xhs/domain": "workspace:*",
-    "@xhs/security": "workspace:*",
-    "@xhs/providers": "workspace:*"
+    "zod": "^3.25.76"
   }
 }

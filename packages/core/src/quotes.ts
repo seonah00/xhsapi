@@ -1,0 +1,99 @@
+import { AppError, canonicalJson, sha256Hex, type JobKind } from '@xhs/domain';
+import { pgCode, type Ctx, type ServiceRunner } from './context.ts';
+
+export type Operation = 'provider_search' | 'reference_analysis' | 'transcript_submit';
+
+/** App policy limits per student per day (spec 9.2; adjustable later by admins). */
+export const DAILY_LIMITS: Record<Operation, { limit: number; label: string; kinds: JobKind[] }> = {
+  provider_search: { limit: 10, label: '외부 검색', kinds: ['provider_search'] },
+  reference_analysis: { limit: 20, label: 'AI 작업', kinds: ['reference_analysis', 'query_expansion', 'plan_generation', 'contextual_check', 'results_reflection'] },
+  transcript_submit: { limit: 5, label: '음성 문안 추출', kinds: ['transcript_submit'] },
+};
+
+export async function usedToday(ctx: Ctx, op: Operation): Promise<number> {
+  const r = await ctx.db.query<{ n: number }>(
+    `select count(*)::int as n from app_jobs where org_id = $1 and owner_user_id = $2 and kind = any($3) and created_at >= date_trunc('day', now())`,
+    [ctx.orgId, ctx.uid, DAILY_LIMITS[op].kinds],
+  );
+  return r.rows[0]?.n ?? 0;
+}
+
+export type Quote = {
+  id: string;
+  operation: Operation;
+  mode: 'mock' | 'live';
+  maxAmount: string;
+  currency: string;
+  maxBillableUnits: number;
+  expiresAt: string;
+  usedToday: number;
+  dailyLimit: number;
+  requestHash: string;
+};
+
+export function requestHash(operation: Operation, scope: Record<string, unknown>): string {
+  return sha256Hex(canonicalJson({ operation, scope }));
+}
+
+/**
+ * Server-generated, single-use, 5-minute quote (spec 8, 9.2). In mock mode the
+ * amount is 0 and the ledger row is `demo`. In live mode an unknown price blocks.
+ */
+export async function createQuote(ctx: Ctx, service: ServiceRunner, operation: Operation, scope: Record<string, unknown>): Promise<Quote> {
+  const used = await usedToday(ctx, operation);
+  const { limit } = DAILY_LIMITS[operation];
+  if (used >= limit) throw new AppError('RATE_LIMITED', `오늘 ${DAILY_LIMITS[operation].label} 한도(${limit}회)를 모두 사용했습니다.`);
+  if (ctx.mode === 'live') {
+    // No verified price versions exist for any endpoint yet (spec 6.3: unknown price blocks).
+    throw new AppError('LIVE_BLOCKED', '실제 단가가 확인되지 않아 실행할 수 없습니다.');
+  }
+  const hash = requestHash(operation, scope);
+  const row = await service(async (db) => (await db.query<{ id: string; expires_at: Date }>(
+    `insert into cost_quotes (org_id, owner_user_id, operation, request_hash, data_mode, scope_json, max_billable_units, max_amount, currency)
+     values ($1, $2, $3, $4, 'mock', $5, 1, 0, 'CNY') returning id, expires_at`,
+    [ctx.orgId, ctx.uid, operation, hash, { ...scope, provider: 'mock', endpoint: operation }],
+  )).rows[0]!);
+  return {
+    id: row.id, operation, mode: 'mock', maxAmount: '0', currency: 'CNY', maxBillableUnits: 1,
+    expiresAt: row.expires_at.toISOString(), usedToday: used, dailyLimit: limit, requestHash: hash,
+  };
+}
+
+const QUOTE_ERRORS: Record<string, [ConstructorParameters<typeof AppError>[0], string]> = {
+  QUOTE_CONSUMED: ['CONFLICT', '이미 사용한 견적입니다. 다시 견적을 받아 주세요.'],
+  QUOTE_EXPIRED: ['CONFLICT', '견적이 만료되었습니다(5분). 다시 견적을 받아 주세요.'],
+  QUOTE_INVALID: ['NOT_FOUND', '견적을 찾을 수 없습니다.'],
+  QUOTE_REQUEST_MISMATCH: ['CONFLICT', '견적과 요청 내용이 다릅니다.'],
+  IDEMPOTENCY_MISMATCH: ['IDEMPOTENCY_MISMATCH', '같은 요청 키로 다른 요청이 들어왔습니다.'],
+  BUDGET_EXCEEDED: ['BUDGET_EXCEEDED', '설정된 사용 한도를 초과했습니다.'],
+};
+
+/** Consumes the quote and enqueues the job atomically; replays return the same job. */
+export async function reserveJob(ctx: Ctx, args: {
+  quoteId: string; route: string; idempotencyKey: string; operation: Operation; scope: Record<string, unknown>;
+  jobKind: JobKind; dedupeKey: string; inputRef: Record<string, unknown>;
+}): Promise<{ jobId: string; replayed: boolean }> {
+  try {
+    const r = await ctx.db.query<{ job_id: string; replayed: boolean }>(
+      `select * from app.reserve_and_enqueue($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [ctx.orgId, args.quoteId, args.route, args.idempotencyKey, requestHash(args.operation, args.scope), args.jobKind, args.dedupeKey, args.inputRef],
+    );
+    const row = r.rows[0]!;
+    return { jobId: row.job_id, replayed: row.replayed };
+  } catch (e) {
+    const code = pgCode(e);
+    const mapped = code ? QUOTE_ERRORS[code] : undefined;
+    if (mapped) throw new AppError(mapped[0], mapped[1]);
+    if (/app_jobs_org_id_dedupe_key_key/.test(String(e))) throw new AppError('CONFLICT', '같은 작업이 이미 진행 중입니다.');
+    throw e;
+  }
+}
+
+export type JobView = { id: string; kind: JobKind; state: string; errorCode: string | null; createdAt: string; updatedAt: string; dataMode: string };
+
+export async function getJob(ctx: Ctx, id: string): Promise<JobView | null> {
+  const r = (await ctx.db.query(
+    `select id, kind, state, error_code, created_at, updated_at, data_mode from app_jobs where id = $1 and org_id = $2`, [id, ctx.orgId],
+  )).rows[0];
+  return r ? { id: r.id, kind: r.kind, state: r.state, errorCode: r.error_code, createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString(), dataMode: r.data_mode } : null;
+}

@@ -57,7 +57,7 @@ describe('data integrity rules', () => {
        ($1, 'mock', 'expired-note', 'mock', 'https://demo.invalid/notes/expired', '만료', '{"mode":"mock"}', now() - interval '1 minute'),
        ($1, 'mock', 'fresh-note', 'mock', 'https://demo.invalid/notes/fresh', '유효', '{"mode":"mock"}', now() + interval '1 day')`, [ORG1],
     ));
-    const visible = await rows<{ platform_note_id: string }>(U.studentA, `select platform_note_id from notes where provider = 'mock'`);
+    const visible = await rows<{ platform_note_id: string }>(U.studentA, `select platform_note_id from notes where platform_note_id in ('expired-note', 'fresh-note')`);
     expect(visible.map((r) => r.platform_note_id)).toEqual(['fresh-note']);
     expect(await rows(U.studentC, `select id from notes where platform_note_id = 'fresh-note'`)).toEqual([]);
   });
