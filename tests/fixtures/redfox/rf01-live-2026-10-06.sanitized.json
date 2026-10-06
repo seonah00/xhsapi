@@ -1,0 +1,44 @@
+{
+  "_note": "RF01 실제 응답 1건(사용자 제공, 2026-10-06)의 구조를 보존한 익명화 사본. 작성자 ID·닉네임·본문·링크·이미지 주소는 합성값으로 바꿨고, 필드 구성·타입·null 여부·노트 ID 앞 8자리(발행 시각 검증용)는 원본과 같다.",
+  "code": 2000,
+  "data": {
+    "articles": [
+      {
+        "authorFans": 8614, "authorId": "a0000000000000000000a001", "authorNickname": "示例作者A", "collectedCount": 1120, "commentsCount": 26,
+        "cover": "http://sns-img.example.invalid/cover-a.jpg", "createTime": "2026-07-08 13:05:29",
+        "desc": "合成正文第一行\n第二行 #AI智能体  #AIGC创业  #AI工具分享", "id": "6a4dcb11aaaaaaaaaaaaaaaa", "interactiveCount": 1775, "likedCount": 629,
+        "popularityScore": 1, "recencyScore": 0, "relevanceScore": 6, "shareInfoLink": "https://www.xiaohongshu.com/explore/6a4dcb11aaaaaaaaaaaaaaaa",
+        "sharedCount": 228, "title": "合成标题A", "topicsName": null, "totalScore": 7
+      }
+    ],
+    "hotTopics": [
+      { "articleCount": 36087, "topic": "示例话题1", "totalInteractiveCount": 356186825 },
+      { "articleCount": 18145, "topic": "示例话题2", "totalInteractiveCount": 327943500 }
+    ],
+    "keyword": "AIGC创业",
+    "latestHotArticles": [
+      {
+        "authorFans": 109238, "authorId": "a0000000000000000000b001", "authorNickname": "示例作者B", "collectedCount": 543470, "commentsCount": 9891,
+        "cover": "http://sns-img.example.invalid/cover-b.webp", "createTime": "2026-09-30 12:08:56", "desc": "合成正文B\n#手工DIY #教程",
+        "id": "6abc8b58bbbbbbbbbbbbbbbb", "interactiveCount": 1257740, "likedCount": 704379, "popularityScore": null, "recencyScore": null,
+        "relevanceScore": null, "shareInfoLink": "https://www.xiaohongshu.com/explore/6abc8b58bbbbbbbbbbbbbbbb", "sharedCount": 31130,
+        "title": "合成标题B", "topicsName": null, "totalScore": null
+      },
+      {
+        "authorFans": 1351171, "authorId": "a0000000000000000000c001", "authorNickname": "示例作者C", "collectedCount": 93911, "commentsCount": 5945,
+        "cover": "https://sns-img.example.invalid/cover-c.heif", "createTime": "2026-10-01 21:16:35", "desc": "合成正文C #pose #对比",
+        "id": "6abe5d33cccccccccccccccc", "interactiveCount": 660839, "likedCount": 560983, "popularityScore": null, "recencyScore": null,
+        "relevanceScore": null, "shareInfoLink": "https://www.xiaohongshu.com/explore/6abe5d33cccccccccccccccc", "sharedCount": 10906,
+        "title": "合成标题C", "topicsName": null, "totalScore": null
+      }
+    ],
+    "pageNum": 1,
+    "pageSize": 50,
+    "relatedSearches": [
+      { "articleCount": 189, "keyword": "AIGC" }, { "articleCount": 90, "keyword": "创业" }, { "articleCount": 43, "keyword": "AI创业" }
+    ],
+    "tips": "仅找到 4 条结果，以下内容可能也对你有帮助",
+    "total": 4
+  },
+  "msg": "成功"
+}

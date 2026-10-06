@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { loadEnv } from '@xhs/domain';
 import {
@@ -15,6 +16,7 @@ const caps = { ...REDFOX_CAPABILITIES, RF01: { ...REDFOX_CAPABILITIES.RF01, pric
 const NOW = new Date('2026-10-06T02:00:00Z'); // 10:00 in Shanghai
 const provider = (f: unknown) => new RedfoxXhsProvider('ak_k', allow, f as never, caps, () => NOW);
 const respond = (body: unknown, status = 200) => vi.fn(async () => new Response(JSON.stringify(body), { status }));
+const wrap = (data: unknown) => ({ code: 2000, msg: '成功', data });
 
 const article = {
   id: '6a00000000000000000000a1', title: '测试笔记标题', desc: '今天分享护肤步骤 #护肤 #敏感肌 ', authorId: 'author000000000000000001', authorNickname: '示例作者',
@@ -30,7 +32,7 @@ const doc = {
 
 describe('RF01 search contract (documented shape)', () => {
   it('sends only documented params with the key as a header and maps without inventing values', async () => {
-    const f = respond(doc);
+    const f = respond(wrap(doc));
     const r = await provider(f).searchNotes({ query: ' 护肤 ', days: 7 });
     const [url, init] = f.mock.calls[0] as unknown as [URL, RequestInit];
     expect(url.toString()).toBe('https://redfox.hk/story/api/xhs/search/search');
@@ -49,14 +51,15 @@ describe('RF01 search contract (documented shape)', () => {
     expect(r.latestHotArticles).toHaveLength(1); // kept separate (fallback)
   });
 
-  it('without a keyword uses pageNum/pageSize; accepts the code/data wrapper too', async () => {
-    const f = respond({ code: 2000, msg: 'ok', data: doc });
+  it('without a keyword uses pageNum/pageSize; a bare (unwrapped) body is a contract violation', async () => {
+    const f = respond(wrap(doc));
     await provider(f).searchNotes({ query: '' });
     expect(JSON.parse(String((f.mock.calls[0] as unknown as [URL, RequestInit])[1].body))).toEqual({ pageNum: 1, pageSize: 20 });
+    await expect(provider(respond(doc)).searchNotes({ query: 'x' })).rejects.toBeInstanceOf(ProviderContractError);
   });
 
   it('missing fields stay null; malformed ids are dropped', async () => {
-    const f = respond({ articles: [{ id: '6a00000000000000000000c3' }, { id: '../bad' }] });
+    const f = respond(wrap({ articles: [{ id: '6a00000000000000000000c3' }, { id: '../bad' }] }));
     const r = await provider(f).searchNotes({ query: 'x' });
     expect(r.notes).toHaveLength(1);
     expect(r.notes[0]).toMatchObject({ title: null, bodyExcerpt: null, publishedAt: null, author: { ref: null } });
@@ -64,7 +67,7 @@ describe('RF01 search contract (documented shape)', () => {
   });
 
   it('classifies failures: schema violation, business code, uncharged non-2xx, gate', async () => {
-    await expect(provider(respond({ articles: 'nope' })).searchNotes({ query: 'x' })).rejects.toBeInstanceOf(ProviderContractError);
+    await expect(provider(respond(wrap({ articles: 'nope' }))).searchNotes({ query: 'x' })).rejects.toBeInstanceOf(ProviderContractError);
     await expect(provider(respond({ code: 4001, msg: 'balance', data: null })).searchNotes({ query: 'x' })).rejects.toBeInstanceOf(ProviderBusinessError);
     const http = await provider(respond({}, 502)).searchNotes({ query: 'x' }).catch((e) => e);
     expect(http).toBeInstanceOf(ProviderHttpError);
@@ -73,5 +76,26 @@ describe('RF01 search contract (documented shape)', () => {
     const blocked = new RedfoxXhsProvider('ak_k', allow, spy as never); // shipped registry: RF01 price unknown
     await expect(blocked.searchNotes({ query: 'x' })).rejects.toBeInstanceOf(LiveCallBlockedError);
     expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe('RF01 against the sanitized real response (2026-10-06)', () => {
+  const real = JSON.parse(readFileSync(new URL('../fixtures/redfox/rf01-live-2026-10-06.sanitized.json', import.meta.url), 'utf8'));
+
+  it('parses the observed shape and keeps provider totals and unrelated fallbacks apart', async () => {
+    const r = await provider(respond(real)).searchNotes({ query: 'AIGC创业' });
+    expect(r.notes.map((n) => n.platformNoteId)).toEqual(['6a4dcb11aaaaaaaaaaaaaaaa']);
+    expect(r.latestHotArticles).toHaveLength(2); // keyword-unrelated: never shown as results
+    expect(r.coverage).toMatchObject({ providerTotal: 4, providerTip: '仅找到 4 条结果，以下内容可能也对你有帮助' });
+    expect(r.relatedTerms).toEqual(['AIGC', '创业', 'AI创业']);
+    expect(r.notes[0]!.providerTags).toEqual(expect.arrayContaining(['AI智能体', 'AIGC创业']));
+  });
+
+  it('createTime is China time: matches the note-id timestamp (+8h) for notes published on creation', async () => {
+    const r = await provider(respond(real)).searchNotes({ query: 'AIGC创业' });
+    for (const n of r.latestHotArticles) {
+      const idSeconds = parseInt(n.platformNoteId.slice(0, 8), 16);
+      expect(Date.parse(n.publishedAt!) / 1000).toBe(idSeconds);
+    }
   });
 });

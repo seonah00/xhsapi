@@ -67,7 +67,7 @@ export class RedfoxXhsProvider implements XhsDataProvider {
       body.endDate = shanghaiDate(this.now(), 0);
     }
     const fetchedAt = this.now().toISOString();
-    const parsed = Rf01Data.safeParse(await this.post('RF01', body, { bareAllowed: true }));
+    const parsed = Rf01Data.safeParse(await this.post('RF01', body));
     if (!parsed.success) throw new ProviderContractError('RF01 response failed schema');
     const d = parsed.data;
     return {
@@ -76,7 +76,7 @@ export class RedfoxXhsProvider implements XhsDataProvider {
       latestHotArticles: (d.latestHotArticles ?? []).map(toNote).filter((x): x is ProviderNote => !!x),
       relatedTerms: (d.relatedSearches ?? []).map((r) => r.keyword.trim()).filter((k) => k.length > 0 && k.length <= 40).slice(0, 20),
       // The provider has no topic filter; our topic classification is not applied to live notes yet.
-      coverage: { requestedPages: 1, fetchedPages: 1, postFilters: input.topic ? ['topic_not_supported_by_provider'] : [] },
+      coverage: { requestedPages: 1, fetchedPages: 1, postFilters: input.topic ? ['topic_not_supported_by_provider'] : [], providerTotal: d.total ?? null, providerTip: d.tips ?? null },
     };
   }
 
@@ -107,7 +107,7 @@ export class RedfoxXhsProvider implements XhsDataProvider {
     if (!result.allowed) throw new LiveCallBlockedError(result.reasons);
   }
 
-  private async post(id: EndpointId, body: unknown, opts: { bareAllowed?: boolean } = {}): Promise<unknown> {
+  private async post(id: EndpointId, body: unknown): Promise<unknown> {
     this.assertAllowed(id);
     const url = assertFetchableUrl(REDFOX_BASE_URL + this.capabilities[id].path, ['redfox.hk']);
     const res = await this.fetchImpl(url, {
@@ -118,10 +118,8 @@ export class RedfoxXhsProvider implements XhsDataProvider {
       signal: AbortSignal.timeout(20_000),
     });
     if (!res.ok) throw new ProviderHttpError(res.status);
-    const json: unknown = await res.json();
-    // RF01's doc example is the bare data object; a body without a numeric `code` is accepted only there.
-    if (opts.bareAllowed && !(json && typeof json === 'object' && typeof (json as { code?: unknown }).code === 'number')) return json;
-    const env = RedfoxEnvelope.safeParse(json);
+    // Every endpoint, RF01 included (confirmed by a real response on 2026-10-06), uses the code/msg/data wrapper.
+    const env = RedfoxEnvelope.safeParse(await res.json());
     if (!env.success) throw new ProviderContractError(`${id} envelope failed schema`);
     if (env.data.code !== REDFOX_SUCCESS) throw new ProviderBusinessError(env.data.code);
     return env.data.data;
@@ -134,7 +132,7 @@ function shanghaiDate(now: Date, offsetDays: number): string {
     .format(new Date(now.getTime() + offsetDays * 86_400_000));
 }
 
-/** "2026-07-08 13:05:29" without zone; read as China time (UTC+8) — to be confirmed in the first live test. */
+/** "2026-07-08 13:05:29" without zone = China time (UTC+8): confirmed against note-id timestamps in a real response (2026-10-06). */
 function parseCreateTime(v: string | null | undefined): string | null {
   const m = v ? /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/.exec(v.trim()) : null;
   if (!m) return null;

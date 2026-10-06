@@ -190,7 +190,7 @@ describe('live transcript path with a fake RedFox (no network)', () => {
       }));
       return { jobId, outcome: await runJob(deps(impl), jobId, 't') };
     };
-    const ok = fakeRedfox([() => ({ articles: [{ id: '6a00000000000000000000d4', title: '实测形状', desc: '正文 #护肤', authorId: 'a1b2c3d4e5f6a7b8', authorNickname: '作者', likedCount: 5, collectedCount: 2, createTime: '2026-10-01 08:00:00', shareInfoLink: 'https://www.xiaohongshu.com/explore/6a00000000000000000000d4' }], relatedSearches: [{ keyword: '敏感肌' }] })]);
+    const ok = fakeRedfox([() => ({ code: 2000, msg: '成功', data: { articles: [{ id: '6a00000000000000000000d4', title: '实测形状', desc: '正文 #护肤', authorId: 'a1b2c3d4e5f6a7b8', authorNickname: '作者', likedCount: 5, collectedCount: 2, createTime: '2026-10-01 08:00:00', shareInfoLink: 'https://www.xiaohongshu.com/explore/6a00000000000000000000d4' }], relatedSearches: [{ keyword: '敏感肌' }], total: 1 } })]);
     const first = await search(ok.impl);
     expect(first.outcome).toMatchObject({ state: 'succeeded' });
     expect(ok.calls[0]!.body).toEqual({ keyword: '护肤' });

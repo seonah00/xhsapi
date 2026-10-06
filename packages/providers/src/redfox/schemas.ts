@@ -25,9 +25,9 @@ export const Rf14Data = z.object({
 });
 
 /**
- * RF01 search (/story/api/xhs/search/search) — from the user-provided provider doc (2026-10-06).
- * The doc says the usual wrapper is code/message/data "subject to the actual service" while its
- * example shows the bare object, so both shapes are accepted and validated strictly.
+ * RF01 search (/story/api/xhs/search/search) — provider doc plus one real response shared by the
+ * user (2026-10-06): wrapped in code/msg/data like every other endpoint; `total` can exceed the
+ * number of returned articles; latestHotArticles and hotTopics are unrelated to the keyword.
  */
 const n = z.number().int().nonnegative().nullable().optional();
 export const Rf01Article = z.object({

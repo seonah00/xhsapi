@@ -26,7 +26,8 @@ export type SearchResult = {
   relatedTerms: string[];
   /** Spec F04: shown separately, excluded from recommendations and aggregates. */
   latestHotArticles: ProviderNote[];
-  coverage: { requestedPages: number; fetchedPages: number; postFilters: string[] };
+  /** providerTotal/providerTip: what the provider says it matched (RF01 `total`/`tips`), which can exceed what it returned. */
+  coverage: { requestedPages: number; fetchedPages: number; postFilters: string[]; providerTotal?: number | null; providerTip?: string | null };
 };
 
 export type TranscriptSubmit = { taskId: string };
