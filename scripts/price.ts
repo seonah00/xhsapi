@@ -9,6 +9,7 @@
  *   pnpm price unverify --endpoint RF13      # future quotes are blocked again; history is kept
  */
 import pg from 'pg';
+import { pgConfig } from '@xhs/core';
 import { REDFOX_CAPABILITIES } from '@xhs/providers';
 
 export function parseArgs(argv: string[]): { cmd: string; opts: Record<string, string> } {
@@ -38,7 +39,7 @@ async function main() {
   const { cmd, opts } = parseArgs(process.argv.slice(2));
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is required');
-  const db = new pg.Client({ connectionString: url });
+  const db = new pg.Client(pgConfig());
   await db.connect();
   try {
     if (cmd === 'list') {

@@ -12,6 +12,7 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import { pgConfig } from '@xhs/core';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DIR = join(ROOT, 'supabase', 'migrations');
@@ -74,7 +75,7 @@ async function main() {
     return;
   }
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
-  const db = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  const db = new pg.Client(pgConfig());
   await db.connect();
   try {
     const applied = await migrate(db, console.info);

@@ -44,6 +44,8 @@ describe('production schema setup', () => {
   it('pnpm db:migrate applies all migrations in order, then is a no-op', async () => {
     const c = await freshDb();
     try {
+      const before = (await c.query(readFileSync(new URL('../../deploy/supabase/verify.sql', import.meta.url), 'utf8'))).rows;
+      expect(before.find((r) => r.check === '스키마 적용 기록 있음')?.ok).toBe(false); // empty DB: false, not an error
       expect(await migrate(c)).toEqual(listMigrations().map((m) => m.name));
       expect(await migrate(c)).toEqual([]);
       expect((await verifyDb(c)).filter((x) => !x.ok)).toEqual([]);

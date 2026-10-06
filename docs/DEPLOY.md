@@ -24,15 +24,13 @@
    - 확인 메일 발송이 필요 없습니다. 초대 링크·관리자 링크로 대신합니다.
 3. **Data API(PostgREST) 노출 제한**: 이 앱은 Data API를 쓰지 않고 서버가 DB에 직접 접속합니다. **Settings → Data API에서 `public` 스키마를 노출 목록에서 빼거나 Data API를 끕니다.** 모든 테이블에 RLS가 있지만, 브라우저나 외부에서 anon 키로 테이블에 직접 접근하는 경로 자체를 없애는 것이 안전합니다.
 4. **Storage**: 비공개(Public 꺼짐) 버킷 `private-assets`를 만듭니다. 이름을 바꾸면 `SUPABASE_STORAGE_BUCKET`도 같이 바꿉니다.
-5. **스키마 적용(처음 한 번, CLI 불필요)**
-   - GitHub에서 `deploy/supabase/initial-schema.sql` 파일을 열고 **Raw** 버튼 → 전체 선택·복사합니다.
-   - Supabase 대시보드 → **SQL Editor** → 새 쿼리에 붙여 넣고 **Run**. 마이그레이션 13개와 적용 기록이 한 번에 들어갑니다(데모 데이터 없음).
-   - 두 번 실행하면 "이미 스키마가 적용된 DB입니다" 오류로 멈춥니다(정상).
-   - 주의: SQL Editor에는 **SQL만** 넣습니다. `supabase …`, `pnpm …`으로 시작하는 줄은 PC 터미널에서 쓰는 명령입니다.
-   - 이후 업데이트(새 마이그레이션)는 PC에서 `DATABASE_URL=<연결 문자열> pnpm db:migrate`로 남은 것만 적용합니다. Supabase CLI(`supabase db push`)는 쓰지 마세요(적용 기록 방식이 달라 중복 적용됩니다).
-6. **DB 연결 문자열**: Railway는 IPv4를 쓰므로 Supabase의 **Session pooler(포트 5432)** 주소를 씁니다. 트랜잭션 단위로 `set local`을 쓰므로 Transaction pooler(6543)도 동작할 수 있지만, 검증 전까지는 Session pooler를 권장합니다.
-   - TLS: Supabase에서 받은 CA 인증서를 `deploy/certs/supabase-ca.crt`로 넣고 `?sslmode=verify-full&sslrootcert=/app/deploy/certs/supabase-ca.crt`를 붙이는 것을 권장합니다(인증서는 공개 파일).
-7. **점검**: SQL Editor에서 `deploy/supabase/verify.sql` 내용을 실행해 7개 항목이 모두 `ok = true`인지 봅니다. PC에서 실행할 수 있으면 `DATABASE_URL=<연결 문자열> pnpm verify:db`가 역할 전환·`auth.uid()`까지 더 자세히 확인합니다. 모두 `OK`여야 합니다. 특히 "authenticated로 전환 가능", "auth.uid()가 세션 claim을 읽음", "모든 테이블에 RLS", "데모 계정 없음"을 확인합니다.
+5. **스키마는 Railway가 자동으로 적용합니다.** web 서비스는 배포할 때마다 시작 전에 `scripts/db-migrate.ts`를 실행합니다(`railway.json`의 preDeployCommand). 이때 아직 적용되지 않은 마이그레이션만 순서대로 넣고, `app.applied_migrations`에 기록합니다. SQL Editor에 붙여 넣을 필요가 없습니다.
+   - 실패하면 web 배포가 중단되고, 로그에 `… 적용 실패: <원인>`이 남습니다(이전 버전은 계속 동작).
+   - 예비 방법: 대신 SQL Editor에 `deploy/supabase/initial-schema.sql`을 붙여 넣을 수도 있습니다. 이때 Supabase가 "RLS를 켜고 실행할지" 묻는 창을 띄우면 **추가 문장 없이 그대로 실행**을 고르세요. 스크립트가 직접 RLS를 켭니다.
+6. **DB 연결 문자열(`DATABASE_URL`)**: Supabase 대시보드 상단 **Connect** → **Session pooler**의 URI를 씁니다(IPv4, 포트 5432). `[YOUR-PASSWORD]` 자리에 DB 비밀번호를 넣습니다.
+   - **TLS 인증서(`DATABASE_CA_CERT`)**: 대시보드 → Project Settings → Database → **SSL Configuration → Download certificate**로 받은 파일을 메모장으로 열어, `-----BEGIN CERTIFICATE-----`부터 끝까지 **전체 내용**을 Railway 변수 `DATABASE_CA_CERT`에 붙여 넣습니다. 앱이 이 인증서로 DB 서버를 검증합니다. 공개 인증서라 비밀은 아니지만 변수로 관리하는 편이 간단합니다.
+   - 인증서로 연결이 안 되면(로그에 `self-signed certificate` 등) 임시로 `DATABASE_CA_CERT`를 비우고 `DATABASE_URL` 끝에 `?sslmode=no-verify`를 붙이면 암호화는 되지만 서버 검증은 하지 않습니다. 원인을 확인한 뒤 다시 인증서 방식으로 돌리세요.
+7. **점검**: 첫 배포가 끝나면 SQL Editor에서 `deploy/supabase/verify.sql` 내용을 실행합니다. 7개 항목이 모두 `ok = true`여야 합니다(스키마가 없으면 오류 대신 false로 보입니다). PC에서 실행할 수 있으면 `pnpm verify:db`가 역할 전환·`auth.uid()`까지 더 자세히 확인합니다.
 
 ## 2. Railway
 
@@ -52,7 +50,8 @@
 | `NEXT_PUBLIC_SUPABASE_URL` | ✓ | ✓ | `https://<ref>.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✓ | ✓ | anon 키(서버에서만 사용) |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✓ 비밀 | ✓ 비밀 | service_role 키 |
-| `DATABASE_URL` | ✓ 비밀 | ✓ 비밀 | 1-6의 연결 문자열 |
+| `DATABASE_URL` | ✓ 비밀 | ✓ 비밀 | 1-6의 Session pooler 연결 문자열 |
+| `DATABASE_CA_CERT` | ✓ | ✓ | 1-6의 Supabase 인증서 전체 내용(PEM) |
 | `SESSION_SECRET` | ✓ 비밀 | ✓ | 48자 이상 무작위(예: `openssl rand -base64 48`) |
 | `APP_BASE_URL` | ✓ | ✓ | web 도메인, 예 `https://studio.example.com` (빌드 시에도 필요: HSTS) |
 | `WORKER_ENABLED` | | ✓ | `true` |
@@ -74,7 +73,7 @@ pnpm bootstrap:org --org-name "<조직 이름>" --admin-email <관리자 이메�
 
 ## 4. 배포 직후 점검표
 
-1. `pnpm verify:db` 전부 OK
+1. web 배포 로그에 마이그레이션 적용(또는 "적용할 마이그레이션이 없습니다")이 보이고, `verify.sql`(또는 `pnpm verify:db`) 전부 OK
 2. `/api/health` OK, 응답 헤더에 `Strict-Transport-Security`, 페이지에 nonce 기반 `Content-Security-Policy`
 3. 로그인 화면에 데모 계정이 없음, 틀린 비밀번호는 같은 문구로 거절
 4. 관리자 1회용 링크 → 비밀번호 설정 → 로그인 → 초대 → 학생 가입 → 이미지 업로드·표시

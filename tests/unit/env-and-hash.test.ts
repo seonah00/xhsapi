@@ -65,3 +65,16 @@ describe('auth/storage environment rules', () => {
     expect(() => loadEnv({ STORAGE_BACKEND: 'supabase', NEXT_PUBLIC_SUPABASE_URL: 'https://abc.supabase.co' })).toThrow(/SUPABASE_SERVICE_ROLE_KEY/);
   });
 });
+
+describe('database TLS settings', () => {
+  it('verifies the server with DATABASE_CA_CERT and drops URL TLS params that would override it', async () => {
+    const { pgConfig } = await import('@xhs/core');
+    const pem = '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----';
+    expect(pgConfig('postgresql://u:p@h:5432/db?sslmode=require', undefined)).toEqual({ connectionString: 'postgresql://u:p@h:5432/db?sslmode=require' });
+    const c = pgConfig('postgresql://u:p@h:5432/db?sslmode=require&application_name=x', pem);
+    expect(c.connectionString).toBe('postgresql://u:p@h:5432/db?application_name=x');
+    expect(c.ssl).toEqual({ ca: pem, rejectUnauthorized: true });
+    expect(pgConfig('postgresql://u:p@h/db', pem.replace(/\n/g, '\\n')).ssl?.ca).toBe(pem); // pasted with literal \n
+    expect(() => pgConfig('postgresql://u:p@h/db', 'not a cert')).toThrow('PEM');
+  });
+});

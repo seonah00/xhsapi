@@ -1,13 +1,13 @@
 import 'server-only';
 import pg from 'pg';
+import { pgConfig } from '@xhs/core';
 
 const globalForPg = globalThis as unknown as { xhsPool?: pg.Pool };
 
 function pool(): pg.Pool {
   if (!globalForPg.xhsPool) {
-    const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) throw new Error('DATABASE_URL is not set (run `pnpm db:local`)');
-    globalForPg.xhsPool = new pg.Pool({ connectionString, max: 10 });
+    if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not set (run `pnpm db:local`)');
+    globalForPg.xhsPool = new pg.Pool({ ...pgConfig(), max: 10 });
   }
   return globalForPg.xhsPool;
 }

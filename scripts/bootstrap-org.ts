@@ -8,7 +8,7 @@
  * SUPABASE_SERVICE_ROLE_KEY and APP_BASE_URL. Demo data is never created here.
  */
 import pg from 'pg';
-import { AuthError, SupabaseAuth } from '@xhs/core';
+import { AuthError, SupabaseAuth, pgConfig } from '@xhs/core';
 import { loadEnv } from '@xhs/domain';
 import { parseArgs } from './price.ts';
 
@@ -45,7 +45,7 @@ async function main() {
   const { opts } = parseArgs(['run', ...process.argv.slice(2)]);
   const env = loadEnv({ ...process.env, AUTH_PROVIDER: 'supabase' });
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
-  const db = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  const db = new pg.Client(pgConfig());
   await db.connect();
   try {
     const r = await bootstrapOrg({ orgName: opts['org-name'] ?? '', adminEmail: opts['admin-email'] ?? '' }, {

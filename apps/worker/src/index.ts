@@ -4,7 +4,7 @@ import { createXhsProvider, MockXhsProvider, RedfoxXhsProvider } from '@xhs/prov
 import { resolve } from 'node:path';
 import { hostsFromUrl, installMockNetworkGuard } from '@xhs/security/network-guard';
 import { redactString } from '@xhs/security';
-import { claimableJobIds, LocalPrivateStorage, purgeExpired, runJob, SupabaseStorage, type Runner } from '@xhs/core';
+import { claimableJobIds, LocalPrivateStorage, pgConfig, purgeExpired, runJob, SupabaseStorage, type Runner } from '@xhs/core';
 
 /**
  * Worker: polls `app_jobs` (the domain source of truth) and claims rows with a
@@ -58,7 +58,7 @@ async function main() {
     onBlock: (c) => console.error(`[network-guard] blocked outbound connection to ${c.host}:${c.port ?? '?'} (${env.APP_DATA_MODE} mode)`),
   });
   console.info(`${env.APP_DATA_MODE} mode: outbound network guard active (worker)`);
-  const pool = new pg.Pool({ connectionString: env.DATABASE_URL, max: 4 });
+  const pool = new pg.Pool({ ...pgConfig(env.DATABASE_URL), max: 4 });
   const service = makeRunner(pool);
   const workerId = `worker-${process.pid}`;
   const intervalMs = Number(process.env.WORKER_POLL_MS ?? 1000);

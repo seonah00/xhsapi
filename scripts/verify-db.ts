@@ -6,6 +6,7 @@
  *   DATABASE_URL=... pnpm verify:db [--allow-demo]
  */
 import pg from 'pg';
+import { pgConfig } from '@xhs/core';
 
 type Check = { name: string; ok: boolean; detail?: string };
 
@@ -48,7 +49,7 @@ export async function verifyDb(db: pg.ClientBase, opts: { allowDemo?: boolean } 
 
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
-  const db = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  const db = new pg.Client(pgConfig());
   await db.connect();
   try {
     const checks = await verifyDb(db, { allowDemo: process.argv.includes('--allow-demo') });
