@@ -38,6 +38,7 @@ function fakeRedfox(script: ((path: string, body: Record<string, unknown>) => un
     if (!step) throw new Error('unexpected extra provider call');
     const out = step(new URL(url).pathname, body);
     if (out instanceof Error) throw out;
+    if (out instanceof Response) return out;
     return new Response(JSON.stringify(out), { status: 200, headers: { 'content-type': 'application/json' } });
   }) as typeof fetch;
   return { calls, impl };
@@ -84,7 +85,7 @@ beforeAll(async () => {
   await pool.query(`update provider_capabilities set price_status = 'verified' where provider = 'redfox' and endpoint in ('RF13', 'RF14')`);
 });
 afterAll(async () => {
-  await pool.query(`update provider_capabilities set price_status = 'unknown' where provider = 'redfox' and endpoint in ('RF13', 'RF14')`);
+  await pool.query(`update provider_capabilities set price_status = 'unknown' where provider = 'redfox' and endpoint in ('RF01', 'RF13', 'RF14')`);
   await pool.query(`delete from provider_price_versions where evidence = 'test evidence'`);
   await pool.end();
 });
@@ -172,6 +173,37 @@ describe('live transcript path with a fake RedFox (no network)', () => {
     await pool.query(`update usage_budgets set amount_limit = 1.5 where org_id = $1 and subject_type = 'org'`, [ORG]);
     await expect(quoteAndReserve(refId, noteId)).rejects.toMatchObject({ code: 'BUDGET_EXCEEDED' });
     await pool.query(`update usage_budgets set amount_limit = 10 where org_id = $1 and subject_type = 'org'`, [ORG]);
+  });
+
+  it('live search: ingests documented RF01 fields, drops excerpts without excerpt permission, releases on a non-2xx answer', async () => {
+    await pool.query(`update provider_permissions set allowed_endpoints = '{RF01,RF13,RF14}', allow_metadata_display = true, allow_excerpt_display = false where org_id = $1`, [ORG]);
+    await pool.query(`insert into provider_price_versions (provider, endpoint, currency, unit, unit_cost, effective_at, verified_by, evidence)
+      values ('redfox', 'RF01', 'CNY', 'call', 0.06, now() - interval '1 minute', $1, 'test evidence')`, [ADMIN]);
+    await pool.query(`update provider_capabilities set price_status = 'verified' where provider = 'redfox' and endpoint = 'RF01'`);
+    const search = async (impl: typeof fetch) => {
+      const scope = { query: '护肤' };
+      const q = await asStudent((ctx) => createQuote(ctx, service, 'provider_search', scope, { env: liveEnv }));
+      expect(q).toMatchObject({ mode: 'live', maxAmount: '0.06000000' });
+      const { jobId } = await asStudent((ctx) => reserveJob(ctx, {
+        quoteId: q.id, route: 'POST /discover/refresh', idempotencyKey: randomUUID(), operation: 'provider_search', scope,
+        jobKind: 'provider_search', dedupeKey: `provider_search:${q.id}`, inputRef: scope, consent: true,
+      }));
+      return { jobId, outcome: await runJob(deps(impl), jobId, 't') };
+    };
+    const ok = fakeRedfox([() => ({ articles: [{ id: '6a00000000000000000000d4', title: '实测形状', desc: '正文 #护肤', authorId: 'a1b2c3d4e5f6a7b8', authorNickname: '作者', likedCount: 5, collectedCount: 2, createTime: '2026-10-01 08:00:00', shareInfoLink: 'https://www.xiaohongshu.com/explore/6a00000000000000000000d4' }], relatedSearches: [{ keyword: '敏感肌' }] })]);
+    const first = await search(ok.impl);
+    expect(first.outcome).toMatchObject({ state: 'succeeded' });
+    expect(ok.calls[0]!.body).toEqual({ keyword: '护肤' });
+    const note = (await pool.query(`select title, body_excerpt, note_type, data_mode, provider, provider_tags from notes where org_id = $1 and platform_note_id = '6a00000000000000000000d4'`, [ORG])).rows[0];
+    expect(note).toEqual({ title: '实测形状', body_excerpt: null, note_type: null, data_mode: 'live', provider: 'redfox', provider_tags: ['护肤'] });
+    expect(await ledgerOf(first.jobId)).toEqual({ status: 'settled', reserved: '0.06000000', actual: '0.06000000' });
+    expect((await pool.query(`select count(*)::int as n from consent_records where user_id = $1 and purpose = 'external_provider_query'`, [STUDENT])).rows[0].n).toBe(1);
+
+    const bad = fakeRedfox([() => new Response('{}', { status: 502 })]);
+    const second = await search(bad.impl);
+    expect(second.outcome).toMatchObject({ state: 'failed' });
+    expect((await ledgerOf(second.jobId)).status).toBe('released'); // provider: failed (non-200) requests are not charged
+    await pool.query(`update provider_permissions set allow_excerpt_display = true where org_id = $1`, [ORG]); // transcript needs excerpt display
   });
 
   it('stops polling RF14 after the reserved number of polls', async () => {

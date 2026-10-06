@@ -1,6 +1,6 @@
 import { contentHash, type AppEnv, type DataMode, type JobKind } from '@xhs/domain';
 import { redactString } from '@xhs/security';
-import { isNotSentError, LiveCallBlockedError, ProviderContractError, type EndpointCapability, type EndpointId, type GateContextFor, type XhsDataProvider } from '@xhs/providers';
+import { isUnchargedError, LiveCallBlockedError, ProviderContractError, ProviderHttpError, type EndpointCapability, type EndpointId, type GateContextFor, type XhsDataProvider } from '@xhs/providers';
 import { liveGateForJob, MAX_TRANSCRIPT_POLLS } from './live.ts';
 import { analyzeReference } from './analysis.ts';
 import type { Db } from './context.ts';
@@ -87,7 +87,7 @@ export async function runJob(deps: JobDeps, jobId: string, workerId: string): Pr
     }
   } catch (e) {
     const errorCode = redactString(e instanceof Error ? `${e.name}: ${e.message}` : 'error').slice(0, 200);
-    outcome = isNotSentError(e) ? { state: 'failed', errorCode, sent: false } : { state: 'failed', errorCode };
+    outcome = isUnchargedError(e) ? { state: 'failed', errorCode, sent: false } : { state: 'failed', errorCode };
   }
   await finish(deps, job, outcome);
   return outcome;
@@ -143,8 +143,19 @@ async function dispatch(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
 
 async function providerSearch(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
   const input = job.input_ref as { query?: string; topic?: string; days?: 7 | 14 | 30 };
-  const result = await deps.provider.searchNotes({ query: input.query ?? '', ...(input.topic ? { topic: input.topic as never } : {}), ...(input.days ? { days: input.days } : {}) });
-  const { runId, noteIds } = await deps.service((db) => ingestSearchResult(db, { orgId: job.org_id, provider: result.mode === 'mock' ? 'mock' : 'redfox', endpoint: result.endpoint, query: input }, result));
+  let result = await deps.provider.searchNotes({ query: input.query ?? '', ...(input.topic ? { topic: input.topic as never } : {}), ...(input.days ? { days: input.days } : {}) });
+  let permissionId: string | null = null;
+  if (result.mode === 'live') {
+    // Store only what the approved permission allows: no excerpt without excerpt_display.
+    const p = await deps.service(async (db) => (await db.query(`select id, allow_excerpt_display from provider_permissions where org_id = $1 and provider = 'redfox' and status = 'approved'
+      and (expires_at is null or expires_at > now()) order by approved_at desc limit 1`, [job.org_id])).rows[0] ?? null);
+    permissionId = p?.id ?? null;
+    if (!p?.allow_excerpt_display) {
+      const strip = (n: (typeof result.notes)[number]) => ({ ...n, bodyExcerpt: null });
+      result = { ...result, notes: result.notes.map(strip), latestHotArticles: result.latestHotArticles.map(strip) };
+    }
+  }
+  const { runId, noteIds } = await deps.service((db) => ingestSearchResult(db, { orgId: job.org_id, provider: result.mode === 'mock' ? 'mock' : 'redfox', endpoint: result.endpoint, query: input, permissionId }, result));
   return { state: 'succeeded', result: { ingestionRunId: runId, notes: noteIds.length } };
 }
 
@@ -201,9 +212,9 @@ async function transcriptSubmit(deps: JobDeps, job: JobRow): Promise<JobOutcome>
     // Mock: the canonical URL stands in for the access URL. Live access URLs are supplied per request and never stored.
     taskId = (await deps.provider.submitTranscript({ platformNoteId: prep.note.platform_note_id, accessUrl: prep.note.canonical_url })).taskId;
   } catch (e) {
-    if (isNotSentError(e)) {
+    if (isUnchargedError(e)) {
       await deps.service((db) => db.query(`update transcript_runs set status = 'failed', fail_code = $2 where id = $1`,
-        [prep.runId, e instanceof LiveCallBlockedError ? 'permission_revoked' : 'unknown']));
+        [prep.runId, e instanceof LiveCallBlockedError ? 'permission_revoked' : e instanceof ProviderHttpError ? 'provider_failed' : 'unknown']));
       return { state: 'failed', errorCode: redactString(e instanceof Error ? e.message : 'blocked').slice(0, 200), sent: false };
     }
     // RF13 submit is not idempotent: if we cannot tell whether it ran, never resend (spec 9.4).

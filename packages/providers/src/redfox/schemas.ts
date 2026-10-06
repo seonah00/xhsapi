@@ -23,3 +23,37 @@ export const Rf14Data = z.object({
     .nullable()
     .optional(),
 });
+
+/**
+ * RF01 search (/story/api/xhs/search/search) — from the user-provided provider doc (2026-10-06).
+ * The doc says the usual wrapper is code/message/data "subject to the actual service" while its
+ * example shows the bare object, so both shapes are accepted and validated strictly.
+ */
+const n = z.number().int().nonnegative().nullable().optional();
+export const Rf01Article = z.object({
+  id: z.string().min(1).max(64),
+  title: z.string().nullable().optional(),
+  desc: z.string().nullable().optional(),
+  authorId: z.string().min(1).max(64).nullable().optional(),
+  authorNickname: z.string().nullable().optional(),
+  authorFans: n,
+  likedCount: n,
+  collectedCount: n,
+  commentsCount: n,
+  sharedCount: n,
+  interactiveCount: n,
+  createTime: z.string().nullable().optional(),
+  shareInfoLink: z.string().nullable().optional(),
+  topicsName: z.string().nullable().optional(),
+});
+export const Rf01Data = z.object({
+  articles: z.array(Rf01Article).nullable().optional(),
+  latestHotArticles: z.array(Rf01Article).nullable().optional(),
+  relatedSearches: z.array(z.object({ keyword: z.string(), articleCount: z.number().nullable().optional() })).nullable().optional(),
+  keyword: z.string().nullable().optional(),
+  pageNum: z.number().int().nullable().optional(),
+  pageSize: z.number().int().nullable().optional(),
+  tips: z.string().nullable().optional(),
+  total: z.number().int().nullable().optional(),
+});
+export type Rf01Data = z.infer<typeof Rf01Data>;

@@ -22,6 +22,7 @@ export type TranscriptView = {
 export async function assertTranscriptAllowed(ctx: Ctx, referenceId: string): Promise<{ noteId: string; platformNoteId: string }> {
   const ref = await getReference(ctx, referenceId);
   if (!ref.note) throw new AppError('VALIDATION_FAILED', '저장한 샤오홍슈 노트 레퍼런스에서만 음성 문안을 추출할 수 있습니다.');
+  if (ref.note.noteType === null) throw new AppError('VALIDATION_FAILED', '영상인지 확인되지 않은 노트입니다(검색 결과에 형식 정보가 없음). 음성 문안을 추출할 수 없습니다.');
   if (ref.note.noteType !== 'video') throw new AppError('VALIDATION_FAILED', '영상 노트가 아닙니다. 이미지 노트는 음성 문안을 추출할 수 없습니다.');
   const busy = await ctx.db.query(
     `select 1 from transcript_runs where reference_id = $1 and status in ('queued', 'submitted', 'processing', 'unknown_outcome')

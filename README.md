@@ -95,7 +95,7 @@ DB 중지: `pg_ctl -D .tmp/pg/data stop` (root면 `runuser -u postgres --` 앞�
 ## 알려진 제한
 
 - `docs/XHS_STUDIO_ACCEPTANCE_TESTS.md`는 아직 저장소에 없습니다. 명세 F01~F15·10~12장 기준으로 대조했고, 문서를 받으면 테스트 매트릭스를 맞춥니다.
-- live 실제 호출 경로는 음성 문안 추출(RF13/RF14)만 연결되어 있습니다. 검색(RF01) 등은 응답 형식 문서를 받거나 승인된 실측으로 형식을 확인한 뒤 연결합니다(ADR 0007).
+- live 실제 호출 경로가 연결된 것은 검색(RF01)과 음성 문안 추출(RF13/RF14)입니다. 둘 다 가짜 RedFox로만 검증했고, 실제 응답 형식·단가·시간대는 첫 실측에서 확인합니다. RF01은 노트 형식(영상/이미지)과 조회수를 주지 않으므로 그 결과로는 음성 문안 추출을 할 수 없고, 저장률도 계산하지 않습니다(ADR 0008).
 - RedFox 문서 사이트(redfox.hk)는 개발 환경에서 접근이 막혀 있어, 공유받은 문서 ID 중 DCZW5V7A, 9UHXOXSF, tool/QPNFJRG1은 내용을 확인하지 못했습니다.
 - 로그인은 데모 로그인입니다. 실제 Supabase Auth 연동은 배포 환경 결정 후 진행합니다(ADR 0002).
 - 파일은 개발 환경에서 로컬 비공개 디렉터리(`.data/assets`, `ASSET_STORAGE_DIR`)에 저장됩니다. 배포 시 Supabase 비공개 Storage로 교체합니다.

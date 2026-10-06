@@ -5,8 +5,10 @@ export type ProviderNote = {
   canonicalUrl: string;
   title: string | null;
   bodyExcerpt: string | null;
-  noteType: 'video' | 'image';
-  author: { ref: string; displayName: string; followers: MetricValue };
+  /** null when the provider does not say (e.g. RF01 search has no type field); never guessed. */
+  noteType: 'video' | 'image' | null;
+  /** ref is null when the provider omits the author id (never invented). */
+  author: { ref: string | null; displayName: string; followers: MetricValue };
   publishedAt: string | null;
   /** Provider-side snapshot time if given; distinct from our fetch time. */
   providerSnapshotAt: string | null;
