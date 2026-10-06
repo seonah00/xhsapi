@@ -12,7 +12,9 @@ import { AuthError, SupabaseAuth, pgConfig } from '@xhs/core';
 import { loadEnv } from '@xhs/domain';
 import { parseArgs } from './price.ts';
 
-export async function bootstrapOrg(opts: { orgName: string; adminEmail: string }, deps: { db: pg.ClientBase; auth: SupabaseAuth; baseUrl: string }) {
+export async function bootstrapOrg(opts: { orgName: string; adminEmail: string; ifEmpty?: boolean }, deps: { db: pg.ClientBase; auth: SupabaseAuth; baseUrl: string }) {
+  // First-run mode (web startup): do nothing once any organization exists.
+  if (opts.ifEmpty && (await deps.db.query(`select 1 from organizations limit 1`)).rowCount) return null;
   const name = opts.orgName.trim();
   const email = opts.adminEmail.trim().toLowerCase();
   if (name.length < 2 || name.length > 80) throw new Error('--org-name: 2~80자');
@@ -48,9 +50,10 @@ async function main() {
   const db = new pg.Client(pgConfig());
   await db.connect();
   try {
-    const r = await bootstrapOrg({ orgName: opts['org-name'] ?? '', adminEmail: opts['admin-email'] ?? '' }, {
+    const r = await bootstrapOrg({ orgName: opts['org-name'] ?? '', adminEmail: opts['admin-email'] ?? '', ifEmpty: opts['if-empty'] === 'true' }, {
       db, auth: new SupabaseAuth(env.NEXT_PUBLIC_SUPABASE_URL!, env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, env.SUPABASE_SERVICE_ROLE_KEY!), baseUrl: env.APP_BASE_URL!,
     });
+    if (!r) { console.info('첫 관리자 설정: 이미 조직이 있어 건너뜁니다(BOOTSTRAP_* 변수는 지워도 됩니다).'); return; }
     console.info(`조직 생성: ${r.orgId}\n관리자: ${opts['admin-email']}\n비밀번호 설정 링크(1회용, 본인에게만 전달):\n${r.link}`);
   } finally {
     await db.end();

@@ -34,6 +34,12 @@ if (mode === 'worker') {
       await new Promise(() => {});
     }
   }
+  // First-run admin (optional): BOOTSTRAP_ORG_NAME + BOOTSTRAP_ADMIN_EMAIL create the first org/admin only
+  // while no organization exists, and print a one-time password link to the deploy log. Never blocks startup.
+  if (process.env.BOOTSTRAP_ORG_NAME && process.env.BOOTSTRAP_ADMIN_EMAIL) {
+    spawnSync(tsx, ['scripts/bootstrap-org.ts', '--org-name', process.env.BOOTSTRAP_ORG_NAME, '--admin-email', process.env.BOOTSTRAP_ADMIN_EMAIL, '--if-empty', 'true'],
+      { cwd: root, stdio: 'inherit', env: process.env });
+  }
   run(join(root, 'apps', 'web', 'node_modules', '.bin', 'next'), ['start', '-p', process.env.PORT ?? '3000'], join(root, 'apps', 'web'));
 } else {
   console.error(`unknown mode: ${mode} (web | worker)`);

@@ -72,11 +72,13 @@ describe('bootstrap and admin password links', () => {
   it('creates the first org and admin with a one-time link; refuses a duplicate org name', async () => {
     const c = await pool.connect();
     try {
-      const r = await bootstrapOrg({ orgName: `부트스트랩 ${Date.now()}`, adminEmail: `ops-${Date.now()}@example.invalid` }, { db: c, auth, baseUrl: 'https://studio.example.com/' });
+      const r = (await bootstrapOrg({ orgName: `부트스트랩 ${Date.now()}`, adminEmail: `ops-${Date.now()}@example.invalid` }, { db: c, auth, baseUrl: 'https://studio.example.com/' }))!;
       expect(r.link).toMatch(/^https:\/\/studio\.example\.com\/auth\/set-password\?token=[0-9a-f]+$/);
       expect((await c.query(`select role from memberships where org_id = $1 and user_id = $2`, [r.orgId, r.userId])).rows[0].role).toBe('org_admin');
       const name = (await c.query(`select name from organizations where id = $1`, [r.orgId])).rows[0].name;
       await expect(bootstrapOrg({ orgName: name, adminEmail: 'x@example.invalid' }, { db: c, auth, baseUrl: 'https://s.example.com' })).rejects.toThrow('이미');
+      // First-run mode never creates anything once an organization exists.
+      expect(await bootstrapOrg({ orgName: '두 번째', adminEmail: 'y@example.invalid', ifEmpty: true }, { db: c, auth, baseUrl: 'https://s.example.com' })).toBeNull();
     } finally { c.release(); }
   });
 
