@@ -19,7 +19,9 @@
     "lint": "eslint . --max-warnings 0",
     "price": "tsx scripts/price.ts",
     "bootstrap:org": "tsx scripts/bootstrap-org.ts",
-    "verify:db": "tsx scripts/verify-db.ts"
+    "verify:db": "tsx scripts/verify-db.ts",
+    "db:migrate": "tsx scripts/db-migrate.ts",
+    "db:sql": "tsx scripts/db-migrate.ts --write-sql"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

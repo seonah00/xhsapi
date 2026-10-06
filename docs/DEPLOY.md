@@ -24,20 +24,23 @@
    - 확인 메일 발송이 필요 없습니다. 초대 링크·관리자 링크로 대신합니다.
 3. **Data API(PostgREST) 노출 제한**: 이 앱은 Data API를 쓰지 않고 서버가 DB에 직접 접속합니다. **Settings → Data API에서 `public` 스키마를 노출 목록에서 빼거나 Data API를 끕니다.** 모든 테이블에 RLS가 있지만, 브라우저나 외부에서 anon 키로 테이블에 직접 접근하는 경로 자체를 없애는 것이 안전합니다.
 4. **Storage**: 비공개(Public 꺼짐) 버킷 `private-assets`를 만듭니다. 이름을 바꾸면 `SUPABASE_STORAGE_BUCKET`도 같이 바꿉니다.
-5. **마이그레이션 적용**(운영자 PC에서, Supabase CLI):
-   ```bash
-   supabase link --project-ref <프로젝트 ref>
-   supabase db push          # supabase/migrations/* 를 순서대로 적용 (seed.sql은 적용하지 않음)
-   ```
+5. **스키마 적용(처음 한 번, CLI 불필요)**
+   - GitHub에서 `deploy/supabase/initial-schema.sql` 파일을 열고 **Raw** 버튼 → 전체 선택·복사합니다.
+   - Supabase 대시보드 → **SQL Editor** → 새 쿼리에 붙여 넣고 **Run**. 마이그레이션 13개와 적용 기록이 한 번에 들어갑니다(데모 데이터 없음).
+   - 두 번 실행하면 "이미 스키마가 적용된 DB입니다" 오류로 멈춥니다(정상).
+   - 주의: SQL Editor에는 **SQL만** 넣습니다. `supabase …`, `pnpm …`으로 시작하는 줄은 PC 터미널에서 쓰는 명령입니다.
+   - 이후 업데이트(새 마이그레이션)는 PC에서 `DATABASE_URL=<연결 문자열> pnpm db:migrate`로 남은 것만 적용합니다. Supabase CLI(`supabase db push`)는 쓰지 마세요(적용 기록 방식이 달라 중복 적용됩니다).
 6. **DB 연결 문자열**: Railway는 IPv4를 쓰므로 Supabase의 **Session pooler(포트 5432)** 주소를 씁니다. 트랜잭션 단위로 `set local`을 쓰므로 Transaction pooler(6543)도 동작할 수 있지만, 검증 전까지는 Session pooler를 권장합니다.
    - TLS: Supabase에서 받은 CA 인증서를 `deploy/certs/supabase-ca.crt`로 넣고 `?sslmode=verify-full&sslrootcert=/app/deploy/certs/supabase-ca.crt`를 붙이는 것을 권장합니다(인증서는 공개 파일).
-7. **점검**: `DATABASE_URL=<연결 문자열> pnpm verify:db` → 모두 `OK`여야 합니다. 특히 "authenticated로 전환 가능", "auth.uid()가 세션 claim을 읽음", "모든 테이블에 RLS", "데모 계정 없음"을 확인합니다.
+7. **점검**: SQL Editor에서 `deploy/supabase/verify.sql` 내용을 실행해 7개 항목이 모두 `ok = true`인지 봅니다. PC에서 실행할 수 있으면 `DATABASE_URL=<연결 문자열> pnpm verify:db`가 역할 전환·`auth.uid()`까지 더 자세히 확인합니다. 모두 `OK`여야 합니다. 특히 "authenticated로 전환 가능", "auth.uid()가 세션 claim을 읽음", "모든 테이블에 RLS", "데모 계정 없음"을 확인합니다.
 
 ## 2. Railway
 
-1. 프로젝트를 만들고 GitHub 저장소를 연결합니다. 서비스 두 개를 같은 저장소·브랜치로 만듭니다.
-   - `web`: Settings → Config-as-code 경로 `deploy/railway/web.json`. Networking에서 도메인을 생성합니다(나중에 자체 도메인으로 바꿀 수 있음).
-   - `worker`: 설정 경로 `deploy/railway/worker.json`. 도메인은 만들지 않습니다(외부 접속 불필요).
+1. 프로젝트를 만들고 GitHub 저장소(배포할 브랜치)로 서비스 두 개를 만듭니다.
+   - **web**: 저장소 최상위의 `railway.json`을 Railway가 자동으로 읽어 `deploy/Dockerfile.web`으로 빌드합니다(추가 설정 불필요). 빌드 로그 첫 부분에 `Railpack`이 아니라 **Dockerfile** 빌드가 보여야 합니다. Settings → Networking에서 도메인을 생성합니다.
+   - **worker**: Settings → **Config-as-code(Railway Config File)** 경로를 `/deploy/railway/worker.json`으로 지정합니다. 이 항목이 없으면 Variables에 `RAILWAY_DOCKERFILE_PATH=deploy/Dockerfile.worker`를 넣습니다. 도메인은 만들지 않습니다.
+   - 빌드가 `Railpack … No start command detected`로 실패하면 위 설정이 적용되지 않은 것입니다. web은 `RAILWAY_DOCKERFILE_PATH=deploy/Dockerfile.web` 변수로도 지정할 수 있습니다.
+   - 변수(아래 2번)를 넣기 전 첫 빌드는 실패하거나 시작 후 바로 꺼질 수 있습니다. 변수를 넣고 다시 배포하면 됩니다.
 2. **변수**(Railway Variables, 공통은 Shared Variables로):
 
 | 변수 | web | worker | 값 |
