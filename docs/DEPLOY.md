@@ -35,11 +35,10 @@
 
 ## 2. Railway
 
-1. 프로젝트를 만들고 GitHub 저장소(배포할 브랜치)로 서비스 두 개를 만듭니다.
-   - **web**: 저장소 최상위의 `railway.json`을 Railway가 자동으로 읽어 `deploy/Dockerfile.web`으로 빌드합니다(추가 설정 불필요). 빌드 로그 첫 부분에 `Railpack`이 아니라 **Dockerfile** 빌드가 보여야 합니다. Settings → Networking에서 도메인을 생성합니다.
-   - **worker**: Settings → **Config-as-code(Railway Config File)** 경로를 `/deploy/railway/worker.json`으로 지정합니다. 이 항목이 없으면 Variables에 `RAILWAY_DOCKERFILE_PATH=deploy/Dockerfile.worker`를 넣습니다. 도메인은 만들지 않습니다.
-   - 빌드가 `Railpack … No start command detected`로 실패하면 위 설정이 적용되지 않은 것입니다. web은 `RAILWAY_DOCKERFILE_PATH=deploy/Dockerfile.web` 변수로도 지정할 수 있습니다.
-   - 변수(아래 2번)를 넣기 전 첫 빌드는 실패하거나 시작 후 바로 꺼질 수 있습니다. 변수를 넣고 다시 배포하면 됩니다.
+1. 프로젝트를 만들고 GitHub 저장소(배포할 브랜치)로 서비스 두 개를 만듭니다. **빌더가 Dockerfile이든 Railway 자동 빌더(Railpack)든 똑같이 동작**하도록 시작 스크립트(`scripts/start.mjs`)를 하나로 통일했습니다.
+   - **web**: 시작할 때 아직 적용되지 않은 DB 마이그레이션을 먼저 적용합니다(동시 실행 잠금 포함). 실패하면 웹을 띄우지 않습니다. 그다음 Railway가 지정한 `PORT`로 서버를 엽니다. 배포 로그에 `완료: 13개 적용`(처음) 또는 `적용할 마이그레이션이 없습니다(최신)`가 보이면 정상입니다. Settings → Networking에서 도메인을 생성합니다.
+   - **worker**: Variables에 `XHS_SERVICE=worker`를 넣습니다. Custom Start Command를 쓰고 있다면 `pnpm start:worker`로 바꿉니다. 도메인은 만들지 않습니다.
+   - **Custom Start Command / Build Command는 비워 두는 것을 권장합니다.** 비워 두면 저장소 설정(`railway.json` → Dockerfile, 또는 Railpack이면 루트 `build`/`start` 스크립트)을 그대로 씁니다. web에 `cd apps/web && pnpm start` 같은 명령이 들어 있어도 동작은 하지만, 지우는 편이 단순합니다.
 2. **변수**(Railway Variables, 공통은 Shared Variables로):
 
 | 변수 | web | worker | 값 |

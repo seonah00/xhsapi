@@ -21,7 +21,11 @@
     "bootstrap:org": "tsx scripts/bootstrap-org.ts",
     "verify:db": "tsx scripts/verify-db.ts",
     "db:migrate": "tsx scripts/db-migrate.ts",
-    "db:sql": "tsx scripts/db-migrate.ts --write-sql"
+    "db:sql": "tsx scripts/db-migrate.ts --write-sql",
+    "build": "pnpm --filter @xhs/web build",
+    "start": "node scripts/start.mjs",
+    "start:web": "node scripts/start.mjs web",
+    "start:worker": "node scripts/start.mjs worker"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

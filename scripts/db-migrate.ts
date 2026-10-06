@@ -29,6 +29,16 @@ create table if not exists app.applied_migrations (version text primary key, nam
 revoke all on app.applied_migrations from public;`;
 
 export async function migrate(db: pg.ClientBase, log: (s: string) => void = () => {}): Promise<string[]> {
+  // Several instances may start at once: only one applies migrations, the others wait and then see nothing pending.
+  await db.query(`select pg_advisory_lock(hashtext('xhs_studio_migrations'))`);
+  try {
+    return await migrateLocked(db, log);
+  } finally {
+    await db.query(`select pg_advisory_unlock(hashtext('xhs_studio_migrations'))`).catch(() => undefined);
+  }
+}
+
+async function migrateLocked(db: pg.ClientBase, log: (s: string) => void): Promise<string[]> {
   await db.query(TRACKING);
   const done = new Set((await db.query<{ version: string }>(`select version from app.applied_migrations`)).rows.map((r) => r.version));
   const applied: string[] = [];
