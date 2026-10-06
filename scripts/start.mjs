@@ -3,7 +3,7 @@
  * Single production entry point, whatever builds the image (Dockerfile or Railway Railpack):
  *   node scripts/start.mjs web     → apply pending DB migrations, then `next start` on $PORT
  *   node scripts/start.mjs worker  → job worker
- * XHS_SERVICE (web | worker) overrides the argument, so one image/config serves both Railway services:
+ * XHS_SERVICE (web | worker) overrides the argument (fallback: a Railway service whose name contains "worker"), so one image/config serves both Railway services:
  * the web image's CMD says `web`, and the worker service only sets XHS_SERVICE=worker.
  * In worker mode with $PORT set (Railway always sets it), a tiny listener answers GET /api/health so a
  * shared healthcheck config passes; it serves nothing else and exposes no data.
@@ -15,7 +15,9 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const mode = process.env.XHS_SERVICE || process.argv[2] || 'web';
+// Railway sets RAILWAY_SERVICE_NAME; a service named like "...worker" runs the worker even if XHS_SERVICE was not copied over.
+const railwayWorker = /worker/i.test(process.env.RAILWAY_SERVICE_NAME ?? '') ? 'worker' : '';
+const mode = process.env.XHS_SERVICE || railwayWorker || process.argv[2] || 'web';
 const tsx = join(root, 'node_modules', '.bin', 'tsx');
 
 function run(cmd, args, cwd) {
