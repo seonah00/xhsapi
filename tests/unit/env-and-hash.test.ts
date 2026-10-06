@@ -99,3 +99,17 @@ describe('bundled Supabase CA', () => {
     expect(pgConfig('postgresql://u:p@x.pooler.supabase.com/postgres', undefined, () => undefined).ssl).toBeUndefined();
   });
 });
+
+describe('DB connection hints', () => {
+  it('explains auth, pooler user and breaker failures without echoing secrets', async () => {
+    const { connectionHint } = await import('../../scripts/db-migrate.ts');
+    const auth = Object.assign(new Error('password authentication failed for user "postgres"'), { code: '28P01' });
+    const h = connectionHint(auth, 'postgresql://postgres:Secret123@aws-0-ap.pooler.supabase.com:5432/postgres')!;
+    expect(h).toMatch(/비밀번호 인증 실패/);
+    expect(h).toMatch(/postgres\.<프로젝트ref>/);
+    expect(h).not.toContain('Secret123');
+    expect(connectionHint(auth, 'postgresql://postgres.abcd:x@aws-0-ap.pooler.supabase.com:5432/postgres')).not.toMatch(/프로젝트ref> 형태여야/);
+    expect(connectionHint(new Error('(ECIRCUITBREAKER) too many authentication failures'))).toMatch(/잠시 연결을 막았습니다/);
+    expect(connectionHint(new Error('something else'))).toBeNull();
+  });
+});
