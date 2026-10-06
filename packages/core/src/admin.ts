@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { AppError, sha256Hex, type OrgRole } from '@xhs/domain';
 import { z } from 'zod';
-import { notFound, pgCode, type Ctx } from './context.ts';
+import { notFound, pgCode, type Ctx, type Db } from './context.ts';
 
 /** Admin services: org_admin only. None of these read student drafts (spec 1.2, F12). */
 export function requireAdmin(ctx: Ctx): void {
@@ -223,4 +223,35 @@ export async function adminOverview(ctx: Ctx): Promise<AdminOverview> {
     [ctx.orgId],
   )).rows[0]!;
   return { ...r, recent: (await listAudit(ctx, { limit: 8 })).items };
+}
+
+// ---------------------------------------------------------------- password set links (Supabase Auth)
+
+/**
+ * An admin may issue a one-time password link only for a member whose active memberships
+ * are all in this org: otherwise one org's admin could take over an account used elsewhere.
+ * Returns the member's email; the caller creates the link with service rights.
+ */
+export async function resettableMemberEmail(ctx: Ctx, userId: string): Promise<string> {
+  requireAdmin(ctx);
+  const uid = z.string().uuid().parse(userId);
+  if (uid === ctx.uid) throw new AppError('VALIDATION_FAILED', '본인 비밀번호는 로그인 화면이 아니라 다른 관리자에게 링크를 요청하세요.');
+  const r = (await ctx.db.query(`select d.email, d.status from app.member_directory($1) d where d.user_id = $2`, [ctx.orgId, uid])).rows[0];
+  if (!r || r.status === 'left') notFound();
+  const elsewhere = await ctx.db.query(`select app.member_in_other_org($1, $2) as x`, [ctx.orgId, uid]);
+  if (elsewhere.rows[0]?.x) throw new AppError('CONFLICT', '다른 조직에도 속한 사용자라 여기서 비밀번호 링크를 만들 수 없습니다. 운영자에게 요청하세요.');
+  await ctx.db.query(`select app.log_password_link($1, $2)`, [ctx.orgId, uid]);
+  return r.email as string;
+}
+
+export type InvitationPreview = { orgName: string; role: string; email: string | null; valid: boolean };
+
+/** Service-side lookup by plaintext token (compared by hash) for the sign-up page; reveals no ids. */
+export async function invitationPreview(db: Db, token: string): Promise<InvitationPreview | null> {
+  if (!/^[A-Za-z0-9_-]{20,200}$/.test(token)) return null;
+  const r = (await db.query(
+    `select o.name, i.role, i.email, (i.used_at is null and i.revoked_at is null and i.expires_at > now()) as valid
+     from invitations i join organizations o on o.id = i.org_id where i.token_hash = encode(sha256(convert_to($1, 'UTF8')), 'hex')`, [token],
+  )).rows[0];
+  return r ? { orgName: r.name, role: r.role, email: r.email, valid: r.valid } : null;
 }

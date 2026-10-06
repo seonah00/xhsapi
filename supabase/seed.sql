@@ -40,23 +40,7 @@ insert into public.cohort_members (org_id, cohort_id, user_id, role) values
   ('00000000-0000-4000-b000-000000000002', '00000000-0000-4000-c000-000000000003', '00000000-0000-4000-a000-000000000006', 'student')
 on conflict do nothing;
 
--- Global taxonomy (spec F03). Provider category mapping is a starting point, not 1:1.
-insert into public.taxonomy_terms (org_id, kind, slug, label_ko, label_zh, mapping_json) values
-  (null, 'topic', 'beauty', '뷰티', '美妆', '{"redfox_rank_category": ["化妆美容", "个人护理"]}'),
-  (null, 'topic', 'daily-life', '일상', '日常', '{"redfox_rank_category": ["日常生活"]}'),
-  (null, 'topic', 'parenting', '육아', '育儿', '{"redfox_rank_category": ["亲子育儿"]}'),
-  (null, 'topic', 'food-places', '맛집·카페', '探店', '{"redfox_rank_category": ["美味佳肴"], "note": "美味佳肴 includes cooking; classify restaurants separately"}'),
-  (null, 'topic', 'travel-outing', '여행·외출', '出行', '{"redfox_rank_category": ["旅行度假"]}'),
-  (null, 'topic', 'fashion', '패션', '穿搭', '{"redfox_rank_category": ["时尚穿搭", "潮流鞋包"]}'),
-  (null, 'format', 'vlog', '브이로그', 'vlog', '{}'),
-  (null, 'format', 'review', '리뷰', '测评', '{}'),
-  (null, 'format', 'comparison', '비교', '对比', '{}'),
-  (null, 'format', 'routine', '루틴', '日常流程', '{}'),
-  (null, 'format', 'how-to', '방법 소개', '教程', '{}'),
-  (null, 'format', 'information-list', '정보 정리', '合集', '{}'),
-  (null, 'format', 'story', '이야기', '故事', '{}'),
-  (null, 'format', 'photo-diary', '사진 일기', '图文日记', '{}')
-on conflict do nothing;
+-- Global taxonomy terms come from migration 20261005000013 (needed in production too).
 
 -- Independently written TEST editorial rules (not copied from any third-party list).
 insert into public.check_rules (org_id, rule_key, source_class, scope, match_config, finding_type, severity, rationale, status, reviewed_at, review_due_at) values

@@ -21,6 +21,17 @@ trap cleanup EXIT
 bash scripts/with-test-db.sh --keep >/dev/null
 pnpm -s tsx scripts/seed-demo.ts
 mkdir -p "$LOG"
+if [[ "${E2E_AUTH:-}" == "supabase" ]]; then
+  # Real-login mode against a local fake Supabase (Auth + Storage); no external service is contacted.
+  export FAKE_SUPABASE_PORT=54331 AUTH_PROVIDER=supabase STORAGE_BACKEND=supabase
+  export NEXT_PUBLIC_SUPABASE_URL="http://127.0.0.1:$FAKE_SUPABASE_PORT" NEXT_PUBLIC_SUPABASE_ANON_KEY=fake-anon-key-for-tests-only SUPABASE_SERVICE_ROLE_KEY=fake-service-role-key-for-tests-only
+  export APP_BASE_URL="http://localhost:$WEB_PORT" SESSION_SECRET="$(head -c 48 /dev/urandom | base64 | tr -d '\n')"
+  setsid pnpm -s tsx tests/support/fake-supabase.ts >"$LOG/fake-supabase.log" 2>&1 & PIDS+=($!)
+  for _ in $(seq 1 30); do curl -s -o /dev/null "$NEXT_PUBLIC_SUPABASE_URL/" && break; sleep 0.5; done
+  export E2E_ADMIN_EMAIL=ops-e2e@example.invalid
+  E2E_ADMIN_LINK="$(pnpm -s bootstrap:org --org-name "E2E 조직" --admin-email "$E2E_ADMIN_EMAIL" | grep -o 'http[^ ]*set-password[^ ]*')"
+  export E2E_ADMIN_LINK
+fi
 if curl -sf -o /dev/null "http://localhost:$WEB_PORT/login"; then echo "port $WEB_PORT is already in use" >&2; exit 1; fi
 WORKER_POLL_MS=300 setsid pnpm -s tsx apps/worker/src/index.ts >"$LOG/worker.log" 2>&1 & PIDS+=($!)
 # Default: production server (strict CSP, no dev tooling that phones home). E2E_DEV=1 uses next dev.

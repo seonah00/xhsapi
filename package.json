@@ -17,7 +17,9 @@
     "test:e2e": "bash scripts/e2e.sh",
     "perf": "bash scripts/with-test-db.sh --keep >/dev/null && DATABASE_URL=\"postgresql://postgres@localhost/xhs_test?host=$PWD/.tmp/pg&port=54329\" tsx scripts/seed-demo.ts && DATABASE_URL=\"postgresql://postgres@localhost/xhs_test?host=$PWD/.tmp/pg&port=54329\" tsx scripts/perf.ts",
     "lint": "eslint . --max-warnings 0",
-    "price": "tsx scripts/price.ts"
+    "price": "tsx scripts/price.ts",
+    "bootstrap:org": "tsx scripts/bootstrap-org.ts",
+    "verify:db": "tsx scripts/verify-db.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

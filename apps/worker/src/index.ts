@@ -4,7 +4,7 @@ import { createXhsProvider, MockXhsProvider, RedfoxXhsProvider } from '@xhs/prov
 import { resolve } from 'node:path';
 import { hostsFromUrl, installMockNetworkGuard } from '@xhs/security/network-guard';
 import { redactString } from '@xhs/security';
-import { claimableJobIds, LocalPrivateStorage, purgeExpired, runJob, type Runner } from '@xhs/core';
+import { claimableJobIds, LocalPrivateStorage, purgeExpired, runJob, SupabaseStorage, type Runner } from '@xhs/core';
 
 /**
  * Worker: polls `app_jobs` (the domain source of truth) and claims rows with a
@@ -54,7 +54,7 @@ async function main() {
   // Mock: only loopback and the database (spec 12.2). Live: additionally the provider host, nothing else.
   const live = env.APP_DATA_MODE === 'live';
   installMockNetworkGuard({
-    allowHosts: [...hostsFromUrl(env.DATABASE_URL), ...(live ? ['redfox.hk'] : [])],
+    allowHosts: [...hostsFromUrl(env.DATABASE_URL), ...hostsFromUrl(env.STORAGE_BACKEND === 'supabase' ? env.NEXT_PUBLIC_SUPABASE_URL : undefined), ...(live ? ['redfox.hk'] : [])],
     onBlock: (c) => console.error(`[network-guard] blocked outbound connection to ${c.host}:${c.port ?? '?'} (${env.APP_DATA_MODE} mode)`),
   });
   console.info(`${env.APP_DATA_MODE} mode: outbound network guard active (worker)`);
@@ -63,7 +63,9 @@ async function main() {
   const workerId = `worker-${process.pid}`;
   const intervalMs = Number(process.env.WORKER_POLL_MS ?? 1000);
   console.info('worker ready', { workerId, ...capabilities });
-  const storage = new LocalPrivateStorage(process.env.ASSET_STORAGE_DIR ?? resolve(process.cwd(), '.data/assets'));
+  const storage = env.STORAGE_BACKEND === 'supabase'
+    ? new SupabaseStorage(env.NEXT_PUBLIC_SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, env.SUPABASE_STORAGE_BUCKET)
+    : new LocalPrivateStorage(process.env.ASSET_STORAGE_DIR ?? resolve(process.cwd(), '.data/assets'));
   let lastPurge = 0;
   let stopping = false;
   process.on('SIGTERM', () => { stopping = true; });

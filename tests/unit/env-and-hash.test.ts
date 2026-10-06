@@ -51,3 +51,17 @@ describe('state machines', () => {
     expect(canTransitionJob('succeeded', 'running')).toBe(false);
   });
 });
+
+describe('auth/storage environment rules', () => {
+  it('live needs Supabase login; Supabase settings must be complete and https', async () => {
+    const { loadEnv } = await import('@xhs/domain');
+    expect(() => loadEnv({ APP_DATA_MODE: 'live' })).toThrow(/AUTH_PROVIDER=supabase/);
+    expect(() => loadEnv({ AUTH_PROVIDER: 'supabase' })).toThrow(/missing/);
+    const ok = { AUTH_PROVIDER: 'supabase', NEXT_PUBLIC_SUPABASE_URL: 'https://abc.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'a', SUPABASE_SERVICE_ROLE_KEY: 's', APP_BASE_URL: 'https://studio.example.com' };
+    expect(loadEnv(ok).AUTH_PROVIDER).toBe('supabase');
+    expect(() => loadEnv({ ...ok, NEXT_PUBLIC_SUPABASE_URL: 'http://abc.supabase.co' })).toThrow(/https/);
+    expect(() => loadEnv({ ...ok, NEXT_PUBLIC_SUPABASE_URL: 'https://user:pw@abc.supabase.co' })).toThrow(/https/);
+    expect(loadEnv({ ...ok, NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54331', APP_BASE_URL: 'http://localhost:3100' }).APP_BASE_URL).toBe('http://localhost:3100');
+    expect(() => loadEnv({ STORAGE_BACKEND: 'supabase', NEXT_PUBLIC_SUPABASE_URL: 'https://abc.supabase.co' })).toThrow(/SUPABASE_SERVICE_ROLE_KEY/);
+  });
+});

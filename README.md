@@ -4,6 +4,7 @@
 
 - 명세: [`docs/XHS_STUDIO_DEVELOPMENT_SPEC.md`](docs/XHS_STUDIO_DEVELOPMENT_SPEC.md) (v1.1)
 - 결정 기록: [`docs/adr/`](docs/adr/)
+- 배포(Railway + Supabase): [`docs/DEPLOY.md`](docs/DEPLOY.md)
 - **P0 완료 보고: [`docs/P0_REPORT.md`](docs/P0_REPORT.md)** · 운영·복구: [`docs/OPERATIONS.md`](docs/OPERATIONS.md)
 - 기본은 **mock 모드**입니다. 외부 데이터 API·AI·메일·결제 호출은 하지 않습니다. API 키가 있어도 live로 바뀌지 않습니다.
 
@@ -19,6 +20,7 @@
 | M4 전체 P0 검수 | 완료: F14 참고 계정, 외부 자료 새로 조회(mock 견적·작업), 조직 분류 관리, 오류·권리 신고·신고함, mock 외부 연결 런타임 차단, 프로덕션 빌드 E2E, 접근성(axe) 검사, 보안 점검, 성능 측정(노트 1만·동시 20명) |
 | 출시 준비 | 완료: ESLint, nonce 기반 CSP(스크립트 unsafe-inline 제거), 자발적 조직 탈퇴, live 전환 점검표(외부 호출 없음) |
 | M5 준비: live 실행 경로 | 완료(실호출 없음): 운영자 단가 등록(`pnpm price`), live 견적·학생 동의·예산 예약, 워커 live 모드(DB·redfox.hk만 허용), 음성 문안 추출(RF13/RF14) 실제 경로, 보내기 전 차단 시 예약 반환 — 가짜 RedFox로 검증 |
+| 배포 준비 | 완료(실제 배포 전): Supabase 이메일·비밀번호 로그인(초대 전용, 메일 없이 1회용 링크), Supabase 비공개 저장소, 첫 조직 생성·DB 점검 스크립트, Dockerfile·Railway 설정, 헬스체크·HSTS — 로컬 가짜 Supabase로 E2E 검증 |
 | M5 실데이터 검증 | **대기**: 공급자 허가·실제 단가·예산·테스트 범위·서버 secret 승인 필요. 절차는 `docs/OPERATIONS.md` 8장 |
 
 ## 구조
@@ -52,6 +54,8 @@ pnpm lint          # ESLint (경고 0)
 pnpm test:all      # 타입·린트·단위·DB
 pnpm test:e2e      # 새 DB+시드+워커+프로덕션 빌드 웹(3100)으로 Playwright 실행 후 정리(E2E_DEV=1이면 next dev)
                    # 외부 연결 시도가 로그에 하나라도 있으면 실패. 화면 캡처는 docs/screenshots/
+pnpm price | bootstrap:org | verify:db   # 운영 도구: 단가 등록, 첫 조직·관리자, 배포 후 DB 점검
+E2E_AUTH=supabase bash scripts/e2e.sh    # 실제 로그인 모드 E2E(로컬 가짜 Supabase)
 pnpm perf          # 임시 DB에 합성 노트 ~1만 건으로 조회 성능 측정(동시 20명 포함)
 ```
 

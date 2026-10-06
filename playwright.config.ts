@@ -18,8 +18,11 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     launchOptions: executablePath ? { executablePath } : {},
   },
-  projects: [
-    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } }, grepInvert: /@mobile-only/ },
-    { name: 'mobile', use: { ...devices['Pixel 7'], viewport: { width: 360, height: 780 } }, grep: /@mobile/ },
-  ],
+  // E2E_AUTH=supabase runs only the real-login spec (@supabase); the default run uses demo login and skips it.
+  projects: process.env.E2E_AUTH === 'supabase'
+    ? [{ name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } }, grep: /@supabase/ }]
+    : [
+      { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } }, grepInvert: /@mobile-only|@supabase/ },
+      { name: 'mobile', use: { ...devices['Pixel 7'], viewport: { width: 360, height: 780 } }, grep: /@mobile/ },
+    ],
 });

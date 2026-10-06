@@ -17,6 +17,16 @@ export const EnvSchema = z.object({
   REDFOX_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   LLM_MODEL: z.string().optional(),
+  /** demo = seeded demo accounts (mock data mode only); supabase = email+password via Supabase Auth. */
+  AUTH_PROVIDER: z.enum(['demo', 'supabase']).default('demo'),
+  /** local = private directory (development); supabase = private Supabase Storage bucket. */
+  STORAGE_BACKEND: z.enum(['local', 'supabase']).default('local'),
+  SUPABASE_STORAGE_BUCKET: z.string().regex(/^[a-z0-9][a-z0-9-]{2,62}$/).default('private-assets'),
+  NEXT_PUBLIC_SUPABASE_URL: z.string().optional(),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  /** Public origin used in one-time links (invitations, password set links), e.g. https://studio.example.com */
+  APP_BASE_URL: z.string().optional(),
 });
 export type AppEnv = z.infer<typeof EnvSchema>;
 
@@ -44,6 +54,18 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
     const on = LIVE_ONLY_FLAGS.filter((k) => env[k]);
     if (on.length > 0) throw new EnvConfigError(`Live-only flags enabled in mock mode: ${on.join(', ')}`);
   }
+  if (env.APP_DATA_MODE === 'live' && env.AUTH_PROVIDER !== 'supabase') {
+    throw new EnvConfigError('live mode requires AUTH_PROVIDER=supabase (demo login is mock-only)');
+  }
+  const needsSupabase = env.AUTH_PROVIDER === 'supabase' || env.STORAGE_BACKEND === 'supabase';
+  if (needsSupabase) {
+    const required: ('NEXT_PUBLIC_SUPABASE_URL' | 'SUPABASE_SERVICE_ROLE_KEY' | 'NEXT_PUBLIC_SUPABASE_ANON_KEY' | 'APP_BASE_URL')[] = ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
+    if (env.AUTH_PROVIDER === 'supabase') required.push('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'APP_BASE_URL');
+    const missing = required.filter((k) => !env[k]);
+    if (missing.length) throw new EnvConfigError(`Supabase settings missing: ${missing.join(', ')}`);
+    if (!isAllowedServiceUrl(env.NEXT_PUBLIC_SUPABASE_URL!)) throw new EnvConfigError('NEXT_PUBLIC_SUPABASE_URL must be https (http only for localhost)');
+    if (env.APP_BASE_URL && !isAllowedServiceUrl(env.APP_BASE_URL)) throw new EnvConfigError('APP_BASE_URL must be https (http only for localhost)');
+  }
   if (env.PUBLIC_SIGNUP_ENABLED) throw new EnvConfigError('PUBLIC_SIGNUP_ENABLED is not supported in P0');
   if (env.OUTBOUND_EMAIL_ENABLED) throw new EnvConfigError('OUTBOUND_EMAIL_ENABLED requires separate approval (not in P0)');
   return env;
@@ -60,4 +82,16 @@ export function publicCapabilities(env: AppEnv) {
     ocr: env.OCR_ENABLED,
     autoRefresh: env.AUTO_REFRESH_ENABLED,
   } as const;
+}
+
+/** https everywhere; plain http only for loopback (local tests). No path/query/credentials. */
+export function isAllowedServiceUrl(raw: string): boolean {
+  try {
+    const u = new URL(raw);
+    if (u.username || u.password || u.search || u.hash || (u.pathname !== '/' && u.pathname !== '')) return false;
+    if (u.protocol === 'https:') return true;
+    return u.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(u.hostname);
+  } catch {
+    return false;
+  }
 }

@@ -1,3 +1,4 @@
+import { LIVE_AUTH_BASE } from '../support/env.ts';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { loadEnv } from '@xhs/domain';
@@ -8,7 +9,7 @@ import {
 
 /** RF01 contract from the provider doc (2026-10-06). Payloads are synthetic in the documented shape. */
 const allow = (): Omit<LiveGateContext, 'endpoint'> => ({
-  env: loadEnv({ APP_DATA_MODE: 'live', LIVE_PROVIDER_CALLS_ENABLED: 'true' }),
+  env: loadEnv({ ...LIVE_AUTH_BASE, APP_DATA_MODE: 'live', LIVE_PROVIDER_CALLS_ENABLED: 'true' }),
   orgLiveEnabled: true, consentRecorded: true, budgetReserved: true, userApproved: true, purposes: ['fetch', 'metadata_display'],
   permission: { id: 'p', status: 'approved', expiresAt: null, allowedEndpoints: ['RF01'], allows: { fetch: true, metadata_display: true, excerpt_display: true, media_display: false, ai_processing: false, cache: false } },
 });

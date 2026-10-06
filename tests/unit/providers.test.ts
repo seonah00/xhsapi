@@ -1,3 +1,4 @@
+import { LIVE_AUTH_BASE } from '../support/env.ts';
 import http from 'node:http';
 import https from 'node:https';
 import net from 'node:net';
@@ -108,7 +109,7 @@ describe('live gate (spec 6.3)', () => {
     id: 'perm-1', status: 'approved', expiresAt: new Date('2027-01-01'), allowedEndpoints: ['RF13', 'RF14'],
     allows: { fetch: true, metadata_display: true, excerpt_display: true, media_display: false, ai_processing: true, cache: true },
   };
-  const liveEnv = loadEnv({ APP_DATA_MODE: 'live', LIVE_PROVIDER_CALLS_ENABLED: 'true', TRANSCRIPT_ENABLED: 'true' });
+  const liveEnv = loadEnv({ ...LIVE_AUTH_BASE, APP_DATA_MODE: 'live', LIVE_PROVIDER_CALLS_ENABLED: 'true', TRANSCRIPT_ENABLED: 'true' });
   const verified = { ...REDFOX_CAPABILITIES.RF13, priceStatus: 'verified' as const };
   const base: LiveGateContext = {
     env: liveEnv, endpoint: verified, orgLiveEnabled: true, permission, purposes: ['fetch', 'ai_processing'],
@@ -127,7 +128,7 @@ describe('live gate (spec 6.3)', () => {
   });
   it.each([
     [{ env: loadEnv({}) }, 'mode_not_live'],
-    [{ env: loadEnv({ APP_DATA_MODE: 'live', LIVE_PROVIDER_CALLS_ENABLED: 'true' }) }, 'feature_disabled'],
+    [{ env: loadEnv({ ...LIVE_AUTH_BASE, APP_DATA_MODE: 'live', LIVE_PROVIDER_CALLS_ENABLED: 'true' }) }, 'feature_disabled'],
     [{ orgLiveEnabled: false }, 'org_switch_off'],
     [{ permission: null }, 'permission_missing'],
     [{ permission: { ...permission, status: 'revoked' as const } }, 'permission_inactive'],
@@ -156,7 +157,7 @@ describe('live gate (spec 6.3)', () => {
 
 describe('RF14 contract handling', () => {
   const allowAll = (): Omit<LiveGateContext, 'endpoint'> => ({
-    env: loadEnv({ APP_DATA_MODE: 'live', LIVE_PROVIDER_CALLS_ENABLED: 'true', TRANSCRIPT_ENABLED: 'true' }),
+    env: loadEnv({ ...LIVE_AUTH_BASE, APP_DATA_MODE: 'live', LIVE_PROVIDER_CALLS_ENABLED: 'true', TRANSCRIPT_ENABLED: 'true' }),
     orgLiveEnabled: true, consentRecorded: true, budgetReserved: true, userApproved: true, purposes: [],
     permission: { id: 'p', status: 'approved', expiresAt: null, allowedEndpoints: ['RF13', 'RF14'], allows: { fetch: true, metadata_display: true, excerpt_display: true, media_display: false, ai_processing: true, cache: true } },
   });

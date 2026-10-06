@@ -5,6 +5,8 @@ import { orRedirectWithError } from '@/server/actions-util';
 import { Badge, btn, Empty, ErrorNotice, Notice, PageHeader, selectAuto } from '@/components/ui';
 import { fmtDate } from '@/components/labels';
 import { ROLE_LABEL } from '../labels';
+import { supabaseAuthEnabled } from '@/server/env';
+import { PasswordLinkForm } from './password-link';
 
 export const metadata = { title: '멤버 관리' };
 const back = '/admin/members';
@@ -57,6 +59,7 @@ export default async function Members({ searchParams }: { searchParams: Promise<
                   <label className="flex items-center gap-1 text-xs"><input type="checkbox" name="confirm" required /> {m.status === 'active' ? '접근 중지 확인' : '재활성화 확인'}</label>
                   <button className={btn.small}>{m.status === 'active' ? '중지' : '재활성화'}</button>
                 </form>
+                {supabaseAuthEnabled() && <PasswordLinkForm userId={m.userId} />}
               </div>
               )}
             </li>

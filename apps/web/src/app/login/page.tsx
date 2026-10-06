@@ -1,7 +1,7 @@
-import { demoLoginEnabled } from '@/server/env';
+import { demoLoginEnabled, supabaseAuthEnabled } from '@/server/env';
 import { withService } from '@/server/db';
-import { btn, Card, ErrorNotice } from '@/components/ui';
-import { demoLogin } from './actions';
+import { btn, Card, ErrorNotice, input, label, Notice } from '@/components/ui';
+import { demoLogin, passwordLogin } from './actions';
 
 export const metadata = { title: '로그인' };
 
@@ -15,8 +15,8 @@ const ROLE_HINT: Record<string, string> = {
   'admin@other-org.demo.invalid': '다른 조직 관리자',
 };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string }> }) {
-  const { error, next } = await searchParams;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string; done?: string }> }) {
+  const { error, next, done } = await searchParams;
   const enabled = demoLoginEnabled();
   const users = enabled
     ? await withService(async (db) => (await db.query<{ id: string; email: string }>(`select id, email from auth.users where email like '%demo.invalid' order by email`)).rows)
@@ -27,7 +27,19 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <p className="mt-1 text-sm text-muted">샤오홍슈 콘텐츠 탐색·기획·중국어 표현 학습 도구</p>
       <div className="mt-6">
         <ErrorNotice message={error} />
-        {enabled ? (
+        {done === 'password' && <div className="mb-4"><Notice tone="ok">비밀번호를 설정했습니다. 새 비밀번호로 로그인하세요.</Notice></div>}
+        {supabaseAuthEnabled() ? (
+          <Card>
+            <h2 className="font-semibold">로그인</h2>
+            <form action={passwordLogin} className="mt-4 space-y-3">
+              <input type="hidden" name="next" value={next ?? ''} />
+              <div><label htmlFor="email" className={label}>이메일</label><input id="email" name="email" type="email" autoComplete="username" required maxLength={200} className={input} /></div>
+              <div><label htmlFor="password" className={label}>비밀번호</label><input id="password" name="password" type="password" autoComplete="current-password" required maxLength={200} className={input} /></div>
+              <button className={`${btn.primary} w-full`}>로그인</button>
+            </form>
+            <p className="mt-4 text-xs text-muted">계정은 초대 링크로만 만들 수 있습니다. 비밀번호를 잊었다면 조직 관리자에게 비밀번호 설정 링크를 요청하세요.</p>
+          </Card>
+        ) : enabled ? (
           <Card>
             <h2 className="font-semibold">데모 계정으로 로그인</h2>
             <p className="mt-1 text-xs text-muted">데모 모드 전용입니다. 모든 계정과 데이터는 가상이며 실제 학생 정보가 아닙니다.</p>

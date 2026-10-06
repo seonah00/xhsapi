@@ -19,6 +19,7 @@ export * from './submissions.ts';
 export * from './staff.ts';
 export * from './results.ts';
 export * from './storage.ts';
+export * from './supabase.ts';
 export * from './assets.ts';
 export * from './ops.ts';
 export * from './live.ts';
