@@ -3,15 +3,19 @@
  * Single production entry point, whatever builds the image (Dockerfile or Railway Railpack):
  *   node scripts/start.mjs web     → apply pending DB migrations, then `next start` on $PORT
  *   node scripts/start.mjs worker  → job worker
- * Without an argument, XHS_SERVICE=worker selects the worker; anything else starts the web.
+ * XHS_SERVICE (web | worker) overrides the argument, so one image/config serves both Railway services:
+ * the web image's CMD says `web`, and the worker service only sets XHS_SERVICE=worker.
+ * In worker mode with $PORT set (Railway always sets it), a tiny listener answers GET /api/health so a
+ * shared healthcheck config passes; it serves nothing else and exposes no data.
  * SKIP_MIGRATIONS=true skips the migration step (e.g. when a pre-deploy command already ran it).
  */
 import { spawn, spawnSync } from 'node:child_process';
+import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const mode = process.argv[2] ?? (process.env.XHS_SERVICE === 'worker' ? 'worker' : 'web');
+const mode = process.env.XHS_SERVICE || process.argv[2] || 'web';
 const tsx = join(root, 'node_modules', '.bin', 'tsx');
 
 function run(cmd, args, cwd) {
@@ -21,8 +25,17 @@ function run(cmd, args, cwd) {
 }
 
 if (mode === 'worker') {
+  console.info('xhs service: worker');
   run(tsx, ['apps/worker/src/index.ts'], root);
+  if (process.env.PORT) {
+    createServer((req, res) => {
+      const ok = req.method === 'GET' && req.url === '/api/health';
+      res.writeHead(ok ? 200 : 404, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+      res.end(ok ? '{"ok":true,"service":"worker"}' : '{"error":"not_found"}');
+    }).listen(Number(process.env.PORT));
+  }
 } else if (mode === 'web') {
+  console.info('xhs service: web');
   if (process.env.SKIP_MIGRATIONS !== 'true') {
     const m = spawnSync(tsx, ['scripts/db-migrate.ts'], { cwd: root, stdio: 'inherit', env: process.env });
     if (m.status !== 0) {
