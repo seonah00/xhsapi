@@ -29,8 +29,8 @@
    - 예비 방법: 대신 SQL Editor에 `deploy/supabase/initial-schema.sql`을 붙여 넣을 수도 있습니다. 이때 Supabase가 "RLS를 켜고 실행할지" 묻는 창을 띄우면 **추가 문장 없이 그대로 실행**을 고르세요. 스크립트가 직접 RLS를 켭니다.
 6. **DB 연결 문자열(`DATABASE_URL`)**: Supabase 대시보드 상단 **Connect** → **Direct (Connection string)** 탭 → 방식에서 **Session pooler**를 골라 URI를 복사합니다(IPv4, 포트 5432). `[YOUR-PASSWORD]` 자리에 DB 비밀번호를 넣습니다. Connect 창의 Framework 탭(npm install, .env.local)과 **Enable Data API** 버튼은 이 앱에 해당이 없습니다(누르지 않음).
    - **키**: Project Settings → **API Keys**. 새 형식(`sb_publishable_…` → `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `sb_secret_…` → `SUPABASE_SERVICE_ROLE_KEY`)과 Legacy 탭의 anon/service_role 키 모두 쓸 수 있습니다. 프로젝트 URL(`https://<ref>.supabase.co`)은 같은 화면이나 Project Settings → Data API의 URL입니다.
-   - **TLS 인증서(`DATABASE_CA_CERT`)**: 대시보드 → Project Settings → Database → **SSL Configuration → Download certificate**로 받은 파일을 메모장으로 열어, `-----BEGIN CERTIFICATE-----`부터 끝까지 **전체 내용**을 Railway 변수 `DATABASE_CA_CERT`에 붙여 넣습니다. 앱이 이 인증서로 DB 서버를 검증합니다. 공개 인증서라 비밀은 아니지만 변수로 관리하는 편이 간단합니다.
-   - 인증서로 연결이 안 되면(로그에 `self-signed certificate` 등) 임시로 `DATABASE_CA_CERT`를 비우고 `DATABASE_URL` 끝에 `?sslmode=no-verify`를 붙이면 암호화는 되지만 서버 검증은 하지 않습니다. 원인을 확인한 뒤 다시 인증서 방식으로 돌리세요.
+   - **TLS 인증서**: Project Settings → Database → **SSL Configuration → Download certificate**로 받은 파일을 저장소 `deploy/certs/supabase-ca.crt`에 넣으면(공개 인증서, 비밀 아님) 앱이 Supabase 주소일 때 자동으로 그 인증서로 DB 서버를 검증합니다. GitHub 웹에서 `deploy/certs` 폴더 → Add file → Upload files로 올려도 되고, 개발 담당자에게 파일을 전달해도 됩니다. 파일 대신 Railway 변수 `DATABASE_CA_CERT`에 인증서 내용(PEM)을 넣어도 됩니다(변수가 우선).
+   - 인증서로 연결이 안 되면(로그에 `self-signed certificate` 등) 임시로 `DATABASE_URL` 끝에 `?sslmode=no-verify`를 붙이면 암호화는 되지만 서버 검증은 하지 않습니다. 원인을 확인한 뒤 되돌리세요.
 7. **점검**: 첫 배포가 끝나면 SQL Editor에서 `deploy/supabase/verify.sql` 내용을 실행합니다. 7개 항목이 모두 `ok = true`여야 합니다(스키마가 없으면 오류 대신 false로 보입니다). PC에서 실행할 수 있으면 `pnpm verify:db`가 역할 전환·`auth.uid()`까지 더 자세히 확인합니다.
 
 ## 2. Railway
@@ -52,7 +52,7 @@
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✓ | ✓ | anon 키(서버에서만 사용) |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✓ 비밀 | ✓ 비밀 | service_role 키 |
 | `DATABASE_URL` | ✓ 비밀 | ✓ 비밀 | 1-6의 Session pooler 연결 문자열 |
-| `DATABASE_CA_CERT` | ✓ | ✓ | 1-6의 Supabase 인증서 전체 내용(PEM) |
+| `DATABASE_CA_CERT` | (선택) | (선택) | `deploy/certs/supabase-ca.crt`가 저장소에 있으면 불필요 |
 | `SESSION_SECRET` | ✓ 비밀 | ✓ | 48자 이상 무작위(예: `openssl rand -base64 48`) |
 | `APP_BASE_URL` | ✓ | ✓ | web 도메인, 예 `https://studio.example.com` (빌드 시에도 필요: HSTS) |
 | `WORKER_ENABLED` | | ✓ | `true` |

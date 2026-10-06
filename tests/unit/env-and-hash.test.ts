@@ -86,3 +86,16 @@ describe('Supabase key headers', () => {
     expect(supabaseKeyHeaders('aaa.bbb.ccc')).toEqual({ apikey: 'aaa.bbb.ccc', Authorization: 'Bearer aaa.bbb.ccc' });
   });
 });
+
+describe('bundled Supabase CA', () => {
+  it('is used for Supabase hosts when no variable is set; never for other hosts or explicit opt-out', async () => {
+    const { pgConfig } = await import('@xhs/core');
+    const pem = '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----';
+    const file = () => pem;
+    expect(pgConfig('postgresql://u:p@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres', undefined, file).ssl).toEqual({ ca: pem, rejectUnauthorized: true });
+    expect(pgConfig('postgresql://u:p@db.abcd.supabase.co:5432/postgres', undefined, file).ssl?.ca).toBe(pem);
+    expect(pgConfig('postgresql://u:p@localhost/db', undefined, file).ssl).toBeUndefined();
+    expect(pgConfig('postgresql://u:p@x.pooler.supabase.com/postgres?sslmode=no-verify', undefined, file).ssl).toBeUndefined();
+    expect(pgConfig('postgresql://u:p@x.pooler.supabase.com/postgres', undefined, () => undefined).ssl).toBeUndefined();
+  });
+});
