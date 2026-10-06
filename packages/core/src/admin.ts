@@ -244,14 +244,14 @@ export async function resettableMemberEmail(ctx: Ctx, userId: string): Promise<s
   return r.email as string;
 }
 
-export type InvitationPreview = { orgName: string; role: string; email: string | null; valid: boolean };
+export type InvitationPreview = { orgId: string; orgName: string; role: string; email: string | null; valid: boolean };
 
-/** Service-side lookup by plaintext token (compared by hash) for the sign-up page; reveals no ids. */
+/** Service-side lookup by plaintext token (compared by hash) for the sign-up page. orgId is for server-side checks only; never render it. */
 export async function invitationPreview(db: Db, token: string): Promise<InvitationPreview | null> {
   if (!/^[A-Za-z0-9_-]{20,200}$/.test(token)) return null;
   const r = (await db.query(
-    `select o.name, i.role, i.email, (i.used_at is null and i.revoked_at is null and i.expires_at > now()) as valid
+    `select o.id as org_id, o.name, i.role, i.email, (i.used_at is null and i.revoked_at is null and i.expires_at > now()) as valid
      from invitations i join organizations o on o.id = i.org_id where i.token_hash = encode(sha256(convert_to($1, 'UTF8')), 'hex')`, [token],
   )).rows[0];
-  return r ? { orgName: r.name, role: r.role, email: r.email, valid: r.valid } : null;
+  return r ? { orgId: r.org_id, orgName: r.name, role: r.role, email: r.email, valid: r.valid } : null;
 }

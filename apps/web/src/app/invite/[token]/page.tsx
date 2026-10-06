@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AuthError, invitationPreview, passwordProblem } from '@xhs/core';
 import { z } from 'zod';
-import { readSession, writeSession } from '@/server/session';
+import { clearSession, readSession, writeSession } from '@/server/session';
 import { withService, withUser } from '@/server/db';
 import { supabaseAuthEnabled } from '@/server/env';
 import { supabaseAuth, tooManyAttempts } from '@/server/supabase';
@@ -29,6 +29,14 @@ async function accept(formData: FormData) {
   const token = String(formData.get('token') ?? '');
   if (!s) redirect(`/login?next=${encodeURIComponent(`/invite/${token}`)}`);
   await redeemAs(s.uid, token);
+}
+
+/** Signed in as someone else (typically the admin who made the link): sign out and come back to sign up. */
+async function switchAccount(formData: FormData) {
+  'use server';
+  const token = String(formData.get('token') ?? '');
+  await clearSession();
+  redirect(`/invite/${encodeURIComponent(token)}`);
 }
 
 /** Invite-only sign-up (Supabase Auth): the invitation is checked before any account is created. */
@@ -63,6 +71,8 @@ export default async function InvitePage({ params, searchParams }: { params: Pro
   const s = await readSession();
   const supa = supabaseAuthEnabled();
   const inv = supa ? await withService((db) => invitationPreview(db, token)) : null;
+  const alreadyMember = !!(s && inv?.valid && inv.orgId && await withService(async (db) =>
+    (await db.query(`select 1 from memberships where org_id = $1 and user_id = $2 and status <> 'left'`, [inv.orgId, s.uid])).rowCount));
   return (
     <main className="mx-auto max-w-md px-4 py-10">
       <h1 className="text-xl font-bold">초대 수락</h1>
@@ -73,13 +83,28 @@ export default async function InvitePage({ params, searchParams }: { params: Pro
         ) : (
           <>
             {inv && <Card><p className="text-sm"><strong>{inv.orgName}</strong>에 <strong>{ROLE[inv.role] ?? inv.role}</strong>(으)로 초대되었습니다.</p></Card>}
-            {s || !supa ? (
+            {s && supa && alreadyMember ? (
+              <Card>
+                <p className="text-sm">지금 로그인된 계정은 이미 이 조직의 멤버입니다. 새 계정을 만들려면 로그아웃한 뒤 이 링크를 다시 여세요. 이 링크는 아직 사용되지 않았습니다.</p>
+                <form action={switchAccount} className="mt-4">
+                  <input type="hidden" name="token" value={token} />
+                  <button className={btn.primary}>로그아웃하고 새 계정 만들기</button>
+                </form>
+              </Card>
+            ) : s || !supa ? (
               <Card>
                 <p className="text-sm">초대 링크는 한 번만 사용할 수 있고 7일 후 만료됩니다.</p>
+                {s && supa && <p className="mt-2 text-sm">지금 로그인된 계정으로 참여합니다. 다른 사람(학생)에게 줄 링크라면 누르지 말고 그대로 전달하세요.</p>}
                 <form action={accept} className="mt-4">
                   <input type="hidden" name="token" value={token} />
                   <button className={btn.primary}>{s ? '조직에 참여하기' : '로그인 후 참여하기'}</button>
                 </form>
+                {s && supa && (
+                  <form action={switchAccount} className="mt-2">
+                    <input type="hidden" name="token" value={token} />
+                    <button className={btn.secondary}>로그아웃하고 새 계정 만들기</button>
+                  </form>
+                )}
               </Card>
             ) : (
               <Card>

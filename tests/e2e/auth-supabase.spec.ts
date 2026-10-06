@@ -57,9 +57,13 @@ test('real login: bootstrap admin, invite-only sign-up, one-time password links,
   const invite = (await page.getByTestId('invite-link').textContent())!;
   expect(invite).toMatch(/^http:\/\/localhost:\d+\/invite\//);
 
-  // 4) The invitee creates an account (e-mail locked to the invitation) and joins.
-  await page.context().clearCookies();
+  // 4) Opening the link while still signed in as the admin does not consume it; signing out leads to sign-up.
   await page.goto(invite);
+  await expect(page.getByText('이미 이 조직의 멤버입니다')).toBeVisible();
+  await expect(page.getByRole('button', { name: '조직에 참여하기' })).toHaveCount(0);
+  await page.getByRole('button', { name: '로그아웃하고 새 계정 만들기' }).click();
+  // The invitee creates an account (e-mail locked to the invitation) and joins.
+  await expect(page.getByRole('button', { name: '계정 만들고 참여하기' })).toBeVisible();
   await expect(page.getByText('E2E 조직', { exact: false })).toBeVisible();
   await expect(page.getByLabel('이메일')).toHaveValue('student-e2e@example.invalid');
   await page.getByLabel('비밀번호 (10자 이상)').fill('student-pass-2026');
