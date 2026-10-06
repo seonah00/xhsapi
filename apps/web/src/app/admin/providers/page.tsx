@@ -159,7 +159,8 @@ export default async function Providers({ searchParams }: { searchParams: Promis
             <p className="text-xs text-muted">조직 간 데이터 공유는 허가와 관계없이 지원하지 않습니다.</p>
             <button className={btn.secondary}>대기 기록 만들기</button>
           </form>
-          <div className="mt-4 border-t border-line pt-3"><Uploader purpose="permission_evidence" label="증빙 파일 올리기(계약서·이메일 PDF 등)" accept="application/pdf,image/jpeg,image/png,image/webp" /></div>
+          <div className="mt-4 border-t border-line pt-3"><Uploader purpose="permission_evidence" label="증빙 파일 올리기(계약서·이메일 PDF 등)" accept="application/pdf,image/jpeg,image/png,image/webp" />
+            <p className="mt-2 text-xs text-muted">올린 증빙 ({d.evidence.length}): {d.evidence.length ? d.evidence.map((e) => e.originalName).join(', ') : '없음'}. 대기 기록을 만든 뒤 왼쪽 “증빙 선택”에서 골라 승인합니다.</p></div>
         </Card>
       </div>
     </>

@@ -86,7 +86,8 @@ test('results, uploads, library sharing, admin switches and data deletion', asyn
   await page.goto('/admin/providers');
   await expect(page.getByRole('row', { name: /RFX1/ }).getByText('제외')).toBeVisible();
   await page.getByLabel(/증빙 파일 올리기/).setInputFiles({ name: 'agreement.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 demo agreement') });
-  await expect(page.getByRole('option', { name: 'agreement.pdf' })).toHaveCount(0); // no pending record yet
+  await expect(page.getByText(/올린 증빙 \(1\): agreement\.pdf/)).toBeVisible();
+  await expect(page.getByText('1개를 올렸습니다.')).toBeVisible();
   await page.getByRole('checkbox', { name: 'RF13' }).check();
   await page.getByRole('checkbox', { name: 'RF14' }).check();
   await page.getByRole('button', { name: '대기 기록 만들기' }).click();

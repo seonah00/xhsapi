@@ -6,10 +6,11 @@ import { useRef, useState } from 'react';
 export function Uploader({ purpose, referenceId, planId, label, accept = 'image/jpeg,image/png,image/webp' }: { purpose: string; referenceId?: string; planId?: string; label: string; accept?: string }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
-  const [state, setState] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
+  const [state, setState] = useState<{ busy: boolean; error: string | null; done?: number }>({ busy: false, error: null });
   const upload = async () => {
     const files = input.current?.files;
     if (!files?.length) return;
+    const count = files.length; // the FileList is live: it empties when the input is reset below
     const fd = new FormData();
     fd.set('purpose', purpose);
     if (referenceId) fd.set('referenceId', referenceId);
@@ -23,7 +24,7 @@ export function Uploader({ purpose, referenceId, planId, label, accept = 'image/
       return;
     }
     if (input.current) input.current.value = '';
-    setState({ busy: false, error: null });
+    setState({ busy: false, error: null, done: count });
     router.refresh();
   };
   return (
@@ -34,6 +35,7 @@ export function Uploader({ purpose, referenceId, planId, label, accept = 'image/
       <p className="mt-1 text-xs text-muted">JPG·PNG·WebP{accept.includes('pdf') ? '·PDF' : ''}, 파일당 10MB, 한 번에 5개. 위치·기기 정보(EXIF)는 저장 전에 지웁니다.</p>
       {state.busy && <p role="status" className="text-xs text-info">올리는 중…</p>}
       {state.error && <p role="alert" className="text-xs text-accent">{state.error}</p>}
+      {!state.busy && !state.error && state.done ? <p role="status" className="text-xs text-ok">{state.done}개를 올렸습니다.</p> : null}
     </div>
   );
 }
