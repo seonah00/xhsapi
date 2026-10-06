@@ -42,7 +42,10 @@ export function NoteCard({ note, back, inCompare, reasons, cons }: { note: Note;
           <button className={btn.small}>레퍼런스로 가져오기</button></form>
         {href && (demoLink
           ? <span className={`${btn.ghost} cursor-not-allowed`} title="데모 노트는 실제 원문이 없습니다">원문(데모)</span>
-          : <a href={href} target="_blank" rel="noopener noreferrer" className={btn.ghost}>원문 ↗</a>)}
+          : <a href={href} target="_blank" rel="noopener noreferrer" className={btn.ghost} title="샤오홍슈는 접근 토큰 없는 링크를 막을 수 있습니다. 열리지 않으면 ‘제목으로 찾기’를 쓰세요.">원문 ↗</a>)}
+        {href && !demoLink && note.title && (
+          <a href={`https://www.xiaohongshu.com/search_result?keyword=${encodeURIComponent(note.title.slice(0, 60))}`} target="_blank" rel="noopener noreferrer" className={btn.ghost}>제목으로 찾기 ↗</a>
+        )}
       </div>
     </article>
   );
