@@ -78,3 +78,11 @@ describe('database TLS settings', () => {
     expect(() => pgConfig('postgresql://u:p@h/db', 'not a cert')).toThrow('PEM');
   });
 });
+
+describe('Supabase key headers', () => {
+  it('sends Bearer only for legacy JWT keys; new sb_ keys go in apikey only', async () => {
+    const { supabaseKeyHeaders } = await import('@xhs/core');
+    expect(supabaseKeyHeaders('sb_secret_abc123')).toEqual({ apikey: 'sb_secret_abc123' });
+    expect(supabaseKeyHeaders('aaa.bbb.ccc')).toEqual({ apikey: 'aaa.bbb.ccc', Authorization: 'Bearer aaa.bbb.ccc' });
+  });
+});

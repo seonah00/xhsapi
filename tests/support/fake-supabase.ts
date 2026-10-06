@@ -35,7 +35,8 @@ export async function startFakeSupabase(databaseUrl: string, port = 0): Promise<
       requests.push({ method: req.method ?? '', path: url.pathname });
       const apikey = req.headers.apikey;
       const bearer = String(req.headers.authorization ?? '').replace(/^Bearer /, '');
-      const admin = apikey === FAKE_SERVICE_KEY && bearer === FAKE_SERVICE_KEY;
+      // Like Supabase: a secret key in `apikey` alone is enough; a Bearer token, if sent, must match.
+      const admin = apikey === FAKE_SERVICE_KEY && (bearer === '' || bearer === FAKE_SERVICE_KEY);
       if (apikey !== FAKE_ANON_KEY && apikey !== FAKE_SERVICE_KEY) return send(res, 401, { message: 'Invalid API key' });
       const p = url.pathname;
 

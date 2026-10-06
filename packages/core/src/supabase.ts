@@ -7,6 +7,15 @@ import type { ObjectStorage } from './storage.ts';
  * session cookie. Requests go to the configured project URL only.
  */
 
+/**
+ * Legacy anon/service_role keys are JWTs and go in both headers. New-style keys
+ * (sb_publishable_… / sb_secret_…) are not JWTs: only the apikey header is sent.
+ */
+export function supabaseKeyHeaders(key: string): Record<string, string> {
+  const isJwt = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(key);
+  return isJwt ? { apikey: key, Authorization: `Bearer ${key}` } : { apikey: key };
+}
+
 export class AuthError extends Error {
   override name = 'AuthError';
   constructor(readonly kind: 'invalid_credentials' | 'email_taken' | 'invalid_token' | 'weak_password' | 'rate_limited' | 'unavailable', message?: string) {
@@ -37,7 +46,7 @@ export class SupabaseAuth {
     try {
       res = await this.fetchImpl(this.base + path, {
         method: init.method,
-        headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        headers: { ...supabaseKeyHeaders(key), 'Content-Type': 'application/json' },
         ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
         redirect: 'error',
         signal: AbortSignal.timeout(10_000),
@@ -102,7 +111,7 @@ export class SupabaseStorage implements ObjectStorage {
     this.base = url.replace(/\/$/, '') + '/storage/v1';
   }
   private headers(extra: Record<string, string> = {}) {
-    return { apikey: this.serviceKey, Authorization: `Bearer ${this.serviceKey}`, ...extra };
+    return { ...supabaseKeyHeaders(this.serviceKey), ...extra };
   }
   private path(key: string) {
     if (!OBJECT_KEY.test(key)) throw new Error('invalid storage key');
