@@ -81,7 +81,7 @@ pnpm dev:web       # http://localhost:3000 → 로그인 화면에서 데모 계
 - **수용 테스트 문서 매트릭스**: 문서가 없어 대조하지 못했습니다. 받으면 맞추겠습니다.
 - **수동 접근성 점검**(스크린리더 실사용, 확대 200%)은 하지 않았습니다. 자동 검사와 키보드 기반 E2E 조작만 했습니다.
 - **live 어댑터 실호출**: 하지 않았습니다(미검증).
-- **실제 Supabase(Auth·Storage) 환경**: 로컬 호환 shim으로만 검증했습니다.
+- **실제 Supabase(Auth·Storage) 환경**: 자동 테스트는 로컬 호환 shim과 가짜 Supabase 서버로 했습니다. 2026-10-06 첫 실제 배포(Railway web·worker + Supabase)에서 운영자가 확인: 마이그레이션 13개 적용, `/api/health` 응답, 첫 관리자 생성(1회용 링크) → 비밀번호 설정 → 로그인, 학생 초대 가입, 이미지 업로드가 비공개 버킷 `private-assets`에 저장되고 화면에 표시됨, 워커 mock 모드 시작·만료 정리 실행.
 - 이전 단계 dev 서버 E2E에서 원인 미상의 브라우저 콘솔 오류가 두 번 관찰됐습니다. 재현되지 않았고, 이번 프로덕션 빌드 전체 실행에서는 나오지 않았습니다. 콘솔 오류는 계속 E2E 실패 조건으로 둡니다.
 
 ## 4. 핵심 화면 캡처
@@ -97,7 +97,7 @@ pnpm dev:web       # http://localhost:3000 → 로그인 화면에서 데모 계
 - live 차단 이유(README): 단가 미확인(`price_unknown`), 공급자 허가 `pending`, live 예산 0, RF08·RF10 파라미터 미확인(`parameter_unverified`), RF13·RF14는 `TRANSCRIPT_ENABLED=false`, RFX1(영상 다운로드)은 제외되어 미구현.
 - 미확인 문서: DCZW5V7A, 9UHXOXSF, tool/QPNFJRG1. 개발 환경에서 redfox.hk 접근이 막혀 내용을 확인하지 못했습니다. 확인 전에는 어댑터가 없습니다.
 - 워커의 live 모드 연결은 P0 범위 밖입니다(live로 시작하면 거부).
-- 로그인은 데모 로그인입니다. 실제 Supabase Auth 연동, 비공개 Storage 교체, 호스팅·백업 자동화는 배포 결정 후 진행합니다.
+- 로그인은 개발 환경에서 데모 로그인, 배포 환경에서 Supabase Auth(초대 전용)입니다. 파일은 배포 환경에서 Supabase 비공개 Storage에 저장됩니다(ADR 0009). 백업 자동화는 아직 없습니다.
 - (해결됨, ADR 0006) 자발적 조직 탈퇴를 추가했고, CSP는 nonce 기반으로 바꿔 스크립트 `'unsafe-inline'`을 없앴습니다. 스타일은 style 속성 때문에 `'unsafe-inline'`을 유지합니다.
 - 성능 수치는 로컬 측정입니다. 보장 SLA가 아닙니다.
 - P1 기능(OCR·댓글·CSV·자동 갱신·추세)은 기본 비활성입니다.
