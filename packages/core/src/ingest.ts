@@ -49,17 +49,21 @@ async function upsertNote(db: Db, meta: IngestMeta, result: SearchResult, runId:
   };
   const id = (await db.query<{ id: string }>(
     `insert into notes (org_id, provider, platform_note_id, data_mode, canonical_url, note_type, title, body_excerpt, author_ref, author_display_name,
-                        author_followers, published_at, provenance, provider_tags, is_fallback, ingestion_run_id, observed_at)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+                        author_followers, published_at, provenance, provider_tags, is_fallback, ingestion_run_id, observed_at, cover_url)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
      on conflict (org_id, provider, platform_note_id, data_mode) do update set
-       title = excluded.title, body_excerpt = excluded.body_excerpt, author_followers = excluded.author_followers,
+       title = excluded.title, body_excerpt = excluded.body_excerpt,
+       -- endpoints differ in what they return (RF02 has no follower count, RF01 no type/cover): keep known values
+       author_followers = case when excluded.author_followers->>'precision' = 'unknown' then notes.author_followers else excluded.author_followers end,
+       note_type = coalesce(excluded.note_type, notes.note_type),
+       cover_url = coalesce(excluded.cover_url, notes.cover_url),
        provenance = excluded.provenance, provider_tags = excluded.provider_tags, observed_at = excluded.observed_at,
        ingestion_run_id = excluded.ingestion_run_id,
        -- a note seen once as a real result is not demoted by a later fallback appearance
        is_fallback = notes.is_fallback and excluded.is_fallback
      returning id`,
     [meta.orgId, meta.provider, n.platformNoteId, result.mode, n.canonicalUrl, n.noteType, n.title, n.bodyExcerpt, n.author.ref,
-     n.author.displayName, n.author.followers, n.publishedAt, provenance, n.providerTags, isFallback, runId, result.fetchedAt],
+     n.author.displayName, n.author.followers, n.publishedAt, provenance, n.providerTags, isFallback, runId, result.fetchedAt, n.coverUrl ?? null],
   )).rows[0]!.id;
 
   await db.query(

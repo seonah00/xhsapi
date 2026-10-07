@@ -34,7 +34,7 @@ export type JobDeps = {
   /** Poll interval for async provider results; small in mock mode. */
   pollBaseMs?: number;
   /** Live mode only: builds the provider for one job from its stored gate state. Absent = live jobs are refused. */
-  liveProvider?: (gate: { gateFor: GateContextFor; capabilities: Record<EndpointId, EndpointCapability> }) => XhsDataProvider;
+  liveProvider?: (gate: { gateFor: GateContextFor; capabilities: Record<EndpointId, EndpointCapability>; searchEndpoint: 'RF01' | 'RF02' }) => XhsDataProvider;
   env?: AppEnv;
 };
 
@@ -147,13 +147,13 @@ async function providerSearch(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
   let permissionId: string | null = null;
   if (result.mode === 'live') {
     // Store only what the approved permission allows: no excerpt without excerpt_display.
-    const p = await deps.service(async (db) => (await db.query(`select id, allow_excerpt_display from provider_permissions where org_id = $1 and provider = 'redfox' and status = 'approved'
+    const p = await deps.service(async (db) => (await db.query(`select id, allow_excerpt_display, allow_media_display from provider_permissions where org_id = $1 and provider = 'redfox' and status = 'approved'
       and (expires_at is null or expires_at > now()) order by approved_at desc limit 1`, [job.org_id])).rows[0] ?? null);
     permissionId = p?.id ?? null;
-    if (!p?.allow_excerpt_display) {
-      const strip = (n: (typeof result.notes)[number]) => ({ ...n, bodyExcerpt: null });
-      result = { ...result, notes: result.notes.map(strip), latestHotArticles: result.latestHotArticles.map(strip) };
-    }
+    const strip = (n: (typeof result.notes)[number]) => ({
+      ...n, ...(p?.allow_excerpt_display ? {} : { bodyExcerpt: null }), ...(p?.allow_media_display ? {} : { coverUrl: null }),
+    });
+    result = { ...result, notes: result.notes.map(strip), latestHotArticles: result.latestHotArticles.map(strip) };
   }
   const { runId, noteIds } = await deps.service((db) => ingestSearchResult(db, { orgId: job.org_id, provider: result.mode === 'mock' ? 'mock' : 'redfox', endpoint: result.endpoint, query: input, permissionId }, result));
   return { state: 'succeeded', result: { ingestionRunId: runId, notes: noteIds.length } };

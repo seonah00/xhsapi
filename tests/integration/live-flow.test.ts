@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createQuote, createReference, reserveJob, runJob, type Ctx, type JobDeps, type Runner } from '@xhs/core';
+import { createQuote, createReference, getNotes, reserveJob, runJob, type Ctx, type JobDeps, type Runner } from '@xhs/core';
 import { loadEnv } from '@xhs/domain';
 import { MockXhsProvider, RedfoxXhsProvider } from '@xhs/providers';
 import { randomUUID } from 'node:crypto';
@@ -45,7 +45,7 @@ function fakeRedfox(script: ((path: string, body: Record<string, unknown>) => un
 }
 const deps = (impl?: typeof fetch): JobDeps => ({
   service, provider: new MockXhsProvider(), env: liveEnv, pollBaseMs: 1,
-  ...(impl ? { liveProvider: (g) => new RedfoxXhsProvider(liveEnv.REDFOX_API_KEY, g.gateFor, impl, g.capabilities) } : {}),
+  ...(impl ? { liveProvider: (g) => new RedfoxXhsProvider(liveEnv.REDFOX_API_KEY, g.gateFor, impl, g.capabilities, undefined, g.searchEndpoint) } : {}),
 });
 
 async function videoReference(n: number): Promise<{ refId: string; noteId: string }> {
@@ -85,7 +85,7 @@ beforeAll(async () => {
   await pool.query(`update provider_capabilities set price_status = 'verified' where provider = 'redfox' and endpoint in ('RF13', 'RF14')`);
 });
 afterAll(async () => {
-  await pool.query(`update provider_capabilities set price_status = 'unknown' where provider = 'redfox' and endpoint in ('RF01', 'RF13', 'RF14')`);
+  await pool.query(`update provider_capabilities set price_status = 'unknown' where provider = 'redfox' and endpoint in ('RF01', 'RF02', 'RF13', 'RF14')`);
   await pool.query(`delete from provider_price_versions where evidence = 'test evidence'`);
   await pool.end();
 });
@@ -204,6 +204,41 @@ describe('live transcript path with a fake RedFox (no network)', () => {
     expect(second.outcome).toMatchObject({ state: 'failed' });
     expect((await ledgerOf(second.jobId)).status).toBe('released'); // provider: failed (non-200) requests are not charged
     await pool.query(`update provider_permissions set allow_excerpt_display = true where org_id = $1`, [ORG]); // transcript needs excerpt display
+  });
+
+  it('live search switches to RF02 once priced and permitted; covers are kept only with media display and hidden when it is withdrawn', async () => {
+    await pool.query(`insert into provider_price_versions (provider, endpoint, currency, unit, unit_cost, effective_at, verified_by, evidence)
+      values ('redfox', 'RF02', 'CNY', 'call', 0.02, now() - interval '1 minute', $1, 'test evidence')`, [ADMIN]);
+    await pool.query(`update provider_capabilities set price_status = 'verified' where provider = 'redfox' and endpoint = 'RF02'`);
+    const scope = { query: '首尔旅行' };
+    // Priced but not in the permission yet: search stays on RF01.
+    expect((await asStudent((ctx) => createQuote(ctx, service, 'provider_search', scope, { env: liveEnv }))).maxAmount).toBe('0.06000000');
+    await pool.query(`update provider_permissions set allowed_endpoints = '{RF01,RF02,RF13,RF14}', allow_media_display = true where org_id = $1`, [ORG]);
+    const q = await asStudent((ctx) => createQuote(ctx, service, 'provider_search', scope, { env: liveEnv }));
+    expect(q).toMatchObject({ mode: 'live', maxAmount: '0.02000000' });
+    const { jobId } = await asStudent((ctx) => reserveJob(ctx, {
+      quoteId: q.id, route: 'POST /discover/refresh', idempotencyKey: randomUUID(), operation: 'provider_search', scope,
+      jobKind: 'provider_search', dedupeKey: `provider_search:${q.id}`, inputRef: scope, consent: true,
+    }));
+    const cover = 'https://sns-i10.rednotecdn.com/notes_pre_post/abc?imageView2/2/w/576/format/webp&sign=s&t=6a05685d';
+    const fake = fakeRedfox([() => ({ code: 2000, msg: '成功', data: { total: 2, hasMore: true, list: [
+      { workId: '6a00000000000000000000e5', workTitle: '首尔三天', workDesc: '路线 #首尔旅行', coverUrl: cover, workUrl: 'https://www.xiaohongshu.com/explore/6a00000000000000000000e5',
+        workPublishTime: '2026-10-01 08:00:00', accountNickname: '作者', accountUserid: 'b1b2c3d4e5f6a7b8', workLikedCount: 210, workCollectedCount: 175, workCommentsCount: 45,
+        workReadedCount: 980, workSharedCount: 28, workType: 'normal' },
+      { workId: '6a00000000000000000000e6', workTitle: '视频', coverUrl: 'https://evil.example.com/x.jpg', workType: 'video', workLikedCount: '1.2万' },
+    ] } })]);
+    expect(await runJob(deps(fake.impl), jobId, 't')).toMatchObject({ state: 'succeeded' });
+    expect(fake.calls[0]!.url).toBe('https://redfox.hk/story/api/xhsUser/searchArticle');
+    expect(fake.calls[0]!.body).toEqual({ keyword: '首尔旅行', offset: 0, sortType: '_0' });
+    expect(await ledgerOf(jobId)).toEqual({ status: 'settled', reserved: '0.02000000', actual: '0.02000000' });
+    const rows = (await pool.query(`select id, platform_note_id, note_type, cover_url from notes where org_id = $1 and platform_note_id like '6a00000000000000000000e%' order by platform_note_id`, [ORG])).rows;
+    expect(rows.map((r) => [r.note_type, r.cover_url])).toEqual([['image', cover], ['video', null]]); // non-XHS image hosts are dropped
+    const cards = async () => asStudent((ctx) => getNotes(ctx, rows.map((r) => r.id)));
+    const first = (await cards()).find((c) => c.platformNoteId.endsWith('e5'))!;
+    expect(first.coverUrl).toBe(cover);
+    expect(first.metrics.views).toMatchObject({ exact: 980 });
+    await pool.query(`update provider_permissions set allow_media_display = false where org_id = $1`, [ORG]);
+    expect((await cards()).every((c) => c.coverUrl === null)).toBe(true); // withdrawn permission hides stored covers at once
   });
 
   it('stops polling RF14 after the reserved number of polls', async () => {

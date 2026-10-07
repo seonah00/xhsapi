@@ -20,6 +20,18 @@ export const OPERATION_ENDPOINTS: Record<LiveOperation, { endpoint: EndpointId; 
   provider_search: [{ endpoint: 'RF01', units: 1 }],
   transcript_submit: [{ endpoint: 'RF13', units: 1 }, { endpoint: 'RF14', units: 20 }],
 };
+/**
+ * Keyword search uses RF02 (adds cover images, note type and read counts) once its price is verified and the
+ * approved permission lists it; otherwise RF01. The choice is fixed in the quote and reused by the job.
+ */
+export function searchEndpointFor(st: Pick<LiveState, 'capabilities' | 'permission'>): 'RF01' | 'RF02' {
+  return st.capabilities.RF02.priceStatus === 'verified' && st.permission?.status === 'approved' && st.permission.allowedEndpoints.includes('RF02') ? 'RF02' : 'RF01';
+}
+
+function planFor(operation: LiveOperation, st: Pick<LiveState, 'capabilities' | 'permission'>): { endpoint: EndpointId; units: number }[] {
+  return operation === 'provider_search' ? [{ endpoint: searchEndpointFor(st), units: 1 }] : OPERATION_ENDPOINTS[operation];
+}
+
 export const MAX_TRANSCRIPT_POLLS = OPERATION_ENDPOINTS.transcript_submit[1]!.units;
 
 export const CONSENT_PURPOSE: Record<LiveOperation, 'external_provider_query' | 'transcript'> = {
@@ -78,7 +90,7 @@ export async function loadLiveState(db: Db, orgId: string): Promise<LiveState> {
 export type ReadinessRow = { endpoint: string; purpose: string; phase: string; ready: boolean; reasons: (GateReason | 'budget_zero')[] };
 
 /** Evaluates the real gate per endpoint; consent, quote approval and reservation are checked per request. */
-export async function liveReadiness(ctx: Ctx, env: AppEnv): Promise<{ rows: ReadinessRow[]; liveBudget: { limit: string; currency: string } | null; perRequest: string[] }> {
+export async function liveReadiness(ctx: Ctx, env: AppEnv): Promise<{ rows: ReadinessRow[]; liveBudget: { limit: string; currency: string } | null; perRequest: string[]; searchEndpoint: 'RF01' | 'RF02' }> {
   requireAdmin(ctx);
   const st = await loadLiveState(ctx.db, ctx.orgId);
   const rows = (Object.keys(st.capabilities) as EndpointId[]).map((id) => {
@@ -88,7 +100,7 @@ export async function liveReadiness(ctx: Ctx, env: AppEnv): Promise<{ rows: Read
     if (!st.liveBudget) reasons.push('budget_zero');
     return { endpoint: id, purpose: st.capabilities[id].purpose, phase: st.capabilities[id].phase, ready: reasons.length === 0, reasons };
   });
-  return { rows, liveBudget: st.liveBudget, perRequest: ['학생 동의 기록', '요청별 견적 확인(5분·1회용)', '예산 예약(트랜잭션)'] };
+  return { rows, liveBudget: st.liveBudget, searchEndpoint: searchEndpointFor(st), perRequest: ['학생 동의 기록', '요청별 견적 확인(5분·1회용)', '예산 예약(트랜잭션)'] };
 }
 
 // ---------------------------------------------------------------- live quotes
@@ -102,9 +114,9 @@ export type LivePrice = { endpoint: EndpointId; units: number; priceVersionId: s
  */
 export async function priceLiveOperation(ctx: Ctx, service: ServiceRunner, operation: string, env: AppEnv): Promise<{ prices: LivePrice[]; maxAmount: string; currency: string; maxUnits: number }> {
   if (!(operation in OPERATION_ENDPOINTS)) throw new AppError('LIVE_BLOCKED', '이 기능은 아직 실제 연결이 없습니다(AI·OCR 등은 제공자 미선정).');
-  const plan = OPERATION_ENDPOINTS[operation as LiveOperation];
   // Students cannot read org permissions/budgets (RLS); the pre-check reads them with service rights.
   const st = await service((db) => loadLiveState(db, ctx.orgId));
+  const plan = planFor(operation as LiveOperation, st);
   const reasons = new Set<string>();
   for (const { endpoint } of plan) {
     const g = evaluateLiveGate({ env, endpoint: st.capabilities[endpoint], orgLiveEnabled: st.orgLiveEnabled, permission: st.permission, purposes: purposesFor(endpoint),
@@ -150,14 +162,14 @@ export async function recordLiveConsent(ctx: Ctx, operation: LiveOperation): Pro
  * ledger of the submit job that created the transcript run.
  */
 export async function liveGateForJob(db: Db, job: { id: string; org_id: string; owner_user_id: string | null; kind: string; reserved_usage_id: string | null; input_ref: Record<string, unknown> },
-  env: AppEnv): Promise<{ gateFor: GateContextFor; capabilities: Record<EndpointId, EndpointCapability> }> {
+  env: AppEnv): Promise<{ gateFor: GateContextFor; capabilities: Record<EndpointId, EndpointCapability>; searchEndpoint: 'RF01' | 'RF02' }> {
   const st = await loadLiveState(db, job.org_id);
   let ledgerId = job.reserved_usage_id;
   if (!ledgerId && job.kind === 'transcript_result') {
     ledgerId = (await db.query(`select j.reserved_usage_id from transcript_runs r join app_jobs j on j.id = r.job_id where r.id = $1`, [job.input_ref.runId])).rows[0]?.reserved_usage_id ?? null;
   }
   const ledger = ledgerId ? (await db.query(
-    `select l.status, l.reserved_amount, q.consumed_at from usage_ledger l left join cost_quotes q on q.id = l.quote_id where l.id = $1`, [ledgerId],
+    `select l.status, l.reserved_amount, q.consumed_at, q.scope_json->>'endpoint' as endpoint from usage_ledger l left join cost_quotes q on q.id = l.quote_id where l.id = $1`, [ledgerId],
   )).rows[0] : null;
   const op: LiveOperation = job.kind.startsWith('transcript') ? 'transcript_submit' : 'provider_search';
   const consent = job.owner_user_id ? (await db.query(
@@ -168,5 +180,6 @@ export async function liveGateForJob(db: Db, job: { id: string; org_id: string; 
   const gateFor: GateContextFor = (endpoint) => ({
     env, orgLiveEnabled: st.orgLiveEnabled, permission: st.permission, purposes: purposesFor(endpoint), consentRecorded: consent, budgetReserved, userApproved,
   });
-  return { gateFor, capabilities: st.capabilities };
+  // The search endpoint is the one the student was quoted for (and the reservation priced).
+  return { gateFor, capabilities: st.capabilities, searchEndpoint: ledger?.endpoint === 'RF02' ? 'RF02' : 'RF01' };
 }

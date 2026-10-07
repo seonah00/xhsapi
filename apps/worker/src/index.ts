@@ -23,7 +23,7 @@ export function bootstrap(source: Record<string, string | undefined> = process.e
   if (!key) throw new Error('live mode requires REDFOX_API_KEY (server secret)');
   return {
     env, provider: new MockXhsProvider(mock), capabilities: publicCapabilities(env),
-    liveProvider: (g: Parameters<NonNullable<import('@xhs/core').JobDeps['liveProvider']>>[0]) => new RedfoxXhsProvider(key, g.gateFor, fetch, g.capabilities),
+    liveProvider: (g: Parameters<NonNullable<import('@xhs/core').JobDeps['liveProvider']>>[0]) => new RedfoxXhsProvider(key, g.gateFor, fetch, g.capabilities, undefined, g.searchEndpoint),
   };
 }
 

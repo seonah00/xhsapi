@@ -4,13 +4,18 @@ import { toggleCompare, toggleSaveNote, useAsReference } from '@/app/app/discove
 import { fmtDate, formatLabel, topicLabel } from './labels';
 import { Metric, formatMetric } from './metric';
 import { Badge, DemoBadge, Thumb, btn } from './ui';
+import { CoverThumb } from './cover-thumb';
 
 export function NoteCard({ note, back, inCompare, reasons, cons }: { note: Note; back: string; inCompare?: boolean; reasons?: string[]; cons?: string[] }) {
   const href = safeExternalHref(note.canonicalUrl);
   const demoLink = note.canonicalUrl.includes('.invalid');
   return (
     <article className="flex flex-col rounded-2xl border border-line bg-surface p-3">
-      <Thumb seed={note.platformNoteId} type={note.noteType} />
+      {note.coverUrl
+        ? <div className="relative"><CoverThumb src={note.coverUrl} alt="" fallback={<Thumb seed={note.platformNoteId} type={note.noteType} />} />
+            {note.noteType && <span className="absolute left-2 top-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] text-white">{note.noteType === 'video' ? '▶ 영상' : '이미지'}</span>}
+            <span className="absolute bottom-2 right-2 rounded bg-black/45 px-1 text-[10px] text-white">표지: 샤오홍슈</span></div>
+        : <Thumb seed={note.platformNoteId} type={note.noteType} />}
       <div className="mt-3 flex flex-wrap items-center gap-1">
         <DemoBadge mode={note.dataMode} />
         {note.topics.map((t) => <Badge key={t} tone="accent">{topicLabel(t)}</Badge>)}

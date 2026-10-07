@@ -9,6 +9,8 @@ export type NoteCard = {
   title: string | null;
   bodyExcerpt: string | null;
   canonicalUrl: string;
+  /** Provider cover image, only while the org's approved permission allows media display. */
+  coverUrl: string | null;
   noteType: 'video' | 'image' | null;
   authorName: string | null;
   authorRef: string | null;
@@ -36,7 +38,8 @@ export type DiscoverQuery = z.infer<typeof DiscoverQuery>;
 const PAGE = 20;
 
 const NOTE_SELECT = `
-  select n.id, n.platform_note_id, n.title, n.body_excerpt, n.canonical_url, n.note_type, n.author_display_name, n.author_ref,
+  select n.id, n.platform_note_id, n.title, n.body_excerpt, n.canonical_url, n.note_type,
+         case when n.cover_url is not null and app.org_allows_media_display(n.org_id) then n.cover_url end as cover_url, n.author_display_name, n.author_ref,
          n.author_followers, n.published_at, n.observed_at, n.data_mode, n.provider_tags, n.is_fallback,
          coalesce((select array_agg(t.slug order by t.slug) from note_taxonomy nt join taxonomy_terms t on t.id = nt.taxonomy_id where nt.note_id = n.id and t.kind = 'topic'), '{}') as topics,
          coalesce((select array_agg(t.slug order by t.slug) from note_taxonomy nt join taxonomy_terms t on t.id = nt.taxonomy_id where nt.note_id = n.id and t.kind = 'format'), '{}') as formats,
@@ -45,7 +48,7 @@ const NOTE_SELECT = `
   from notes n`;
 
 type NoteRow = {
-  id: string; platform_note_id: string; title: string | null; body_excerpt: string | null; canonical_url: string;
+  id: string; platform_note_id: string; title: string | null; body_excerpt: string | null; canonical_url: string; cover_url: string | null;
   note_type: 'video' | 'image' | null; author_display_name: string | null; author_ref: string | null; author_followers: MetricValue | null;
   published_at: Date | null; observed_at: Date | null; data_mode: 'mock' | 'live'; provider_tags: string[]; is_fallback: boolean;
   topics: string[]; formats: string[]; metrics: NoteCard['metrics'] | null; saved: boolean;
@@ -53,7 +56,7 @@ type NoteRow = {
 
 function toCard(r: NoteRow): NoteCard {
   return {
-    id: r.id, platformNoteId: r.platform_note_id, title: r.title, bodyExcerpt: r.body_excerpt, canonicalUrl: r.canonical_url,
+    id: r.id, platformNoteId: r.platform_note_id, title: r.title, bodyExcerpt: r.body_excerpt, canonicalUrl: r.canonical_url, coverUrl: r.cover_url,
     noteType: r.note_type, authorName: r.author_display_name, authorRef: r.author_ref, authorFollowers: r.author_followers,
     publishedAt: r.published_at?.toISOString() ?? null, observedAt: r.observed_at?.toISOString() ?? null, dataMode: r.data_mode,
     topics: r.topics, formats: r.formats, tags: r.provider_tags, metrics: r.metrics ?? {}, saved: r.saved,

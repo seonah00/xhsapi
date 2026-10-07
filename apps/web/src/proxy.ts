@@ -12,7 +12,8 @@ export function proxy(request: NextRequest) {
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ''}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data:",
+    // Note covers load straight from Xiaohongshu's image CDNs (same list as XHS_IMAGE_DOMAINS in @xhs/security).
+    "img-src 'self' data: https://*.rednotecdn.com https://*.xhscdn.com https://*.xhscdn.net",
     "font-src 'self'",
     "connect-src 'self'",
     "object-src 'none'",

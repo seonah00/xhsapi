@@ -108,6 +108,7 @@ export default async function Providers({ searchParams }: { searchParams: Promis
         <h2 className="font-semibold">live 전환 점검표</h2>
         <p className="mt-1 text-xs text-muted">명세 6.3 게이트를 이 조직의 현재 설정으로 평가한 결과입니다(외부 호출 없음). 요청할 때 따로 확인하는 항목: {d.readiness.perRequest.join(', ')}.</p>
         <p className="mt-1 text-xs">live 예산: {d.readiness.liveBudget ? `${d.readiness.liveBudget.limit} ${d.readiness.liveBudget.currency}` : '설정 없음'}</p>
+        <p className="mt-1 text-xs">외부 검색에 쓰는 엔드포인트: <strong>{d.readiness.searchEndpoint}</strong> {d.readiness.searchEndpoint === 'RF02' ? '(표지·형식·조회수 포함)' : '(RF02는 단가 등록 + 승인된 허가에 RF02가 있어야 사용)'}. 표지 이미지는 허가에 “미디어 표시”가 있을 때만 보입니다.</p>
         <ul className="mt-3 divide-y divide-line text-sm">
           {d.readiness.rows.map((r) => (
             <li key={r.endpoint} className="flex flex-wrap items-center gap-2 py-2">

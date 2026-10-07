@@ -1,10 +1,10 @@
 import { extractHashtags, parseMetricValue, type TopicSlug } from '@xhs/domain';
-import { assertFetchableUrl, normalizeXhsNoteUrl } from '@xhs/security';
+import { assertFetchableUrl, normalizeXhsNoteUrl, safeCoverUrl } from '@xhs/security';
 import { REDFOX_BASE_URL, REDFOX_CAPABILITIES, type EndpointCapability, type EndpointId } from '../capabilities.ts';
 import { evaluateLiveGate, LiveCallBlockedError, type LiveGateContext } from '../gate.ts';
 import type { ProviderNote, SearchResult, TranscriptResult, TranscriptSubmit, XhsDataProvider } from '../types.ts';
 import type { z } from 'zod';
-import { REDFOX_SUCCESS, RedfoxEnvelope, Rf01Data, Rf13Data, Rf14Data, type Rf01Article } from './schemas.ts';
+import { REDFOX_SUCCESS, RedfoxEnvelope, Rf01Data, Rf02Data, Rf13Data, Rf14Data, type Rf01Article, type Rf02Work } from './schemas.ts';
 
 export class ProviderContractError extends Error {
   override name = 'ProviderContractError';
@@ -43,6 +43,9 @@ export function isUnchargedError(e: unknown): boolean {
 
 export type GateContextFor = (endpoint: EndpointId) => Omit<LiveGateContext, 'endpoint'>;
 
+/** Endpoints that can serve a keyword search. RF02 also returns cover images, note type and read counts. */
+export type SearchEndpoint = 'RF01' | 'RF02';
+
 /**
  * Live RedFox adapter. Every call passes the spec 6.3 gate first; the key is read
  * server-side only and never logged. Endpoints without a verified response
@@ -57,9 +60,12 @@ export class RedfoxXhsProvider implements XhsDataProvider {
     private readonly fetchImpl: typeof fetch = fetch,
     private readonly capabilities: Readonly<Record<EndpointId, EndpointCapability>> = REDFOX_CAPABILITIES,
     private readonly now: () => Date = () => new Date(),
+    /** Chosen when the quote was priced; the job keeps using it even if prices change meanwhile. */
+    private readonly searchEndpoint: SearchEndpoint = 'RF01',
   ) {}
 
   async searchNotes(input: { query: string; topic?: TopicSlug; days?: 7 | 14 | 30 }): Promise<SearchResult> {
+    if (this.searchEndpoint === 'RF02') return this.searchNotesRf02(input);
     const keyword = input.query.trim();
     const body: Record<string, unknown> = keyword ? { keyword } : { pageNum: 1, pageSize: 20 }; // pageNum/pageSize apply only without a keyword
     if (input.days) {
@@ -77,6 +83,26 @@ export class RedfoxXhsProvider implements XhsDataProvider {
       relatedTerms: (d.relatedSearches ?? []).map((r) => r.keyword.trim()).filter((k) => k.length > 0 && k.length <= 40).slice(0, 20),
       // The provider has no topic filter; our topic classification is not applied to live notes yet.
       coverage: { requestedPages: 1, fetchedPages: 1, postFilters: input.topic ? ['topic_not_supported_by_provider'] : [], providerTotal: d.total ?? null, providerTip: d.tips ?? null },
+    };
+  }
+
+  /** RF02: one page (offset 0, relevance order). The provider has no date filter, so `days` is applied here. */
+  private async searchNotesRf02(input: { query: string; topic?: TopicSlug; days?: 7 | 14 | 30 }): Promise<SearchResult> {
+    const keyword = input.query.trim();
+    if (!keyword) throw new ProviderNotReadyError('RF02 requires a keyword');
+    const fetchedAt = this.now().toISOString();
+    const parsed = Rf02Data.safeParse(await this.post('RF02', { keyword, offset: 0, sortType: '_0' }));
+    if (!parsed.success) throw new ProviderContractError('RF02 response failed schema');
+    let notes = (parsed.data.list ?? []).map(toNoteRf02).filter((x): x is ProviderNote => !!x);
+    const postFilters: string[] = input.topic ? ['topic_not_supported_by_provider'] : [];
+    if (input.days) {
+      const since = this.now().getTime() - input.days * 86_400_000;
+      notes = notes.filter((n) => n.publishedAt !== null && Date.parse(n.publishedAt) >= since);
+      postFilters.push('days_filtered_after_fetch');
+    }
+    return {
+      mode: 'live', endpoint: 'RF02', fetchedAt, notes, latestHotArticles: [], relatedTerms: [],
+      coverage: { requestedPages: 1, fetchedPages: 1, postFilters, providerTotal: parsed.data.total ?? null, providerTip: null },
     };
   }
 
@@ -164,6 +190,39 @@ function toNote(a: z.infer<typeof Rf01Article>): ProviderNote | null {
       shares: parseMetricValue(a.sharedCount), views: parseMetricValue(null),
     },
     providerTags: [...tags].slice(0, 30),
+    topics: [],
+    formats: [],
+  };
+}
+
+/** RF02 `workType`: documented values are "normal" (image/text) and "video"; anything else stays unknown. */
+function workType(v: string | null | undefined): 'video' | 'image' | null {
+  const t = v?.trim().toLowerCase();
+  return t === 'video' ? 'video' : t === 'normal' ? 'image' : null;
+}
+
+/** Maps one RF02 work. Author followers are not in this response; read count is the provider's view metric. */
+function toNoteRf02(w: Rf02Work): ProviderNote | null {
+  if (!NOTE_ID.test(w.workId)) return null;
+  let canonicalUrl = `https://www.xiaohongshu.com/explore/${w.workId}`;
+  if (w.workUrl) {
+    try { canonicalUrl = normalizeXhsNoteUrl(w.workUrl).canonicalUrl; } catch { /* keep the id-based URL */ }
+  }
+  return {
+    platformNoteId: w.workId,
+    canonicalUrl,
+    title: w.workTitle?.trim() || null,
+    bodyExcerpt: w.workDesc ? w.workDesc.slice(0, 200) : null,
+    noteType: workType(w.workType),
+    author: { ref: w.accountUserid ?? null, displayName: w.accountNickname?.trim() || '작성자 미확인', followers: parseMetricValue(null) },
+    publishedAt: parseCreateTime(w.workPublishTime),
+    providerSnapshotAt: null,
+    metrics: {
+      likes: parseMetricValue(w.workLikedCount), saves: parseMetricValue(w.workCollectedCount), comments: parseMetricValue(w.workCommentsCount),
+      shares: parseMetricValue(w.workSharedCount), views: parseMetricValue(w.workReadedCount),
+    },
+    providerTags: [...new Set(extractHashtags(w.workDesc))].slice(0, 30),
+    coverUrl: safeCoverUrl(w.coverUrl),
     topics: [],
     formats: [],
   };

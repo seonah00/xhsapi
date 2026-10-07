@@ -14,6 +14,8 @@ export type ProviderNote = {
   providerSnapshotAt: string | null;
   metrics: { likes: MetricValue; saves: MetricValue; comments: MetricValue; shares: MetricValue; views: MetricValue };
   providerTags: string[];
+  /** Provider cover image URL (RF02); shown by the browser only with media-display permission, never downloaded. */
+  coverUrl?: string | null;
   topics: TopicSlug[];
   formats: FormatSlug[];
 };

@@ -57,6 +57,22 @@ export function safeExternalHref(input: string): string | null {
   }
 }
 
+/** Image CDNs Xiaohongshu serves note covers from. The CSP img-src must list the same domains. */
+export const XHS_IMAGE_DOMAINS = ['rednotecdn.com', 'xhscdn.com', 'xhscdn.net'] as const;
+
+/** A provider cover URL the browser may load directly (never fetched or stored by the server): https on an XHS image CDN. */
+export function safeCoverUrl(input: string | null | undefined): string | null {
+  if (!input || input.length > 2000) return null;
+  try {
+    const url = new URL(input);
+    const host = url.hostname.toLowerCase();
+    if (url.protocol !== 'https:' || url.username || url.password || url.port) return null;
+    return XHS_IMAGE_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`)) ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 const XHS_HOSTS = new Set(['www.xiaohongshu.com', 'xiaohongshu.com', 'xhslink.com']);
 const NOTE_PATH = /^\/(?:explore|discovery\/item)\/([0-9a-f]{24})\/?$/i;
 const TRACKING_PARAMS = /^(utm_|xsec_source$|source$|share_|app_platform$|app_version$|ignoreEngage$|author_share$|type$)/;

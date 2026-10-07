@@ -57,3 +57,31 @@ export const Rf01Data = z.object({
   total: z.number().int().nullable().optional(),
 });
 export type Rf01Data = z.infer<typeof Rf01Data>;
+
+/**
+ * RF02 keyword note search (/story/api/xhsUser/searchArticle) — provider doc only (2026-10-07); the doc's
+ * example JSON is malformed, so the first real response must confirm this shape. Unknown fields are ignored.
+ */
+const count = z.union([z.number(), z.string()]).nullable().optional();
+export const Rf02Work = z.object({
+  workId: z.string().min(1).max(64),
+  workTitle: z.string().nullable().optional(),
+  workDesc: z.string().nullable().optional(),
+  coverUrl: z.string().nullable().optional(),
+  workUrl: z.string().nullable().optional(),
+  workPublishTime: z.string().nullable().optional(),
+  accountNickname: z.string().nullable().optional(),
+  accountUserid: z.string().min(1).max(64).nullable().optional(),
+  workLikedCount: count,
+  workCommentsCount: count,
+  workCollectedCount: count,
+  workReadedCount: count,
+  workSharedCount: count,
+  workType: z.string().nullable().optional(),
+});
+export const Rf02Data = z.object({
+  total: z.number().int().nullable().optional(),
+  hasMore: z.union([z.boolean(), z.number()]).nullable().optional(),
+  list: z.array(Rf02Work).nullable().optional(),
+});
+export type Rf02Work = z.infer<typeof Rf02Work>;
