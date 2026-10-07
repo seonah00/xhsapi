@@ -121,3 +121,7 @@ pnpm price unverify --provider apify --endpoint AP01
 ### Zen Studio 전환 (2026-10-07)
 
 마이그레이션 17은 AP01 단가를 unknown으로 되돌립니다. 새 Actor의 고정 빌드(APIFY_ACTOR_BUILD)를 web·worker에 설정하고 새 가격 근거로 USD/run 상한을 재검증하세요. 이전 SocialDataX 빌드 번호·단가를 그대로 사용하면 안 됩니다. 새 견적과 apify-zen-detail-v1 동의가 필요합니다. 모든 다운로드 옵션은 false이며 images[0].url_pre를 우선 사용합니다.
+
+### 기존 미분류 게시물 소급 분류
+
+운영 서버에서 `pnpm tsx scripts/backfill-taxonomy.ts --org <조직 UUID>`로 먼저 예상 건수를 확인합니다. `--apply`를 추가하면 최대 100건씩 반영하며 반환된 `nextCursor`를 다음 실행의 `--after`에 전달합니다. live·유효 보관기간·해당 조직의 완전 미분류 게시물만 대상으로 하며 수동/기존 분류는 보존합니다. 외부 API 호출은 없습니다. 커서는 성공한 트랜잭션 이후에만 다음 배치에 사용하세요.
