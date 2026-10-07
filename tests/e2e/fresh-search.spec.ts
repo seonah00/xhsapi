@@ -24,7 +24,7 @@ test('a thumbnail opens local detail with explicit original and title-search lin
     values ('00000000-0000-4000-b000-000000000001','mock','aaaaaaaaaaaaaaaaaaaaaaaa','mock',$1,'thumbnaillinkfixture',$2,'{}') returning id`,[original.split('?')[0],cover])).rows[0];
   try {
     await db.query(`insert into note_access_links(note_id,org_id,access_url,expires_at) values($1,'00000000-0000-4000-b000-000000000001',$2,now()+interval '1 hour')`,[row.id,original]);
-    await context.route(original, route=>route.fulfill({contentType:'text/html',body:'<p>synthetic original</p>'}));
+
     await context.route(cover, route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="red"/></svg>'}));
     await page.goto('/login');
     await page.getByRole('button',{name:/student-b@demo\.invalid/}).click();
@@ -37,9 +37,14 @@ test('a thumbnail opens local detail with explicit original and title-search lin
     await expect(page).toHaveURL(new RegExp(`/app/notes/${row.id}$`));
     await expect(page.getByRole('heading',{name:'thumbnaillinkfixture'})).toBeVisible();
     await expect(page.getByRole('link',{name:'제목으로 찾기 ↗'})).toBeVisible();
-    const [popup]=await Promise.all([page.waitForEvent('popup'),page.getByRole('link',{name:'샤오홍슈 원문 ↗'}).click()]);
-    await expect(popup).toHaveURL(original);
-    await popup.close();
+    const originalLink=page.getByRole('link',{name:'샤오홍슈 원문 ↗'});
+    await expect(originalLink).toHaveAttribute('href',`/app/notes/${row.id}/original`);
+    await expect(originalLink).toHaveAttribute('target','_blank');
+    // Inspect the redirect without following it. Browser routing does not intercept every redirect hop.
+    const response=await page.request.get(`/app/notes/${row.id}/original`,{maxRedirects:0});
+    expect(response.status()).toBe(302);
+    expect(response.headers().location).toBe(original);
+    expect(response.headers()['cache-control']).toContain('no-store');
     await db.query(`update note_access_links set expires_at=now()-interval '1 second' where note_id=$1`,[row.id]);
     await page.reload();
     await expect(page.getByRole('link',{name:'샤오홍슈 원문 ↗'})).toHaveCount(0);
