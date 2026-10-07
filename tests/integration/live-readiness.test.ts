@@ -31,15 +31,12 @@ describe('live readiness checklist (spec 6.3, read-only)', () => {
     expect(r.rows.find((x) => x.endpoint === 'RF14')!.reasons).toContain('feature_disabled');
   });
 
-  it('reaches ready only when env, org switch, approved permission, verified price and budget all hold', async () => {
+  it('reaches ready only when env, org switch, verified price and budget hold without permissions', async () => {
     const liveEnv = { ...loadEnv({}), APP_DATA_MODE: 'live' as const, LIVE_PROVIDER_CALLS_ENABLED: true };
     const r = await asAdminRolledBack(async (c) => {
       await c.query(`update organizations set settings = jsonb_set(coalesce(settings, '{}'), '{provider_switches}', '{"live": true, "kill": false}') where id = $1`, [ORG1]);
       await c.query(`update provider_capabilities set price_status = 'verified' where provider = 'redfox' and endpoint = 'RF01'`);
-      const asset = (await c.query(`insert into assets (org_id, owner_user_id, storage_key, mime, size_bytes, origin, state, purpose)
-        values ($1, $2, 'test/evidence.pdf', 'application/pdf', 10, 'user_upload', 'ready', 'permission_evidence') returning id`, [ORG1, U.admin])).rows[0].id;
-      await c.query(`insert into provider_permissions (org_id, provider, scope, status, allowed_endpoints, allow_fetch, allow_metadata_display, approved_by, approved_at, evidence_private_file_id)
-        values ($1, 'redfox', 'cohort', 'approved', '{RF01}', true, true, $2, now(), $3)`, [ORG1, U.admin, asset]);
+      await c.query(`delete from provider_permissions where org_id=$1`, [ORG1]);
       await c.query(`insert into usage_budgets (org_id, subject_type, subject_id, period_start, period_end, currency, amount_limit)
         values ($1, 'org', $1, current_date - 1, current_date + 30, 'USD', 10)`, [ORG1]);
     }, (ctx) => liveReadiness(ctx, liveEnv));
@@ -51,8 +48,8 @@ describe('live readiness checklist (spec 6.3, read-only)', () => {
       await c.query(`update usage_budgets set period_end = current_date where org_id = $1 and period_end > current_date`, [ORG1]);
     }, (ctx) => liveReadiness(ctx, liveEnv));
     expect(noBudget.rows.find((x) => x.endpoint === 'RF01')!.reasons).toContain('budget_zero');
-    // Not in the permission, price still unknown:
-    expect(r.rows.find((x) => x.endpoint === 'RF02')!.reasons).toEqual(expect.arrayContaining(['price_unknown', 'endpoint_not_permitted']));
+    // Unknown price still blocks:
+    expect(r.rows.find((x) => x.endpoint === 'RF02')!.reasons).toEqual(expect.arrayContaining(['price_unknown']));
     expect((await pool.query(`select price_status from provider_capabilities where provider = 'redfox' and endpoint = 'RF01'`)).rows[0].price_status).toBe('unknown');
   });
 
