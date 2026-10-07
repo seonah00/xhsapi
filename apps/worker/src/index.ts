@@ -18,7 +18,8 @@ export function bootstrap(source: Record<string, string | undefined> = process.e
     return { env, provider: createXhsProvider(env, { mock }), liveProvider: undefined, capabilities: publicCapabilities(env) };
   }
   // Live: the key stays in this process; each job gets an adapter whose gate is built from stored
-  // permission/price/budget/consent state (core liveGateForJob). Jobs created in mock mode keep the mock provider.
+  // org switches, verified price, budget and consent (core liveGateForJob; ADR 0015).
+  // Historical permission records are not execution prerequisites. Mock jobs keep the mock provider.
   const key = env.REDFOX_API_KEY;
   if (!key) throw new Error('live mode requires REDFOX_API_KEY (server secret)');
   return {
