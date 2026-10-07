@@ -20,6 +20,7 @@ export function bootstrap(source: Record<string, string | undefined> = process.e
   // Live: the key stays in this process; each job gets an adapter whose gate is built from stored
   // org switches, verified price, budget and consent (core liveGateForJob; ADR 0015).
   // Historical permission records are not execution prerequisites. Mock jobs keep the mock provider.
+  // Search ingestion retains query-to-note matches for the shared discovery page (ADR 0016).
   const key = env.REDFOX_API_KEY;
   if (!key) throw new Error('live mode requires REDFOX_API_KEY (server secret)');
   return {

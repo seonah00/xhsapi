@@ -29,6 +29,11 @@ export async function ingestSearchResult(db: Db, meta: IngestMeta, result: Searc
 
   const noteIds: string[] = [];
   for (const note of result.notes) noteIds.push(await upsertNote(db, meta, result, runId, note, false, taxonomy));
+  const searchQuery = typeof meta.query.query === 'string' ? meta.query.query.trim() : '';
+  if (searchQuery && noteIds.length) {
+    await db.query(`insert into note_search_matches(org_id,note_id,query_text)
+      select $1, unnest($2::uuid[]), $3 on conflict do nothing`, [meta.orgId,noteIds,searchQuery]);
+  }
   for (const note of result.latestHotArticles) await upsertNote(db, meta, result, runId, note, true, taxonomy);
 
   for (const term of result.relatedTerms) {

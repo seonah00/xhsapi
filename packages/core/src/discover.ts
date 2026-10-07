@@ -109,7 +109,10 @@ export async function discover(ctx: Ctx, input: z.input<typeof DiscoverQuery>): 
   }
   if (terms.length) {
     params.push(terms.map((t) => `%${t.replace(/[%_\\]/g, (c) => `\\${c}`)}%`));
-    where.push(`(n.title ilike any($${params.length}) or n.body_excerpt ilike any($${params.length}) or exists (select 1 from unnest(n.provider_tags) t where t ilike any($${params.length})))`);
+    const textParam = params.length;
+    params.push([...new Set([q.q.trim(), ...terms])]);
+    where.push(`(n.title ilike any($${textParam}) or n.body_excerpt ilike any($${textParam}) or exists (select 1 from unnest(n.provider_tags) t where t ilike any($${textParam}))
+      or exists (select 1 from note_search_matches s where s.org_id=n.org_id and s.note_id=n.id and s.query_text=any($${params.length}::text[])))`);
   }
   if (q.topic) {
     params.push(q.topic);

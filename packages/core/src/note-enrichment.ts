@@ -25,7 +25,7 @@ export async function priceEnrichment(ctx: Ctx, service: ServiceRunner, env: App
   const st = await service(db=>state(db,ctx.orgId));
   const gate = evaluateLiveGate({env,endpoint:st.capability,orgLiveEnabled:st.ops.provider.live && !st.ops.provider.kill,permission:st.permission,
     purposes:['fetch','metadata_display','excerpt_display','media_display','cache'],consentRecorded:true,budgetReserved:true,userApproved:true});
-  if (!gate.allowed) throw new AppError('LIVE_BLOCKED', `Apify 호출 조건 미충족: ${gate.reasons.join(', ')}`);
+  if (!gate.allowed) throw new AppError('LIVE_BLOCKED', '이미지 업데이트가 아직 준비되지 않았습니다. 관리자가 요금과 실행 설정을 확인해야 합니다.');
   const p = (await ctx.db.query(`select id,unit,unit_cost::text,currency from provider_price_versions where provider='apify' and endpoint='AP01' and effective_at<=now() order by effective_at desc limit 1`)).rows[0];
   // A verified total-run cap includes all charge types; dataset items and SocialDataX points are not interchangeable.
   if (!p || p.unit !== 'run' || p.currency !== 'USD' || Number(p.unit_cost)<=0) throw new AppError('LIVE_BLOCKED','Apify의 검증된 USD/run 최대 비용이 필요합니다.');

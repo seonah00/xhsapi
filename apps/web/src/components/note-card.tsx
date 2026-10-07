@@ -13,9 +13,9 @@ export function NoteCard({ note, back, inCompare, reasons, cons }: { note: Note;
   return (
     <article className="flex flex-col rounded-2xl border border-line bg-surface p-3">
       {note.coverUrl
-        ? <div className="relative"><CoverThumb src={note.coverUrl} alt="" fallback={<Thumb seed={note.platformNoteId} type={note.noteType} />} />
+        ? <div className="relative"><CoverThumb key={note.coverUrl} noteId={note.id} src={note.coverUrl} alt="" fallback={<Thumb seed={note.platformNoteId} type={note.noteType} />} />
             {note.noteType && <span className="absolute left-2 top-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] text-white">{note.noteType === 'video' ? '▶ 영상' : '이미지'}</span>}
-            <span className="absolute bottom-2 right-2 rounded bg-black/45 px-1 text-[10px] text-white">표지: 샤오홍슈</span></div>
+            </div>
         : <Thumb seed={note.platformNoteId} type={note.noteType} />}
       <div className="mt-3 flex flex-wrap items-center gap-1">
         <DemoBadge mode={note.dataMode} />
@@ -40,7 +40,7 @@ export function NoteCard({ note, back, inCompare, reasons, cons }: { note: Note;
         </ul>
       )}
       <div className="mt-auto flex flex-wrap gap-1.5 pt-3">
-        <Link href={`/app/notes/${note.id}/enrich`} className={btn.small}>상세·표지 보완</Link>
+        <Link href={`/app/notes/${note.id}/enrich`} className={btn.small}>정보 업데이트</Link>
         <form action={toggleSaveNote}><input type="hidden" name="noteId" value={note.id} /><input type="hidden" name="back" value={back} />
           <button className={btn.small} aria-pressed={note.saved}>{note.saved ? '★ 저장됨' : '☆ 저장'}</button></form>
         <form action={toggleCompare}><input type="hidden" name="noteId" value={note.id} /><input type="hidden" name="back" value={back} />
