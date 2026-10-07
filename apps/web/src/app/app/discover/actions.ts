@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { AppError } from '@xhs/domain';
 import { requestAutoSearch, createQuote, createReference, reserveJob, toggleSave } from '@xhs/core';
 import { service, withPageCtx } from '@/server/ctx';
 import { orRedirectWithError, safeLocalPath } from '@/server/actions-util';
@@ -81,7 +82,13 @@ export async function searchAutomatically(f: FormData) {
   const filters={...(f.get('topic')?{topic:String(f.get('topic'))}:{}),...(f.get('days')?{days:Number(f.get('days'))}:{})};
   const qs=new URLSearchParams({q,...presentation(f),...Object.fromEntries(Object.entries(filters).map(([k,v])=>[k,String(v)]))});
   if(q) {
-    const requestId=await orRedirectWithError(`/app/discover?${qs}`,()=>withPageCtx(ctx=>requestAutoSearch(ctx,service,q,env(),filters)));
+    const requestId=await orRedirectWithError(`/app/discover?${qs}`,()=>withPageCtx(async ctx=>{
+      try { return await requestAutoSearch(ctx,service,q,env(),filters); }
+      catch(e) {
+        if(e instanceof AppError && ['LIVE_BLOCKED','FEATURE_DISABLED','BUDGET_EXCEEDED'].includes(e.code)) throw new AppError('FEATURE_DISABLED','현재 새 게시물을 찾을 수 없어 저장된 결과를 표시합니다.');
+        throw e;
+      }
+    }));
     if(requestId) qs.set('auto',requestId);
   }
   redirect(`/app/discover?${qs}`);
