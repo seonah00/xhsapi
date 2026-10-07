@@ -9,7 +9,7 @@ import { MockBanner } from './ui';
 const ROLE: Record<string, string> = { student: '학생', reviewer: '강사', org_admin: '관리자' };
 
 export const STUDENT_NAV = [
-  ['/app', '홈'], ['/app/discover', '탐색'], ['/app/references', '레퍼런스'], ['/app/reference-accounts', '참고 계정'], 
+  ['/app', '홈'], ['/app/discover', '탐색'], ['/app/references', '레퍼런스'], ['/app/reference-accounts', '참고 계정'],
   ['/app/plans', '기획실'], ['/app/check', '점검'], ['/app/submissions', '제출'], ['/app/results', '성과'], ['/app/accounts', '내 계정'],
 ] as const;
 export const STAFF_NAV = [['/review/submissions', '검토함'], ['/review/rules', '점검 규칙'], ['/review/reports', '신고']] as const;

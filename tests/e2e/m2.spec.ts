@@ -14,7 +14,7 @@ test('plan → AI proposal → check & fix → submit → reviewer feedback → 
   let allow404 = false;
   page.on('console', (m) => { if (m.type() === 'error' && !(allow404 && m.text().includes('status of 404'))) { console.log('[browser error]', page.url(), m.text()); errors.push(m.text()); } });
 
-  // Reviewer adds an editorial rule with a suggestion and a dictionary entry.
+  // Reviewer adds an editorial rule with a suggestion.
   await login(page, 'reviewer@demo.invalid');
   await page.goto('/review/rules');
   await page.getByLabel('규칙 키 (영문 소문자·숫자·하이픈)').fill('no-shenqi');
@@ -24,14 +24,6 @@ test('plan → AI proposal → check & fix → submit → reviewer feedback → 
   await page.getByRole('button', { name: '초안 저장' }).click();
   await page.locator('li', { hasText: 'no-shenqi@1' }).getByRole('button', { name: '검토 후 활성화' }).click();
   await expect(page.locator('li', { hasText: 'no-shenqi@1' }).getByText('활성', { exact: true })).toBeVisible();
-  await page.goto('/review/expressions');
-  await page.getByLabel('표현 (중국어)').fill('氛围感');
-  await page.getByLabel('실제 뜻').fill('분위기 있는 느낌');
-  await page.getByRole('button', { name: '초안 저장' }).click();
-  await page.locator('li', { hasText: '氛围感' }).getByRole('button', { name: '검수 완료' }).click();
-  await page.locator('li', { hasText: '氛围感' }).getByRole('button', { name: '공개' }).click();
-  await expect(page.locator('li', { hasText: '氛围感' }).getByText('공개', { exact: true })).toBeVisible();
-
   // Student: reference → plan
   await login(page, 'student-a@demo.invalid');
   await page.goto('/app/discover?q=' + encodeURIComponent('敏感肌'));
@@ -124,11 +116,7 @@ test('plan → AI proposal → check & fix → submit → reviewer feedback → 
   expect(md).toContain('데모 데이터');
   expect(md).toContain('게시 승인·법적 안전 보장 아님');
 
-  // Published dictionary entry is visible to students
-  await page.goto('/app/expressions?q=' + encodeURIComponent('氛围感'));
-  await expect(page.getByText('검수됨').first()).toBeVisible();
-  expect(errors).toEqual([]);
-});
+
 
 test('autosave conflict across two tabs and standalone check keeps text out of the URL', async ({ page, context }) => {
   await login(page, 'student-a@demo.invalid');

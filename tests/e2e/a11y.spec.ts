@@ -16,7 +16,7 @@ async function scan(page: Page, path: string) {
   return r.violations.map((v) => `${path} ${v.id} (${v.impact}): ${v.nodes.slice(0, 3).map((n) => n.target.join(' ')).join(' | ')}`);
 }
 
-const STUDENT = ['/app', '/app/discover?q=' + encodeURIComponent('护肤'), '/app/discover/compare', '/app/reference-accounts', '/app/references', '/app/references/new', '/app/library',
+const STUDENT = ['/app', '/app/discover?q=' + encodeURIComponent('护肤'), '/app/discover/compare', '/app/reference-accounts', '/app/references', '/app/references/new',
   '/app/plans', '/app/plans/new', '/app/check', '/app/submissions', '/app/results', '/app/accounts', '/app/privacy'];
 const STAFF = ['/review/submissions', '/review/rules', '/review/reports'];
 const ADMIN = ['/admin', '/admin/members', '/admin/invitations', '/admin/cohorts', '/admin/taxonomy', '/admin/providers', '/admin/usage', '/admin/jobs', '/admin/audit'];

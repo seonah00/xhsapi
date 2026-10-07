@@ -79,4 +79,3 @@ export async function removeTranscript(f: FormData) {
   await orRedirectWithError(back, () => withPageCtx((ctx) => deleteTranscript(ctx, id)));
   redirect(`${back}?deleted=1`);
 }
-
