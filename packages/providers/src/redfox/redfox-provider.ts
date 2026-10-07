@@ -190,7 +190,7 @@ function toNote(a: z.infer<typeof Rf01Article>): ProviderNote | null {
   if (!NOTE_ID.test(a.id)) return null;
   let canonicalUrl = `https://www.xiaohongshu.com/explore/${a.id}`;
   if (a.shareInfoLink) {
-    try { canonicalUrl = normalizeXhsNoteUrl(a.shareInfoLink).canonicalUrl; } catch { /* keep the id-based URL */ }
+    try { const normalized = normalizeXhsNoteUrl(a.shareInfoLink); if (normalized.noteId === a.id.toLowerCase()) canonicalUrl = normalized.canonicalUrl; } catch { /* keep the id-based URL */ }
   }
   const tags = new Set([...extractHashtags(a.desc), ...(a.topicsName ?? '').split(/[,，\s]+/).map((t) => t.replace(/^#/, '').trim()).filter(Boolean)]);
   return {
@@ -223,7 +223,7 @@ function toNoteRf02(w: Rf02Work): ProviderNote | null {
   if (!NOTE_ID.test(w.workId)) return null;
   let canonicalUrl = `https://www.xiaohongshu.com/explore/${w.workId}`;
   if (w.workUrl) {
-    try { canonicalUrl = normalizeXhsNoteUrl(w.workUrl).canonicalUrl; } catch { /* keep the id-based URL */ }
+    try { const normalized = normalizeXhsNoteUrl(w.workUrl); if (normalized.noteId === w.workId.toLowerCase()) canonicalUrl = normalized.canonicalUrl; } catch { /* keep the id-based URL */ }
   }
   return {
     platformNoteId: w.workId,

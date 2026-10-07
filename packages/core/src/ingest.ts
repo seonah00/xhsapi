@@ -57,7 +57,7 @@ async function upsertNote(db: Db, meta: IngestMeta, result: SearchResult, runId:
                         author_followers, published_at, provenance, provider_tags, is_fallback, ingestion_run_id, observed_at, cover_url)
      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
      on conflict (org_id, provider, platform_note_id, data_mode) do update set
-       title = excluded.title, body_excerpt = excluded.body_excerpt,
+       title = excluded.title, body_excerpt = excluded.body_excerpt, canonical_url = excluded.canonical_url,
        -- endpoints differ in what they return (RF02 has no follower count, RF01 no type/cover): keep known values
        author_followers = case when excluded.author_followers->>'precision' = 'unknown' then notes.author_followers else excluded.author_followers end,
        note_type = coalesce(excluded.note_type, notes.note_type),

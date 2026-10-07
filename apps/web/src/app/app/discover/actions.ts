@@ -1,4 +1,5 @@
 'use server';
+import { withAdmin } from '@/app/admin/forbidden-guard';
 import { categorySearch } from '@/components/category-search';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -56,7 +57,7 @@ const presentation = (f: FormData) => Object.fromEntries(['format', 'sort'].flat
 /** "외부 자료 새로 조회": quote first (spec F04 step 3). In mock mode the provider returns synthetic fixtures only. */
 export async function quoteRefresh(f: FormData) {
   const scope = await orRedirectWithError(back(f), async () => refreshScope(f));
-  const q = await orRedirectWithError(back(f), () => withPageCtx((ctx) => createQuote(ctx, service, 'provider_search', scope)));
+  const q = await orRedirectWithError(back(f), () => withAdmin((ctx) => createQuote(ctx, service, 'provider_search', scope)));
   const qs = new URLSearchParams({ q: scope.query, targetCount: String(scope.targetCount), ...(scope.topic ? {topic:scope.topic} : {}), ...(scope.days ? {days:String(scope.days)} : {}), ...presentation(f), refresh: '1', quote: q.id });
   qs.delete('query');
   redirect(`/app/discover?${qs}#refresh`);
@@ -65,7 +66,7 @@ export async function quoteRefresh(f: FormData) {
 export async function confirmRefresh(f: FormData) {
   const scope = await orRedirectWithError(back(f), async () => refreshScope(f));
   const quoteId = id.parse(f.get('quoteId'));
-  const { jobId } = await orRedirectWithError(back(f), () => withPageCtx((ctx) => reserveJob(ctx, {
+  const { jobId } = await orRedirectWithError(back(f), () => withAdmin((ctx) => reserveJob(ctx, {
     quoteId, route: 'POST /discover/refresh', idempotencyKey: id.parse(f.get('idem')), operation: 'provider_search', scope,
     jobKind: 'provider_search', dedupeKey: `provider_search:${quoteId}`, consent: f.get('consent') === 'on', inputRef: scope,
   })));

@@ -23,7 +23,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
   });
   const query = parsed.success ? parsed.data : DiscoverQuery.parse({});
   const [[result, quote, mode, canManage], compare] = await Promise.all([
-    withPageCtx(async (ctx) => [await discover(ctx, query), sp.quote && /^[0-9a-f-]{36}$/.test(sp.quote) ? await getQuote(ctx, sp.quote) : null, ctx.mode, ctx.role === 'org_admin'] as const),
+    withPageCtx(async (ctx) => [await discover(ctx, query), ctx.role === 'org_admin' && sp.quote && /^[0-9a-f-]{36}$/.test(sp.quote) ? await getQuote(ctx, sp.quote) : null, ctx.mode, ctx.role === 'org_admin'] as const),
     getCompareIds(),
   ]);
   const qs = new URLSearchParams(Object.entries({ q: sp.q ?? '', topic: sp.topic ?? '', format: sp.format ?? '', days: sp.days ?? '', sort: sp.sort ?? '', job: sp.job ?? '' }).filter(([, v]) => v));
@@ -34,7 +34,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
   const back = `/app/discover${qs.size ? `?${qs}` : ''}`;
   return (
     <>
-      <PageHeader title="탐색" description={<>검색어·해시태그로 새 게시물을 조회하거나 저장된 게시물을 검색하세요. 마지막 갱신 {fmtDate(result.lastFetchedAt, true)}</>}
+      <PageHeader title="탐색" description={<>검색어·해시태그로 게시물을 찾아보세요. 마지막 갱신 {fmtDate(result.lastFetchedAt, true)}</>}
         actions={<><Link href="/app/reference-accounts" className={btn.secondary}>참고 계정</Link><Link href="/app/discover/compare" className={btn.secondary}>비교 ({compare.length}/3)</Link></>} />
       <ErrorNotice message={sp.error ?? (parsed.success ? undefined : '검색 조건을 확인하세요.')} />
       <form role="search" className="mb-4 grid gap-2 rounded-2xl border border-line bg-surface p-3 sm:grid-cols-[1fr_auto_auto_auto]">
@@ -44,8 +44,8 @@ export default async function Discover({ searchParams }: { searchParams: Promise
         <select name="format" defaultValue={sp.format ?? ''} className={input} aria-label="형식"><option value="">모든 형식</option>{Object.entries(FORMAT_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
         <select name="sort" defaultValue={sp.sort ?? 'popular'} className={input} aria-label="정렬"><option value="popular">좋아요 많은 순</option><option value="saves">저장 많은 순</option><option value="recent">최신순</option></select>
         <select name="days" defaultValue={sp.days ?? ''} className={input} aria-label="기간"><option value="">전체 기간</option><option value="7">최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option></select>
-        <PendingButton formAction={quoteRefresh} className={btn.primary} pendingText="검색 준비 중…">새 게시물 검색</PendingButton>
-        <button className={btn.secondary}>저장된 게시물 검색</button>
+        {canManage && <PendingButton formAction={quoteRefresh} className={btn.primary} pendingText="검색 준비 중…">새 게시물 검색</PendingButton>}
+        <button className={canManage ? btn.secondary : btn.primary}>{canManage ? '저장된 게시물 검색' : '검색'}</button>
       </form>
 
       {result.expansion && (
@@ -66,15 +66,15 @@ export default async function Discover({ searchParams }: { searchParams: Promise
           <p className="mt-1 text-xs text-muted">실제 검색에 사용: <span className="zh">{result.searchedTerms.join(', ') || '없음'}</span></p>
         </div>
       )}
-      {sp.topic && !sp.cursor && result.notes.length < 50 && <p className="mb-3 text-sm text-muted">이 조건에 맞는 게시물 {result.notes.length}건 · 목표 50건. 아래 ‘새 게시물 찾기’에서 해당 주제를 추가 조회할 수 있습니다.</p>}
+      {canManage && sp.topic && !sp.cursor && result.notes.length < 50 && <p className="mb-3 text-sm text-muted">이 조건에 맞는 게시물 {result.notes.length}건 · 목표 50건. 아래 ‘새 게시물 찾기’에서 해당 주제를 추가 조회할 수 있습니다.</p>}
       {result.postFilters.length > 0 && <p className="mb-3 text-xs text-muted">기간 조건은 저장 자료에 사후 필터로 적용했습니다. 게시일이 확인되지 않은 자료는 제외됩니다.</p>}
 
       {(sp.q || sp.topic) && <div className="mb-4 rounded-xl bg-info-soft p-3 text-sm">
-        {sp.job ? '이번 조회의' : '현재 저장된'} “{sp.q || TOPIC_LABEL[sp.topic ?? '']}” 관련 게시물입니다. <a href="#refresh" className="font-semibold underline">새 게시물 50건 찾기</a>
+        {sp.job ? '이번 조회의' : '현재 저장된'} “{sp.q || TOPIC_LABEL[sp.topic ?? '']}” 관련 게시물입니다. {canManage && <a href="#refresh" className="font-semibold underline">새 게시물 50건 찾기</a>}
         {sp.job && <div className="mt-2"><JobStatus jobId={sp.job} label="새 게시물 찾기" /></div>}
       </div>}
       {result.notes.length === 0 ? (
-        <Empty title={sp.job ? "이번 조회 결과가 아직 없습니다" : "관련 근거가 부족합니다"}>{sp.job ? "조회 상태를 확인하세요. 완료되면 결과가 자동으로 갱신됩니다." : "조건에 맞는 저장 자료가 없습니다. 새 게시물 검색을 이용하거나 검색 조건을 바꿔 보세요."}</Empty>
+        <Empty title={sp.job ? "이번 조회 결과가 아직 없습니다" : "관련 근거가 부족합니다"}>{sp.job ? "조회 상태를 확인하세요. 완료되면 결과가 자동으로 갱신됩니다." : "조건에 맞는 게시물이 없습니다. 검색어나 카테고리·기간을 바꿔 보세요."}</Empty>
       ) : (
         <CoverRepair canManage={canManage} key={back} notes={result.notes.map(n=>({id:n.id,coverUrl:n.coverUrl}))}><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {result.notes.map((n) => <NoteCard canManage={canManage} key={n.id} note={n} back={back} inCompare={compare.includes(n.id)} />)}
@@ -82,7 +82,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
       )}
       {result.nextCursor && <div className="mt-4 text-center"><Link className={btn.secondary} href={`${back}${qs.size ? '&' : '?'}cursor=${result.nextCursor}`}>더 보기</Link></div>}
 
-      <div className="mt-8">
+      {canManage && <div className="mt-8">
         <section id="refresh" aria-labelledby="refresh-title" className="rounded-2xl border border-line bg-surface p-4">
           <h2 id="refresh-title" className="font-semibold">새 게시물 찾기 {mode === 'mock' && <Badge tone="warn">데모</Badge>}</h2>
           <p className="mt-1 text-sm text-muted">
@@ -101,7 +101,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
           ) : <p className="mt-2 text-sm text-muted">위에서 카테고리를 선택하거나 검색어를 입력하세요.</p>}
           {sp.job && <div className="mt-3"><p className="mt-1 text-xs text-muted">완료되면 <Link href={back} className="underline">검색 결과 새로고침</Link></p></div>}
         </section>
-      </div>
+      </div>}
       {result.latestHot.length > 0 && (
         <section aria-labelledby="hot" className="mt-6">
           <h2 id="hot" className="text-sm font-semibold">공급자 최신 인기 글 <Badge tone="warn">검색어와 무관</Badge></h2>

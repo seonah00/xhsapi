@@ -30,6 +30,7 @@ test('reference accounts, mock external refresh, reports queue and taxonomy admi
   await page.getByRole('button', { name: '선택한 계정 비교 (2~3개)' }).click();
   await expect(page.getByRole('heading', { name: '참고 계정 비교' })).toBeVisible();
 
+  await login(page, 'admin@demo.invalid');
   // Mock external refresh: quote → confirm → job (no external request in mock mode)
   await page.goto('/app/discover?q=' + encodeURIComponent('护肤'));
   await page.getByRole('button', { name: /비용 확인 후 조회/ }).click();
@@ -38,6 +39,7 @@ test('reference accounts, mock external refresh, reports queue and taxonomy admi
   await page.getByRole('button', { name: '확인하고 실행' }).click();
   await expect(page.getByRole('status').filter({ hasText: '완료' })).toBeVisible({ timeout: 30_000 });
 
+  await login(page, 'student-a@demo.invalid');
   // False-positive report from the standalone check (only id + reason + memo are sent)
   await page.goto('/app/check');
   await page.getByLabel('제목', { exact: true }).fill('最好的面霜');

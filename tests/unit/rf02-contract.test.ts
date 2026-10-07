@@ -36,6 +36,14 @@ describe('RF02 keyword search contract (documented shape)', () => {
     expect(n.author.followers.precision).toBe('unknown'); // not in RF02: never invented
   });
 
+  it('does not use profile or mismatched post URLs as the article identity', async()=>{
+    const id='687df3a1000000000d0184a4';
+    for(const workUrl of ['https://www.xiaohongshu.com/user/profile/aaaaaaaaaaaaaaaaaaaaaaaa','https://www.xiaohongshu.com/explore/bbbbbbbbbbbbbbbbbbbbbbbb']) {
+      const result=await provider(respond({code:2000,data:{list:[work(id,{workUrl})]}})).searchNotes({query:'test'});
+      expect(result.notes[0]?.canonicalUrl).toBe(`https://www.xiaohongshu.com/explore/${id}`);
+    }
+  });
+
   it('unknown work types stay unknown, days are filtered after the fetch, and a missing list wrapper is a contract violation', async () => {
     const f = respond({ code: 2000, data: { list: [work('687df3a1000000000d0184a6', { workType: '主要描述', workPublishTime: '2026-09-01 00:00:00' }), work('687df3a1000000000d0184a7')] } });
     const r = await provider(f).searchNotes({ query: 'x', days: 7 });
