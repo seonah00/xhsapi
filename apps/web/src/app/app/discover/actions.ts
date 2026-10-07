@@ -78,9 +78,10 @@ export async function confirmRefresh(f: FormData) {
 
 export async function searchAutomatically(f: FormData) {
   const q=categorySearch(String(f.get('q')??''),String(f.get('topic')??''));
-  const qs=new URLSearchParams({q,...presentation(f),...(f.get('topic')?{topic:String(f.get('topic'))}:{})});
+  const filters={...(f.get('topic')?{topic:String(f.get('topic'))}:{}),...(f.get('days')?{days:Number(f.get('days'))}:{})};
+  const qs=new URLSearchParams({q,...presentation(f),...Object.fromEntries(Object.entries(filters).map(([k,v])=>[k,String(v)]))});
   if(q) {
-    const requestId=await orRedirectWithError(`/app/discover?${qs}`,()=>withPageCtx(ctx=>requestAutoSearch(ctx,service,q,env())));
+    const requestId=await orRedirectWithError(`/app/discover?${qs}`,()=>withPageCtx(ctx=>requestAutoSearch(ctx,service,q,env(),filters)));
     if(requestId) qs.set('auto',requestId);
   }
   redirect(`/app/discover?${qs}`);

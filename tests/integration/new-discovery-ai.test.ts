@@ -19,8 +19,7 @@ beforeAll(async()=>{
 afterAll(async()=>{
   await pool.query(`delete from provider_price_versions where provider='openai' and verified_by=$1`,[admin]);
   await pool.query(`update provider_capabilities set price_status='unknown' where provider='openai'`);
-  await pool.query(`delete from organizations where id=$1`,[org]);
-  await pool.query(`delete from auth.users where id=any($1::uuid[])`,[[admin,student,other]]);
+  // The isolated test database is discarded by with-test-db; keep the last-admin guard intact.
   await pool.end();
 });
 it('stores signed URLs separately, rejects cross-org access and expires without exposing tokens in note rows',async()=>{

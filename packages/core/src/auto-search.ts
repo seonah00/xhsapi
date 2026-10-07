@@ -27,9 +27,11 @@ export async function autoSearchPolicy(ctx: Ctx) {
 }
 
 /** One transaction serializes cache lookup, daily caps and existing monetary reservation. */
-export async function requestAutoSearch(ctx: Ctx, service: ServiceRunner, raw: string, env: AppEnv): Promise<string | null> {
+export async function requestAutoSearch(ctx: Ctx, service: ServiceRunner, raw: string, env: AppEnv, filters: {topic?: string; days?: number} = {}): Promise<string | null> {
   const query=z.string().min(1).max(50).parse(normalizeSearchQuery(raw));
-  const hash=sha256Hex(canonicalJson({query,mode:ctx.mode}));
+  const checked=z.object({topic:z.enum(['beauty','daily-life','parenting','food-places','travel-outing','fashion']).optional(),days:z.union([z.literal(7),z.literal(14),z.literal(30)]).optional()}).parse(filters);
+  const scope={query,targetCount:50,...checked};
+  const hash=sha256Hex(canonicalJson({...scope,mode:ctx.mode}));
   return service(async db=>{
     await db.query(`select pg_advisory_xact_lock(hashtextextended($1,0))`,[`auto-search:${ctx.orgId}`]);
     const member=await db.query(`select 1 from memberships where org_id=$1 and user_id=$2 and status='active'`,[ctx.orgId,ctx.uid]);
@@ -54,7 +56,6 @@ export async function requestAutoSearch(ctx: Ctx, service: ServiceRunner, raw: s
       await db.query(`select set_config('request.jwt.claim.sub',$1,true)`,[policy.approvedBy]);
       const sponsored: Ctx={...ctx,db,uid:policy.approvedBy,role:'org_admin'};
       const same: ServiceRunner=fn=>fn(db);
-      const scope={query,targetCount:50};
       const quote=await createQuote(sponsored,same,'provider_search',scope,{env});
       const within=(await db.query(`select $1::numeric <= $2::numeric as ok`,[quote.maxAmount,policy.maxCny])).rows[0]?.ok;
       if(ctx.mode==='live' && (quote.currency!=='CNY' || !within)) throw new AppError('BUDGET_EXCEEDED','새 게시물 검색의 운영 한도에 도달했습니다.');

@@ -40,6 +40,10 @@ test('a thumbnail opens local detail with explicit original and title-search lin
     const [popup]=await Promise.all([page.waitForEvent('popup'),page.getByRole('link',{name:'샤오홍슈 원문 ↗'}).click()]);
     await expect(popup).toHaveURL(original);
     await popup.close();
+    await db.query(`update note_access_links set expires_at=now()-interval '1 second' where note_id=$1`,[row.id]);
+    await page.reload();
+    await expect(page.getByRole('link',{name:'샤오홍슈 원문 ↗'})).toHaveCount(0);
+    await expect(page.getByRole('link',{name:'제목으로 찾기 ↗'})).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`/app/notes/${row.id}$`));
     await page.context().clearCookies();
     await page.goto('/login');

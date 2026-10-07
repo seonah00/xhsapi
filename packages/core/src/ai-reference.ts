@@ -14,6 +14,7 @@ const SYSTEM='샤오홍슈 레퍼런스의 제공된 텍스트만 한국어로 �
 
 export function aiReferenceInput(input: AnalysisInput): AnalysisInput {
   const clean=JSON.parse(redactString(JSON.stringify(input))) as AnalysisInput;
+  if(![clean.title,clean.body,clean.userText,clean.userMemo,...clean.tags].some(text=>text?.trim())) throw new AppError('VALIDATION_FAILED','분석할 제목·본문 또는 메모를 먼저 입력하세요.');
   if(Buffer.byteLength(JSON.stringify(clean),'utf8')>12000) throw new AppError('VALIDATION_FAILED','분석 텍스트가 너무 깁니다. 12KB 이하로 줄여 주세요.');
   return clean;
 }
@@ -65,7 +66,7 @@ export async function runReferenceAi(deps:JobDeps,job:JobRow):Promise<JobOutcome
     const consent=await db.query(`select 1 from consent_records where org_id=$1 and user_id=$2 and purpose='external_ai_processing' and scope->>'quoteId'=$3 and withdrawn_at is null`,[job.org_id,job.owner_user_id,(await db.query(`select quote_id from usage_ledger where id=$1`,[job.reserved_usage_id])).rows[0].quote_id]);
     if(!consent.rowCount) return null;
     const ref=(await db.query(`select r.*,n.title as note_title,n.body_excerpt,n.provider_tags,n.note_type from reference_items r left join notes n on n.id=r.note_id
-      where r.id=$1 and r.org_id=$2 and r.owner_user_id=$3 and r.deleted_at is null`,[job.input_ref.referenceId,job.org_id,job.owner_user_id])).rows[0];
+      where r.id=$1 and r.org_id=$2 and r.owner_user_id=$3 and r.deleted_at is null and (r.note_id is null or (n.data_mode='live' and (n.expires_at is null or n.expires_at>now())))`,[job.input_ref.referenceId,job.org_id,job.owner_user_id])).rows[0];
     if(!ref) return null;
     // Only metadata/user text; transcript export requires a separately reviewed retention policy.
     return aiReferenceInput({title:ref.note_title??ref.title??null,body:ref.body_excerpt??null,tags:ref.provider_tags??ref.tags??[],userText:ref.user_text??null,userMemo:ref.user_memo??null,noteType:ref.note_type??null,transcript:null});

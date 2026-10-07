@@ -25,8 +25,8 @@ export function parseArgs(argv: string[]): { cmd: string; opts: Record<string, s
 
 export function validateRegister(o: Record<string, string>) {
   const errors: string[] = [];
-  if (!o.endpoint || (o.provider === 'openai' ? o.endpoint !== 'AI01' : o.provider === 'apify' ? o.endpoint !== 'AP01' : !(o.endpoint in REDFOX_CAPABILITIES))) errors.push('--endpoint: RedFox RF01~RF14 또는 Apify AP01');
-  if (o.provider && !['redfox','apify','openai'].includes(o.provider)) errors.push('--provider: redfox 또는 apify');
+  if (!o.endpoint || (o.provider === 'openai' ? o.endpoint !== 'AI01' : o.provider === 'apify' ? o.endpoint !== 'AP01' : !(o.endpoint in REDFOX_CAPABILITIES))) errors.push('--endpoint: RedFox RF01~RF14, Apify AP01, OpenAI AI01');
+  if (o.provider && !['redfox','apify','openai'].includes(o.provider)) errors.push('--provider: redfox, apify 또는 openai');
   if (o.provider === 'apify' && (o.unit !== 'run' || o.currency !== 'USD' || !(Number(o['unit-cost']) > 0))) errors.push('Apify는 검증된 양수 USD/run 최대 비용만 등록');
   if (o.provider === 'openai' && (o.unit !== 'run' || o.currency !== 'USD' || !(Number(o['unit-cost']) > 0) || !o.model || !/^[a-zA-Z0-9.-]{1,100}$/.test(o.model))) errors.push('OpenAI: --model과 검증된 양수 USD/run 상한 필요 (입력 20,000 + 출력 2,000 토큰 포함)');
   if (!o.unit || !/^[a-z_]{2,20}$/.test(o.unit)) errors.push('--unit: 예) call, page, minute');
@@ -41,7 +41,7 @@ export function validateRegister(o: Record<string, string>) {
 async function main() {
   const { cmd, opts } = parseArgs(process.argv.slice(2));
   const provider = opts.provider ?? 'redfox';
-  if (!['redfox','apify','openai'].includes(provider)) throw new Error('--provider: redfox 또는 apify');
+  if (!['redfox','apify','openai'].includes(provider)) throw new Error('--provider: redfox, apify 또는 openai');
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is required');
   const db = new pg.Client(pgConfig());
