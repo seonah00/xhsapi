@@ -32,7 +32,7 @@ export type SearchResult = {
   coverage: {
     requestedPages: number; fetchedPages: number; postFilters: string[]; providerTotal?: number | null; providerTip?: string | null;
     /** Cover diagnostics (hosts only, never full URLs): kept, absent, or refused because the host is not an XHS image CDN. */
-    covers?: { kept: number; missing: number; refusedHosts: Record<string, number> };
+    covers?: { kept: number; missing: number; expired: number; refusedHosts: Record<string, number> };
   };
 };
 

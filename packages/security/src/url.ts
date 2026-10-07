@@ -78,6 +78,20 @@ export function safeCoverUrl(input: string | null | undefined): string | null {
   }
 }
 
+/**
+ * Xiaohongshu CDN cover links carry `t=<hex unix seconds>`; links whose `t` is in the past answered 403 in the
+ * first real RF02 test (2026-10-07), so `t` is treated as the signature expiry. Links without `t` are kept.
+ */
+export function coverExpired(url: string, now = new Date()): boolean {
+  try {
+    const t = new URL(url).searchParams.get('t');
+    if (!t || !/^[0-9a-f]{8}$/i.test(t)) return false;
+    return Number.parseInt(t, 16) * 1000 <= now.getTime();
+  } catch {
+    return true;
+  }
+}
+
 const XHS_HOSTS = new Set(['www.xiaohongshu.com', 'xiaohongshu.com', 'xhslink.com']);
 const NOTE_PATH = /^\/(?:explore|discovery\/item)\/([0-9a-f]{24})\/?$/i;
 const TRACKING_PARAMS = /^(utm_|xsec_source$|source$|share_|app_platform$|app_version$|ignoreEngage$|author_share$|type$)/;

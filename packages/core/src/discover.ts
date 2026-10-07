@@ -1,4 +1,5 @@
 import { expandKoreanQuery, containsHangul, rankForProfile, REASON_TEXT, CON_TEXT, RANKING_VERSION, type MetricValue, type QueryExpansion, type TopicSlug, type FormatSlug } from '@xhs/domain';
+import { coverExpired } from '@xhs/security';
 import { z } from 'zod';
 import type { Ctx } from './context.ts';
 import type { AccountProfile } from './profile.ts';
@@ -62,7 +63,7 @@ type NoteRow = {
 
 function toCard(r: NoteRow): NoteCard {
   return {
-    id: r.id, platformNoteId: r.platform_note_id, title: r.title, bodyExcerpt: r.body_excerpt, canonicalUrl: r.canonical_url, coverUrl: r.cover_url,
+    id: r.id, platformNoteId: r.platform_note_id, title: r.title, bodyExcerpt: r.body_excerpt, canonicalUrl: r.canonical_url, coverUrl: r.cover_url && !coverExpired(r.cover_url) ? r.cover_url : null,
     noteType: r.note_type, authorName: r.author_display_name, authorRef: r.author_ref, authorFollowers: r.author_followers,
     publishedAt: r.published_at?.toISOString() ?? null, observedAt: r.observed_at?.toISOString() ?? null, dataMode: r.data_mode,
     topics: r.topics, formats: r.formats, tags: r.provider_tags, metrics: r.metrics ?? {}, saved: r.saved,

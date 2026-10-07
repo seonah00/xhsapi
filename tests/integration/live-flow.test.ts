@@ -220,7 +220,7 @@ describe('live transcript path with a fake RedFox (no network)', () => {
       quoteId: q.id, route: 'POST /discover/refresh', idempotencyKey: randomUUID(), operation: 'provider_search', scope,
       jobKind: 'provider_search', dedupeKey: `provider_search:${q.id}`, inputRef: scope, consent: true,
     }));
-    const cover = 'https://sns-i10.rednotecdn.com/notes_pre_post/abc?imageView2/2/w/576/format/webp&sign=s&t=6a05685d';
+    const cover = 'https://sns-i10.rednotecdn.com/notes_pre_post/abc?imageView2/2/w/576/format/webp&sign=s&t=7f000000';
     const fake = fakeRedfox([() => ({ code: 2000, msg: '成功', data: { total: 2, hasMore: true, list: [
       { workId: '6a00000000000000000000e5', workTitle: '首尔三天', workDesc: '路线 #首尔旅行', coverUrl: cover, workUrl: 'https://www.xiaohongshu.com/explore/6a00000000000000000000e5',
         workPublishTime: '2026-10-01 08:00:00', accountNickname: '作者', accountUserid: 'b1b2c3d4e5f6a7b8', workLikedCount: 210, workCollectedCount: 175, workCommentsCount: 45,

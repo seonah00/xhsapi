@@ -2,7 +2,7 @@ import { LIVE_AUTH_BASE } from '../support/env.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { loadEnv } from '@xhs/domain';
 import { ProviderContractError, REDFOX_CAPABILITIES, RedfoxXhsProvider, type LiveGateContext } from '@xhs/providers';
-import { safeCoverUrl } from '@xhs/security';
+import { coverExpired, safeCoverUrl } from '@xhs/security';
 
 /** RF02 contract from the provider doc (2026-10-07). Payloads are synthetic in the documented shape. */
 const allow = (): Omit<LiveGateContext, 'endpoint'> => ({
@@ -28,7 +28,7 @@ describe('RF02 keyword search contract (documented shape)', () => {
     const [url, init] = f.mock.calls[0] as unknown as [URL, RequestInit];
     expect(url.toString()).toBe('https://redfox.hk/story/api/xhsUser/searchArticle');
     expect(JSON.parse(String(init.body))).toEqual({ keyword: '净水器', offset: 0, sortType: '_4' });
-    expect(r).toMatchObject({ endpoint: 'RF02', relatedTerms: [], latestHotArticles: [], coverage: { providerTotal: 100, covers: { kept: 2, missing: 0, refusedHosts: {} } } });
+    expect(r).toMatchObject({ endpoint: 'RF02', relatedTerms: [], latestHotArticles: [], coverage: { providerTotal: 100, covers: { kept: 0, missing: 0, expired: 2, refusedHosts: {} } } });
     expect(r.notes.map((n) => n.noteType)).toEqual(['image', 'video']);
     const n = r.notes[0]!;
     expect(n).toMatchObject({ coverUrl: COVER, publishedAt: '2026-10-01T09:09:42.000Z', providerTags: ['净水器'], author: { ref: '565b17dc0bf90c754d6615b4' } });
@@ -44,6 +44,12 @@ describe('RF02 keyword search contract (documented shape)', () => {
     const r2 = await provider(respond({ code: 2000, data: { list: [work('687df3a1000000000d0184a6', { workType: '主要描述' })] } })).searchNotes({ query: 'x' });
     expect(r2.notes[0]!.noteType).toBeNull();
     await expect(provider(respond({ code: 2000, data: { list: 'nope' } })).searchNotes({ query: 'x' })).rejects.toBeInstanceOf(ProviderContractError);
+  });
+
+  it('a cover whose t= signature time has passed counts as expired', () => {
+    expect(coverExpired(COVER, new Date('2026-05-14T06:14:52Z'))).toBe(false);
+    expect(coverExpired(COVER, new Date('2026-05-14T06:14:54Z'))).toBe(true);
+    expect(coverExpired('https://sns-webpic-qc.xhscdn.com/a.jpg')).toBe(false);
   });
 
   it('cover URLs must be https on a Xiaohongshu image CDN', () => {

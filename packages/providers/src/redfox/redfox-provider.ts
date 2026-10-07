@@ -1,5 +1,5 @@
 import { extractHashtags, parseMetricValue, type TopicSlug } from '@xhs/domain';
-import { assertFetchableUrl, normalizeXhsNoteUrl, safeCoverUrl } from '@xhs/security';
+import { assertFetchableUrl, coverExpired, normalizeXhsNoteUrl, safeCoverUrl } from '@xhs/security';
 import { REDFOX_BASE_URL, REDFOX_CAPABILITIES, type EndpointCapability, type EndpointId } from '../capabilities.ts';
 import { evaluateLiveGate, LiveCallBlockedError, type LiveGateContext } from '../gate.ts';
 import type { ProviderNote, SearchResult, TranscriptResult, TranscriptSubmit, XhsDataProvider } from '../types.ts';
@@ -94,10 +94,12 @@ export class RedfoxXhsProvider implements XhsDataProvider {
     const parsed = Rf02Data.safeParse(await this.post('RF02', { keyword, offset: 0, sortType: '_4' }));
     if (!parsed.success) throw new ProviderContractError('RF02 response failed schema');
     const list = parsed.data.list ?? [];
-    const covers = { kept: 0, missing: 0, refusedHosts: {} as Record<string, number> };
+    const covers = { kept: 0, missing: 0, expired: 0, refusedHosts: {} as Record<string, number> };
     for (const w of list) {
+      const safe = safeCoverUrl(w.coverUrl);
       if (!w.coverUrl?.trim()) covers.missing += 1;
-      else if (safeCoverUrl(w.coverUrl)) covers.kept += 1;
+      else if (safe && coverExpired(safe, this.now())) covers.expired += 1;
+      else if (safe) covers.kept += 1;
       else {
         let host = 'invalid';
         try { host = new URL(w.coverUrl.trim().startsWith('//') ? `https:${w.coverUrl.trim()}` : w.coverUrl.trim()).hostname.slice(0, 80); } catch { /* invalid */ }
