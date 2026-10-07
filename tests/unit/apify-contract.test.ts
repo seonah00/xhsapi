@@ -55,12 +55,11 @@ describe('Zen Studio note detail contract (synthetic only)', () => {
     expect(JSON.parse(String(init.body))).toEqual({ noteUrls: [id], downloadVideos: false, downloadCovers: false, downloadImages: false, downloadSubtitles: false });
     expect(init.redirect).toBe('error');
   });
-  it.each(['mode', 'flag', 'price', 'permission', 'consent', 'budget', 'approval', 'token', 'build', 'cost'])('blocks %s before fetch', async (reason) => {
+  it.each(['mode', 'flag', 'price', 'consent', 'budget', 'approval', 'token', 'build', 'cost'])('blocks %s before fetch', async (reason) => {
     const o = options();
     if (reason === 'mode') o.gate.env.APP_DATA_MODE = 'mock';
     if (reason === 'flag') o.gate.env.APIFY_ENABLED = false;
     if (reason === 'price') o.gate.endpoint.priceStatus = 'unknown';
-    if (reason === 'permission') o.gate.permission = null;
     if (reason === 'consent') o.gate.consentRecorded = false;
     if (reason === 'budget') o.gate.budgetReserved = false;
     if (reason === 'approval') o.gate.userApproved = false;

@@ -16,7 +16,8 @@ export type LiveGateContext = {
   endpoint: EndpointCapability;
   /** Org-level switch from organizations.settings.provider_switches; cannot override a false env flag. */
   orgLiveEnabled: boolean;
-  permission: ProviderPermission | null;
+  /** Historical metadata only; no longer a live prerequisite (ADR 0015). */
+  permission?: ProviderPermission | null;
   purposes: readonly PermissionPurpose[];
   consentRecorded: boolean;
   /** Set only after the DB transaction reserved budget against a verified price. */
@@ -45,8 +46,7 @@ const FEATURE_FLAG: Partial<Record<string, keyof AppEnv>> = {
 /** Spec 6.3: every condition must hold. A configured API key is never a condition. */
 export function evaluateLiveGate(ctx: LiveGateContext): GateResult {
   const reasons: GateReason[] = [];
-  const { env, endpoint, permission } = ctx;
-  const now = ctx.now ?? new Date();
+  const { env, endpoint } = ctx;
 
   if (env.APP_DATA_MODE !== 'live') reasons.push('mode_not_live');
   if (!env.LIVE_PROVIDER_CALLS_ENABLED) reasons.push('live_calls_disabled');
@@ -58,14 +58,6 @@ export function evaluateLiveGate(ctx: LiveGateContext): GateResult {
   if (endpoint.paramsStatus === 'not_implemented') reasons.push('not_implemented');
   if (endpoint.priceStatus !== 'verified') reasons.push('price_unknown');
 
-  if (!permission) {
-    reasons.push('permission_missing');
-  } else {
-    if (permission.status !== 'approved') reasons.push('permission_inactive');
-    if (permission.expiresAt && permission.expiresAt <= now) reasons.push('permission_expired');
-    if (!permission.allowedEndpoints.includes(endpoint.id)) reasons.push('endpoint_not_permitted');
-    if (ctx.purposes.some((p) => !permission.allows[p])) reasons.push('purpose_not_permitted');
-  }
   if (!ctx.consentRecorded) reasons.push('consent_missing');
   if (!ctx.budgetReserved) reasons.push('budget_not_reserved');
   if (!ctx.userApproved) reasons.push('not_user_approved');

@@ -167,20 +167,9 @@ async function providerSearch(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
   if (target && progress.stopReason) return { state: 'succeeded', result: progress };
   if (target && progress.pages >= collectionPages(target)) throw new Error('COLLECTION_PROGRESS_INVALID');
   if (target && job.data_mode === 'live') await deps.service(db => db.query(`update app_jobs set provider_task_id='search-page-started' where id=$1`,[job.id]));
-  let result = await deps.provider.searchNotes({ query: input.query ?? '', ...(input.topic ? { topic: input.topic as never } : {}), ...(input.days ? { days: input.days } : {}), ...(target ? { offset: progress.pages * 20 } : {}) });
-  let permissionId: string | null = null;
-  if (result.mode === 'live') {
-    // Store only what the approved permission allows: no excerpt without excerpt_display.
-    const p = await deps.service(async (db) => (await db.query(`select id, allow_excerpt_display, allow_media_display from provider_permissions where org_id = $1 and provider = 'redfox' and status = 'approved'
-      and (expires_at is null or expires_at > now()) order by approved_at desc limit 1`, [job.org_id])).rows[0] ?? null);
-    permissionId = p?.id ?? null;
-    const strip = (n: (typeof result.notes)[number]) => ({
-      ...n, ...(p?.allow_excerpt_display ? {} : { bodyExcerpt: null }), ...(p?.allow_media_display ? {} : { coverUrl: null }),
-    });
-    result = { ...result, notes: result.notes.map(strip), latestHotArticles: result.latestHotArticles.map(strip) };
-  }
+  const result = await deps.provider.searchNotes({ query: input.query ?? '', ...(input.topic ? { topic: input.topic as never } : {}), ...(input.days ? { days: input.days } : {}), ...(target ? { offset: progress.pages * 20 } : {}) });
   return deps.service(async db => {
-    const { runId, noteIds } = await ingestSearchResult(db, { orgId: job.org_id, provider: result.mode === 'mock' ? 'mock' : 'redfox', endpoint: result.endpoint, query: { ...input, jobId: job.id }, permissionId }, result);
+    const { runId, noteIds } = await ingestSearchResult(db, { orgId: job.org_id, provider: result.mode === 'mock' ? 'mock' : 'redfox', endpoint: result.endpoint, query: { ...input, jobId: job.id }, permissionId: null }, result);
     if (!target) return { state: 'succeeded', result: { ingestionRunId: runId, notes: noteIds.length } };
     const next = advanceCollection(progress, noteIds, result.mode === 'mock' ? { rawCount: result.notes.length, hasMore: false } : result.coverage, target);
     await db.query(`update app_jobs set provider_task_id=null,result_ref=$2 where id=$1`,[job.id,next]);

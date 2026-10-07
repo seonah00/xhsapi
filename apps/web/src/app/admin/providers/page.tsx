@@ -1,15 +1,12 @@
 import { redirect } from 'next/navigation';
-import { approvePermission, createPermission, effectiveSwitches, GATE_REASON_KO, listMyAssets, liveReadiness, orgOps, providerOverview, revokePermission, setFeatureSwitches, setProviderSwitches } from '@xhs/core';
+import { effectiveSwitches, GATE_REASON_KO, liveReadiness, orgOps, providerOverview, setFeatureSwitches, setProviderSwitches } from '@xhs/core';
 import { publicCapabilities } from '@xhs/domain';
 import { withAdmin } from '../forbidden-guard';
 import { orRedirectWithError } from '@/server/actions-util';
 import { env } from '@/server/env';
-import { Uploader } from '@/components/uploader';
-import { Badge, btn, Card, ErrorNotice, input, Notice, PageHeader } from '@/components/ui';
-import { fmtDate } from '@/components/labels';
+import { Badge, btn, Card, ErrorNotice, Notice, PageHeader } from '@/components/ui';
 
 export const metadata = { title: '공급자·스위치' };
-const ALLOW: [string, string][] = [['allowFetch', '수집'], ['allowMetadataDisplay', '메타데이터 표시'], ['allowExcerptDisplay', '발췌 표시'], ['allowMediaDisplay', '미디어 표시'], ['allowAiProcessing', 'AI 가공'], ['allowCache', '캐시 보관']];
 const back = '/admin/providers';
 
 async function saveFeatures(f: FormData) {
@@ -23,37 +20,16 @@ async function saveProvider(f: FormData) {
   await orRedirectWithError(back, () => withAdmin((ctx) => setProviderSwitches(ctx, { live: f.get('live') === 'on', kill: f.get('kill') === 'on' }, Number(f.get('revision')))));
   redirect(`${back}?saved=1`);
 }
-async function addPermission(f: FormData) {
-  'use server';
-  await orRedirectWithError(back, () => withAdmin((ctx) => createPermission(ctx, {
-    provider: String(f.get('provider') ?? 'redfox'), scope: String(f.get('scope') ?? 'environment'), allowedEndpoints: f.getAll('endpoints').map(String),
-    ...Object.fromEntries(ALLOW.map(([k]) => [k, f.get(k) === 'on'])),
-    cacheTtlSeconds: f.get('ttl') ? Number(f.get('ttl')) * 86400 : undefined,
-    expiresAt: f.get('expiresAt') ? new Date(String(f.get('expiresAt'))).toISOString() : undefined,
-  })));
-  redirect(`${back}?saved=1`);
-}
-async function approve(f: FormData) {
-  'use server';
-  await orRedirectWithError(back, () => withAdmin((ctx) => approvePermission(ctx, String(f.get('id')), { evidenceAssetId: String(f.get('evidence') ?? ''), confirm: f.get('confirm') === 'on' })));
-  redirect(`${back}?saved=1`);
-}
-async function revoke(f: FormData) {
-  'use server';
-  await orRedirectWithError(back, () => withAdmin((ctx) => revokePermission(ctx, String(f.get('id')))));
-  redirect(`${back}?saved=1`);
-}
-
 export default async function Providers({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string }> }) {
   const sp = await searchParams;
   const d = await withAdmin(async (ctx) => {
     const ops = await orgOps(ctx.db, ctx.orgId);
-    return { overview: await providerOverview(ctx), readiness: await liveReadiness(ctx, env()), ops, effective: effectiveSwitches(env(), ops), evidence: await listMyAssets(ctx, 'permission_evidence') };
+    return { overview: await providerOverview(ctx), readiness: await liveReadiness(ctx, env()), ops, effective: effectiveSwitches(env(), ops) };
   });
   const caps = publicCapabilities(env());
   return (
     <>
-      <PageHeader title="공급자·기능 스위치" description="외부 호출은 환경 설정·조직 스위치·이용 허가·실제 단가·예산·사용자 승인이 모두 갖춰져야 실행됩니다. API 키는 이 화면에서 보거나 바꿀 수 없습니다." />
+      <PageHeader title="공급자·기능 스위치" description="외부 호출은 환경 설정·조직 스위치·실제 단가·예산·사용자 승인이 모두 갖춰져야 실행됩니다. API 키는 이 화면에서 보거나 바꿀 수 없습니다." />
       <ErrorNotice message={sp.error} />
       {sp.saved && <div className="mb-3"><Notice tone="ok">저장했습니다. 변경은 감사 기록에 남습니다.</Notice></div>}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -79,7 +55,7 @@ export default async function Providers({ searchParams }: { searchParams: Promis
           </form>
           <form action={saveProvider} className="mt-4 space-y-1 border-t border-line pt-3 text-sm">
             <input type="hidden" name="revision" value={d.ops.revision} />
-            <label className="flex items-center gap-2"><input type="checkbox" name="live" defaultChecked={d.ops.provider.live} /> 이 조직의 live 공급자 호출 허용(환경·허가·단가·예산도 필요)</label>
+            <label className="flex items-center gap-2"><input type="checkbox" name="live" defaultChecked={d.ops.provider.live} /> 이 조직의 live 공급자 호출 허용(환경·단가·예산도 필요)</label>
             <label className="flex items-center gap-2 text-accent"><input type="checkbox" name="kill" defaultChecked={d.ops.provider.kill} /> 전체 중지(kill switch): 새 작업과 대기 작업을 모두 막음</label>
             <label className="flex items-center gap-2 text-xs"><input type="checkbox" name="confirm" /> 변경 내용을 확인했습니다</label>
             <button className={btn.secondary}>적용</button>
@@ -109,7 +85,7 @@ export default async function Providers({ searchParams }: { searchParams: Promis
         <h2 className="font-semibold">live 전환 점검표</h2>
         <p className="mt-1 text-xs text-muted">명세 6.3 게이트를 이 조직의 현재 설정으로 평가한 결과입니다(외부 호출 없음). 요청할 때 따로 확인하는 항목: {d.readiness.perRequest.join(', ')}.</p>
         <p className="mt-1 text-xs">live 예산: {d.readiness.liveBudget ? `${d.readiness.liveBudget.limit} ${d.readiness.liveBudget.currency}` : '설정 없음'}</p>
-        <p className="mt-1 text-xs">외부 검색에 쓰는 엔드포인트: <strong>{d.readiness.searchEndpoint}</strong> {d.readiness.searchEndpoint === 'RF02' ? '(표지·형식·조회수 포함)' : '(RF02는 단가 등록 + 승인된 허가에 RF02가 있어야 사용)'}. 표지 이미지는 허가에 “미디어 표시”가 있을 때만 보입니다.</p>
+        <p className="mt-1 text-xs">외부 검색에 쓰는 엔드포인트: <strong>{d.readiness.searchEndpoint}</strong> {d.readiness.searchEndpoint === 'RF02' ? '(표지·형식·조회수 포함)' : '(RF02는 검증된 단가가 필요)'}. 표지는 제공된 미리보기 주소로 표시합니다.</p>
         <ul className="mt-3 divide-y divide-line text-sm">
           {d.readiness.rows.map((r) => (
             <li key={r.endpoint} className="flex flex-wrap items-center gap-2 py-2">
@@ -121,51 +97,11 @@ export default async function Providers({ searchParams }: { searchParams: Promis
         </ul>
       </Card>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card>
-          <h2 className="font-semibold">이용 허가 기록</h2>
-          <p className="mt-1 text-xs text-muted">허가는 실제 계약·문서에 근거해야 합니다. 새 기록은 항상 “대기”로 만들어지고, 증빙을 첨부해 사람이 승인합니다.</p>
-          <ul className="mt-3 space-y-2">
-            {d.overview.permissions.length === 0 && <li className="text-sm text-muted">기록이 없습니다.</li>}
-            {d.overview.permissions.map((p) => (
-              <li key={p.id} className="rounded-xl bg-bg p-3 text-sm">
-                <div className="flex flex-wrap items-center gap-1"><Badge tone={p.status === 'approved' ? 'ok' : p.status === 'pending' ? 'warn' : 'neutral'}>{({ pending: '대기', approved: '승인', revoked: '철회', expired: '만료' } as Record<string, string>)[p.status]}</Badge>
-                  <span className="font-mono text-xs">{p.endpoints.join(', ') || '엔드포인트 없음'}</span><span className="text-xs text-muted">· 만료 {fmtDate(p.expiresAt)}</span></div>
-                <p className="mt-1 text-xs">{ALLOW.map(([k, l]) => `${l} ${p.allows[{ allowFetch: 'fetch', allowMetadataDisplay: 'metadata', allowExcerptDisplay: 'excerpt', allowMediaDisplay: 'media', allowAiProcessing: 'ai', allowCache: 'cache' }[k]!] ? '○' : '×'}`).join(' · ')}</p>
-                {p.evidenceName && <p className="text-xs text-muted">증빙: {p.evidenceName} · 승인 {fmtDate(p.approvedAt, true)}</p>}
-                {p.status === 'pending' && (
-                  <form action={approve} className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                    <input type="hidden" name="id" value={p.id} />
-                    <label className="sr-only" htmlFor={`ev-${p.id}`}>증빙 파일</label>
-                    <select id={`ev-${p.id}`} name="evidence" required className="rounded-lg border border-line bg-surface px-2 py-1"><option value="">증빙 선택</option>{d.evidence.map((e) => <option key={e.id} value={e.id}>{e.originalName}</option>)}</select>
-                    <label className="flex items-center gap-1"><input type="checkbox" name="confirm" /> 증빙과 허가 범위를 확인함</label>
-                    <button className={btn.small}>승인</button>
-                  </form>
-                )}
-                {(p.status === 'pending' || p.status === 'approved') && <form action={revoke} className="mt-1"><input type="hidden" name="id" value={p.id} /><button className={btn.ghost}>철회</button></form>}
-              </li>
-            ))}
-          </ul>
-        </Card>
-        <Card>
-          <h2 className="font-semibold">새 허가 기록 (대기)</h2>
-          <form action={addPermission} className="mt-3 space-y-2 text-sm">
-            <label className="block text-xs">공급자<select name="provider" className={input}><option value="redfox">RedFox (RF)</option><option value="apify">Apify / Zen Studio (AP01)</option></select></label>
-            <fieldset><legend className="text-xs text-muted">엔드포인트</legend>
-              <div className="flex flex-wrap gap-2">{d.overview.capabilities.filter((c) => c.phase !== 'excluded').map((c) => <label key={c.endpoint} className="font-mono text-xs"><input type="checkbox" name="endpoints" value={c.endpoint} /> {c.endpoint}</label>)}</div></fieldset>
-            <fieldset><legend className="text-xs text-muted">허용 범위</legend>
-              <div className="flex flex-wrap gap-2">{ALLOW.map(([k, l]) => <label key={k} className="text-xs"><input type="checkbox" name={k} /> {l}</label>)}</div></fieldset>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-xs">캐시 보관 일수<input name="ttl" type="number" min={1} max={365} className={`${input} mt-1`} /></label>
-              <label className="text-xs">허가 만료일<input name="expiresAt" type="date" className={`${input} mt-1`} /></label>
-            </div>
-            <p className="text-xs text-muted">조직 간 데이터 공유는 허가와 관계없이 지원하지 않습니다.</p>
-            <button className={btn.secondary}>대기 기록 만들기</button>
-          </form>
-          <div className="mt-4 border-t border-line pt-3"><Uploader purpose="permission_evidence" label="증빙 파일 올리기(계약서·이메일 PDF 등)" accept="application/pdf,image/jpeg,image/png,image/webp" />
-            <p className="mt-2 text-xs text-muted">올린 증빙 ({d.evidence.length}): {d.evidence.length ? d.evidence.map((e) => e.originalName).join(', ') : '없음'}. 대기 기록을 만든 뒤 왼쪽 “증빙 선택”에서 골라 승인합니다.</p></div>
-        </Card>
-      </div>
+      <Card className="mt-4">
+        <h2 className="font-semibold">실행과 비용 확인</h2>
+        <p className="mt-2 text-sm">별도 이용 허가 승인이나 증빙 업로드 없이 예상 비용을 확인하고 실행할 수 있습니다. 예산 한도·중복 과금 방지·전체 중지 스위치는 계속 적용됩니다.</p>
+        <p className="mt-2 text-xs text-muted">Apify 보완 자료는 24시간 보관하며 조직 안에서만 표시합니다.</p>
+      </Card>
     </>
   );
 }

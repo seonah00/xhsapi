@@ -10,7 +10,7 @@ export type NoteCard = {
   title: string | null;
   bodyExcerpt: string | null;
   canonicalUrl: string;
-  /** Provider cover image, only while the org's approved permission allows media display. */
+  /** Provider preview image; organization membership and data expiry still apply. */
   coverUrl: string | null;
   noteType: 'video' | 'image' | null;
   authorName: string | null;

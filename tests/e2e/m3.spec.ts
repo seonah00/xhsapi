@@ -81,22 +81,12 @@ test('results, uploads, library sharing, admin switches and data deletion', asyn
   await page.goto('/app/library');
   await expect(page.locator('li').filter({ hasText: '공개' }).first()).toBeVisible();
 
-  // Admin: evidence-based permission, kill switch
+  // Admin: no evidence prerequisite; operational stop switch remains
   await login(page, 'admin@demo.invalid');
   await page.goto('/admin/providers');
   await expect(page.getByRole('row', { name: /RFX1/ }).getByText('제외')).toBeVisible();
-  await page.getByLabel(/증빙 파일 올리기/).setInputFiles({ name: 'agreement.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 demo agreement') });
-  await expect(page.getByText(/올린 증빙 \(1\): agreement\.pdf/)).toBeVisible();
-  await expect(page.getByText('1개를 올렸습니다.')).toBeVisible();
-  await page.getByRole('checkbox', { name: 'RF13' }).check();
-  await page.getByRole('checkbox', { name: 'RF14' }).check();
-  await page.getByRole('button', { name: '대기 기록 만들기' }).click();
-  const pending = page.locator('li').filter({ hasText: 'RF13, RF14' }).first();
-  await expect(pending.getByText('대기')).toBeVisible();
-  await pending.getByLabel('증빙 파일').selectOption({ label: 'agreement.pdf' });
-  await pending.getByLabel('증빙과 허가 범위를 확인함').check();
-  await pending.getByRole('button', { name: '승인' }).click();
-  await expect(page.locator('li').filter({ hasText: 'RF13, RF14' }).first().getByText('승인', { exact: true })).toBeVisible();
+  await expect(page.getByText(/별도 이용 허가 승인이나 증빙 업로드 없이/)).toBeVisible();
+  await expect(page.getByRole('button', { name: '대기 기록 만들기' })).toHaveCount(0);
   await expect(page.getByText('현재 실제 live 가능 여부: 불가', { exact: false })).toBeVisible();
 
   await page.getByLabel(/전체 중지\(kill switch\)/).check();
@@ -114,7 +104,7 @@ test('results, uploads, library sharing, admin switches and data deletion', asyn
   await page.goto('/admin/usage');
   await expect(page.getByRole('heading', { name: /데모 사용/ })).toBeVisible();
   await page.goto('/admin/audit');
-  await expect(page.getByRole('cell', { name: 'provider_permissions.update' }).first()).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'organizations.update' }).first()).toBeVisible();
 
   // Data deletion (student-c is active only in the other org after the admin spec)
   await login(page, 'student-c@other-org.demo.invalid');

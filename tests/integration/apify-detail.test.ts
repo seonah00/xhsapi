@@ -25,13 +25,10 @@ async function enqueue() {
 }
 const fake = vi.fn(async () => new Response(JSON.stringify(fixture)));
 const deps: JobDeps = { service, provider: new MockXhsProvider(), env, apifyDetailProvider: o => new ApifyNoteDetailProvider(o, fake) };
-let permission: string;
 beforeAll(async () => {
   await pool.query(`insert into auth.users(id,email) values ($1,$2)`, [uid, `${uid}@demo.invalid`]);
   await pool.query(`insert into organizations(id,name,settings) values ($1,'Apify test',$2)`, [org, { provider_switches: { live: true }, daily_limits: { provider_search: 100 } }]);
   await pool.query(`insert into memberships(org_id,user_id,role) values ($1,$2,'student')`, [org, uid]);
-  const evidence = (await pool.query(`insert into assets(org_id,owner_user_id,storage_key,mime,size_bytes,origin,state,purpose) values ($1,$2,$3,'application/pdf',10,'user_upload','ready','permission_evidence') returning id`,[org,uid,`synthetic/${org}`])).rows[0].id;
-  permission = (await pool.query(`insert into provider_permissions(org_id,provider,scope,status,allowed_endpoints,allow_fetch,allow_metadata_display,allow_excerpt_display,allow_media_display,allow_cache,cache_ttl_seconds,approved_by,approved_at,evidence_private_file_id) values ($1,'apify','environment','approved','{AP01}',true,true,true,true,true,3600,$2,now(),$3) returning id`,[org,uid,evidence])).rows[0].id;
   await pool.query(`insert into notes(id,org_id,provider,platform_note_id,data_mode,canonical_url,title,provenance) values ($1,$2,'redfox','aaaaaaaaaaaaaaaaaaaaaaaa','live','https://www.xiaohongshu.com/explore/aaaaaaaaaaaaaaaaaaaaaaaa','Original RedFox','{}')`,[note,org]);
   await pool.query(`insert into usage_budgets(org_id,subject_type,subject_id,period_start,period_end,currency,amount_limit) values ($1,'org',$1,current_date-1,current_date+30,'USD',10)`,[org]);
   await pool.query(`insert into provider_price_versions(provider,endpoint,currency,unit,unit_cost,effective_at,verified_by,evidence) values ('apify','AP01','USD','run',0.05,now()-interval '1 minute',$1,'synthetic apify test')`,[uid]);
@@ -45,7 +42,7 @@ describe('Apify enrichment alongside RedFox (fake fetch only)', () => {
     expect(q).toMatchObject({ maxAmount: '0.05000000', currency: 'USD', maxBillableUnits: 1 });
     await expect(asUser(ctx => reserveJob(ctx,{ quoteId:q.id,route:'test',idempotencyKey:randomUUID(),operation:'note_enrichment',scope,jobKind:'note_enrichment',dedupeKey:q.id,inputRef:scope }))).rejects.toMatchObject({code:'VALIDATION_FAILED'});
   });
-  it('enriches the original card without modifying RedFox or storing tokens, then hides on revocation and expiry', async () => {
+  it('enriches the original card without modifying RedFox or storing tokens, without a permission record and hides on expiry', async () => {
     const job = await enqueue();
     expect(await runJob(deps,job,'test')).toMatchObject({state:'succeeded'});
     expect((await asUser(ctx => getNotes(ctx,[note])))[0]).toMatchObject({title:'美食 vlog',coverUrl:'https://sns-na-i4.xhscdn.com/synthetic-cover.jpg'});
@@ -54,9 +51,7 @@ describe('Apify enrichment alongside RedFox (fake fetch only)', () => {
     await expect(asUser(ctx => ctx.db.query('delete from note_enrichments where note_id=$1',[note]))).rejects.toThrow(/permission denied/);
     const stored = (await pool.query(`select * from note_enrichments where note_id=$1`,[note])).rows[0];
     expect(JSON.stringify(stored)).not.toMatch(/xsec_token|video_video_url|points|ip_location/);
-    await pool.query(`update provider_permissions set status='revoked' where id=$1`,[permission]);
-    expect((await asUser(ctx => getNotes(ctx,[note])))[0]?.title).toBe('Original RedFox');
-    await pool.query(`update provider_permissions set status='approved' where id=$1`,[permission]);
+    expect(stored.permission_id).toBeNull();
     await pool.query(`update note_enrichments set expires_at=now()-interval '1 second' where note_id=$1`,[note]);
     expect((await asUser(ctx => getNotes(ctx,[note])))[0]?.title).toBe('Original RedFox');
   });
@@ -73,13 +68,13 @@ describe('Apify enrichment alongside RedFox (fake fetch only)', () => {
     expect(broken).toHaveBeenCalledTimes(1);
     expect((await pool.query(`select status from usage_ledger where job_id=$1`,[job])).rows[0].status).toBe('unknown_outcome');
   });
-  it('releases a queued reservation when permission is revoked before sending', async () => {
+  it('releases a queued reservation when the stop switch is enabled before sending', async () => {
     const job = await enqueue(); const before = fake.mock.calls.length;
-    await pool.query(`update provider_permissions set status='revoked' where id=$1`,[permission]);
+    await pool.query(`update organizations set settings=jsonb_set(settings,'{provider_switches,kill}','true') where id=$1`,[org]);
     expect(await runJob(deps,job,'test')).toMatchObject({state:'failed',sent:false});
     expect(fake.mock.calls.length).toBe(before);
     expect((await pool.query(`select status from usage_ledger where job_id=$1`,[job])).rows[0].status).toBe('released');
-    await pool.query(`update provider_permissions set status='approved' where id=$1`,[permission]);
+    await pool.query(`update organizations set settings=jsonb_set(settings,'{provider_switches,kill}','false') where id=$1`,[org]);
   });
   it('blocks sending after consent withdrawal or budget exhaustion', async () => {
     const job = await enqueue(); const before = fake.mock.calls.length;

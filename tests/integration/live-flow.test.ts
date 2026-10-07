@@ -127,15 +127,15 @@ describe('live transcript path with a fake RedFox (no network)', () => {
     expect((await pool.query(`select status from transcript_runs where reference_id = $1`, [refId])).rows[0].status).toBe('succeeded');
   });
 
-  it('a permission revoked after the quote blocks before any request and releases the reservation', async () => {
+  it('the stop switch enabled after the quote blocks before any request and releases the reservation', async () => {
     const { refId, noteId } = await videoReference(2);
     const { jobId } = await quoteAndReserve(refId, noteId);
-    await pool.query(`update provider_permissions set status = 'revoked' where org_id = $1`, [ORG]);
+    await pool.query(`update organizations set settings=jsonb_set(settings,'{provider_switches,kill}','true') where id=$1`, [ORG]);
     const fake = fakeRedfox([]);
     try {
       expect(await runJob(deps(fake.impl), jobId, 't')).toMatchObject({ state: 'failed' });
     } finally {
-      await pool.query(`update provider_permissions set status = 'approved' where org_id = $1`, [ORG]);
+      await pool.query(`update organizations set settings=jsonb_set(settings,'{provider_switches,kill}','false') where id=$1`, [ORG]);
     }
     expect(fake.calls).toHaveLength(0);
     expect((await ledgerOf(jobId)).status).toBe('released');
@@ -175,7 +175,7 @@ describe('live transcript path with a fake RedFox (no network)', () => {
     await pool.query(`update usage_budgets set amount_limit = 10 where org_id = $1 and subject_type = 'org'`, [ORG]);
   });
 
-  it('live search: ingests documented RF01 fields, drops excerpts without excerpt permission, releases on a non-2xx answer', async () => {
+  it('live search: ingests documented RF01 fields, keeps bounded excerpts without a permission prerequisite, releases on a non-2xx answer', async () => {
     await pool.query(`update provider_permissions set allowed_endpoints = '{RF01,RF13,RF14}', allow_metadata_display = true, allow_excerpt_display = false where org_id = $1`, [ORG]);
     await pool.query(`insert into provider_price_versions (provider, endpoint, currency, unit, unit_cost, effective_at, verified_by, evidence)
       values ('redfox', 'RF01', 'CNY', 'call', 0.06, now() - interval '1 minute', $1, 'test evidence')`, [ADMIN]);
@@ -195,7 +195,7 @@ describe('live transcript path with a fake RedFox (no network)', () => {
     expect(first.outcome).toMatchObject({ state: 'succeeded' });
     expect(ok.calls[0]!.body).toEqual({ keyword: '护肤' });
     const note = (await pool.query(`select title, body_excerpt, note_type, data_mode, provider, provider_tags from notes where org_id = $1 and platform_note_id = '6a00000000000000000000d4'`, [ORG])).rows[0];
-    expect(note).toEqual({ title: '实测形状', body_excerpt: null, note_type: null, data_mode: 'live', provider: 'redfox', provider_tags: ['护肤'] });
+    expect(note).toEqual({ title: '实测形状', body_excerpt: '正文 #护肤', note_type: null, data_mode: 'live', provider: 'redfox', provider_tags: ['护肤'] });
     expect(await ledgerOf(first.jobId)).toEqual({ status: 'settled', reserved: '0.06000000', actual: '0.06000000' });
     expect((await pool.query(`select count(*)::int as n from consent_records where user_id = $1 and purpose = 'external_provider_query'`, [STUDENT])).rows[0].n).toBe(1);
 
@@ -206,14 +206,14 @@ describe('live transcript path with a fake RedFox (no network)', () => {
     await pool.query(`update provider_permissions set allow_excerpt_display = true where org_id = $1`, [ORG]); // transcript needs excerpt display
   });
 
-  it('live search switches to RF02 once priced and permitted; covers are kept only with media display and hidden when it is withdrawn', async () => {
+  it('live search switches to RF02 once priced, without permission records; safe covers are displayed', async () => {
     await pool.query(`insert into provider_price_versions (provider, endpoint, currency, unit, unit_cost, effective_at, verified_by, evidence)
       values ('redfox', 'RF02', 'CNY', 'call', 0.02, now() - interval '1 minute', $1, 'test evidence')`, [ADMIN]);
     await pool.query(`update provider_capabilities set price_status = 'verified' where provider = 'redfox' and endpoint = 'RF02'`);
     const scope = { query: '首尔旅行' };
-    // Priced but not in the permission yet: search stays on RF01.
-    expect((await asStudent((ctx) => createQuote(ctx, service, 'provider_search', scope, { env: liveEnv }))).maxAmount).toBe('0.06000000');
-    await pool.query(`update provider_permissions set allowed_endpoints = '{RF01,RF02,RF13,RF14}', allow_media_display = true where org_id = $1`, [ORG]);
+    // A verified RF02 price selects it without a permission record.
+    expect((await asStudent((ctx) => createQuote(ctx, service, 'provider_search', scope, { env: liveEnv }))).maxAmount).toBe('0.02000000');
+    await pool.query(`delete from provider_permissions where org_id=$1`, [ORG]);
     const q = await asStudent((ctx) => createQuote(ctx, service, 'provider_search', scope, { env: liveEnv }));
     expect(q).toMatchObject({ mode: 'live', maxAmount: '0.02000000' });
     const { jobId } = await asStudent((ctx) => reserveJob(ctx, {
@@ -240,7 +240,7 @@ describe('live transcript path with a fake RedFox (no network)', () => {
     expect(first.coverUrl).toBe(cover);
     expect(first.metrics.views).toMatchObject({ exact: 980 });
     await pool.query(`update provider_permissions set allow_media_display = false where org_id = $1`, [ORG]);
-    expect((await cards()).every((c) => c.coverUrl === null)).toBe(true); // withdrawn permission hides stored covers at once
+    expect((await cards()).find((c) => c.platformNoteId.endsWith('e5'))?.coverUrl).toBe(cover);
   });
 
   it('stops polling RF14 after the reserved number of polls', async () => {

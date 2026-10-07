@@ -22,10 +22,10 @@ export const OPERATION_ENDPOINTS: Record<LiveOperation, { endpoint: EndpointId; 
 };
 /**
  * Keyword search uses RF02 (adds cover images, note type and read counts) once its price is verified and the
- * approved permission lists it; otherwise RF01. The choice is fixed in the quote and reused by the job.
+ * otherwise RF01. The choice is fixed in the quote and reused by the job.
  */
 export function searchEndpointFor(st: Pick<LiveState, 'capabilities' | 'permission'>): 'RF01' | 'RF02' {
-  return st.capabilities.RF02.priceStatus === 'verified' && st.permission?.status === 'approved' && st.permission.allowedEndpoints.includes('RF02') ? 'RF02' : 'RF01';
+  return st.capabilities.RF02.priceStatus === 'verified' ? 'RF02' : 'RF01';
 }
 
 function planFor(operation: LiveOperation, st: Pick<LiveState, 'capabilities' | 'permission'>): { endpoint: EndpointId; units: number }[] {
@@ -67,14 +67,7 @@ export async function loadLiveState(db: Db, orgId: string): Promise<LiveState> {
     const c = dbCaps.get(id);
     return [id, { ...REDFOX_CAPABILITIES[id], ...(c ? { paramsStatus: c.params_status, priceStatus: c.price_status } : {}) }];
   })) as Record<EndpointId, EndpointCapability>;
-  const p = (await db.query(
-    `select * from provider_permissions where org_id = $1 and provider = 'redfox' order by (status = 'approved') desc, created_at desc limit 1`, [orgId],
-  )).rows[0];
-  const permission: ProviderPermission | null = p ? {
-    id: p.id, status: p.status, expiresAt: p.expires_at, allowedEndpoints: p.allowed_endpoints,
-    allows: { fetch: p.allow_fetch, metadata_display: p.allow_metadata_display, excerpt_display: p.allow_excerpt_display, media_display: p.allow_media_display,
-      ai_processing: p.allow_ai_processing, cache: p.allow_cache },
-  } : null;
+  const permission = null;
   const b = (await db.query(
     `select amount_limit, currency from usage_budgets where org_id = $1 and subject_type = 'org' and period_start <= current_date and period_end > current_date
      order by amount_limit desc limit 1`, [orgId],
@@ -119,7 +112,7 @@ export async function priceLiveOperation(ctx: Ctx, service: ServiceRunner, opera
   const plan = planFor(operation as LiveOperation, st);
   if (operation === 'provider_search' && scope.targetCount !== undefined) {
     const target = CollectionTarget.parse(scope.targetCount);
-    if (plan[0]!.endpoint !== 'RF02') throw new AppError('LIVE_BLOCKED', '50건 이상 조회는 RF02 허가와 검증된 단가가 필요합니다.');
+    if (plan[0]!.endpoint !== 'RF02') throw new AppError('LIVE_BLOCKED', '50건 이상 조회는 RF02의 검증된 단가가 필요합니다.');
     plan[0]!.units = collectionPages(target);
   }
   const reasons = new Set<string>();
