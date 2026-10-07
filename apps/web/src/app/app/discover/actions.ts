@@ -1,4 +1,5 @@
 'use server';
+import { categorySearch } from '@/components/category-search';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
@@ -43,7 +44,7 @@ export async function clearCompare() {
 
 const RefreshScope = z.object({ query: z.string().trim().min(1, '검색어를 입력하세요.').max(50), topic: z.string().max(40).optional(), days: z.enum(['7', '14', '30']).optional(), targetCount: z.enum(['50','100']).default('50') });
 const refreshScope = (f: FormData) => {
-  const s = RefreshScope.parse({ query: String(f.get('q') ?? ''), topic: String(f.get('topic') ?? '') || undefined, days: String(f.get('days') ?? '') || undefined, targetCount: String(f.get('targetCount') ?? '50') });
+  const s = RefreshScope.parse({ query: categorySearch(String(f.get('q') ?? ''), String(f.get('topic') ?? '')), topic: String(f.get('topic') ?? '') || undefined, days: String(f.get('days') ?? '') || undefined, targetCount: String(f.get('targetCount') ?? '50') });
   return { query: s.query, targetCount: Number(s.targetCount), ...(s.topic ? { topic: s.topic } : {}), ...(s.days ? { days: Number(s.days) } : {}) };
 };
 

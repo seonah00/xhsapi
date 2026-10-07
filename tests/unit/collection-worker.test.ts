@@ -21,6 +21,7 @@ function harness(kind: 'provider_search'|'note_enrichment') {
     else if (sql.startsWith('select provider_task_id')) rows=[{provider_task_id:job.provider_task_id}];
     else if (sql.startsWith('select result_ref')) rows=[{result_ref:job.result_ref}];
     else if (sql.includes('select settings')) rows=[{settings:{provider_switches:{kill:killed}}}];
+    else if (sql.startsWith('select n.id from notes')) rows = (args[1] as string[]).filter(id=>Number(id)%2===0).map(id=>({id}));
     else if (sql.includes('from memberships')) rows=[{}];
     else if (sql.includes('from provider_permissions')) rows=[{id:'permission',allow_excerpt_display:true,allow_media_display:true}];
     else if (sql.includes('app.settle_usage')) settlements.push(args);
@@ -49,6 +50,17 @@ describe('paid batch worker checkpoints (fake DB and fake provider)',()=>{
     expect(await runJob(deps,'job','worker')).toMatchObject({state:'succeeded',result:{notes:60,pages:3}});
     expect(search.mock.calls.map(([i])=>i.offset)).toEqual([0,20,40]);
     expect(h.settlements.at(-1)).toEqual(['ledger',3]);
+  });
+  it('counts only matching category notes toward 50 and stays within five paid pages',async()=>{
+    const h=harness('provider_search'); h.job.input_ref.topic='beauty';
+    const provider=new MockXhsProvider();
+    const search=vi.spyOn(provider,'searchNotes').mockImplementation(async input=>({mode:'live',endpoint:'RF02',fetchedAt:new Date().toISOString(),notes:[note],latestHotArticles:[],relatedTerms:[],coverage:{requestedPages:1,fetchedPages:1,postFilters:[],hasMore:true,rawCount:20,pageFingerprint:String(input.offset)}}));
+    vi.mocked(ingestSearchResult).mockImplementation(async()=>({runId:'run',noteIds:Array.from({length:20},(_,i)=>String((search.mock.calls.length-1)*20+i))}));
+    const deps={service:h.service,provider,env:loadEnv({}),liveProvider:()=>provider};
+    for(let page=0;page<4;page++) expect(await runJob(deps,'job','worker')).toMatchObject({state:'waiting_external'});
+    expect(await runJob(deps,'job','worker')).toMatchObject({state:'succeeded',result:{notes:50,pages:5,stopReason:'target_reached'}});
+    expect(h.job.result_ref?.fetchedNoteIds).toHaveLength(100);
+    expect(h.settlements.at(-1)).toEqual(['ledger',5]);
   });
   it('will not resend a page with an unresolved submission marker',async()=>{
     const h=harness('provider_search');h.job.provider_task_id='started';

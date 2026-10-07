@@ -1,9 +1,9 @@
 import Link from 'next/link';
-import { getLatestAnalysis, getQuote, getReference, getTranscript, listCollections, pendingJobFor, referenceAssets, sharingStatus } from '@xhs/core';
+import { getLatestAnalysis, getQuote, getReference, getTranscript, listCollections, pendingJobFor, referenceAssets } from '@xhs/core';
 import { Uploader } from '@/components/uploader';
 import { withPageCtx } from '@/server/ctx';
 import { safeExternalHref } from '@xhs/security';
-import { confirmAnalysis, quoteAnalysis, saveMeta, setTrashed, share, unshare } from './actions';
+import { confirmAnalysis, quoteAnalysis, saveMeta, setTrashed } from './actions';
 import { ReportButton } from '@/components/report-button';
 import { AnalysisView } from '@/components/analysis-view';
 import { JobStatus } from '@/components/job-status';
@@ -23,7 +23,8 @@ export default async function ReferenceDetail({ params, searchParams }: { params
       ref,
       collections: await listCollections(ctx),
       images: await referenceAssets(ctx, id),
-      sharing: await sharingStatus(ctx, id),
+      mode: ctx.mode,
+      canManage: ctx.role === 'org_admin',
       analysis: await getLatestAnalysis(ctx, id),
       transcript: await getTranscript(ctx, id),
       pending: sp.job ?? (await pendingJobFor(ctx, 'reference_analysis', id)),
@@ -39,11 +40,9 @@ export default async function ReferenceDetail({ params, searchParams }: { params
       <ErrorNotice message={sp.error} />
       {ref.deletedAt && <div className="mb-4"><Notice tone="warn">휴지통에 있는 레퍼런스입니다.</Notice></div>}
       {sp.saved && <div className="mb-4"><Notice tone="ok">저장했습니다.</Notice></div>}
-      {sp.shared && <div className="mb-4"><Notice tone="ok">공유를 요청했습니다. 강사·관리자가 검토한 뒤 공통 자료실에 공개됩니다.</Notice></div>}
-      {sp.unshared && <div className="mb-4"><Notice tone="ok">공유를 철회했습니다. 공개된 사본은 즉시 비공개 처리되었습니다.</Notice></div>}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,340px)_1fr]">
         <div className="space-y-4">
-          {ref.note ? <NoteCard note={ref.note} back={`/app/references/${id}`} /> : (
+          {ref.note ? <NoteCard canManage={d.canManage} note={ref.note} back={`/app/references/${id}`} /> : (
             <Card>
               {url && <p className="break-all text-sm"><a href={url} target="_blank" rel="noopener noreferrer" className="text-accent underline">{url}</a></p>}
               {ref.userText && <p className="zh mt-2 whitespace-pre-wrap text-sm" lang="zh-CN">{ref.userText}</p>}
@@ -70,21 +69,6 @@ export default async function ReferenceDetail({ params, searchParams }: { params
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="favorite" defaultChecked={ref.favorite} /> 즐겨찾기</label>
               <button className={btn.primary} disabled={!!ref.deletedAt}>저장</button>
             </form>
-            <div className="mt-4 border-t border-line pt-3">
-              <h3 className="text-sm font-semibold">공통 자료실 공유</h3>
-              {d.sharing.requested || d.sharing.published ? (
-                <div className="mt-1 text-sm">
-                  <p>{d.sharing.published ? '공통 자료실에 공개됨(검토 당시 사본)' : '공유 요청됨 · 검토 대기'}</p>
-                  <form action={unshare} className="mt-1"><input type="hidden" name="id" value={ref.id} /><button className={btn.small}>공유 철회</button></form>
-                </div>
-              ) : !ref.deletedAt && (
-                <form action={share} className="mt-1 space-y-1 text-xs">
-                  <input type="hidden" name="id" value={ref.id} />
-                  <label className="flex items-start gap-2"><input type="checkbox" name="consent" className="mt-0.5" /> 제목·링크·내 메모·태그를 조직 수강생과 공유하는 데 동의합니다. 타인의 원문은 공유되지 않으며, 언제든 철회할 수 있습니다.</label>
-                  <button className={btn.small}>공유 요청</button>
-                </form>
-              )}
-            </div>
             <form action={setTrashed} className="mt-3">
               <input type="hidden" name="id" value={ref.id} /><input type="hidden" name="trashed" value={ref.deletedAt ? '0' : '1'} />
               <button className={btn.ghost}>{ref.deletedAt ? '휴지통에서 복원' : '휴지통으로 이동'}</button>
@@ -109,10 +93,11 @@ export default async function ReferenceDetail({ params, searchParams }: { params
           <Card>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-semibold">레퍼런스 분석</h2>
-              {!ref.deletedAt && !d.quote && <form action={quoteAnalysis}><input type="hidden" name="id" value={ref.id} /><button className={btn.secondary}>{d.analysis ? '다시 분석' : '분석하기'}</button></form>}
+              {d.mode === 'mock' && !ref.deletedAt && !d.quote && <form action={quoteAnalysis}><input type="hidden" name="id" value={ref.id} /><button className={btn.secondary}>{d.analysis ? '다시 분석' : '분석하기'}</button></form>}
             </div>
+            {d.mode === 'live' && <p className="mt-2 text-sm text-muted">분석 기능 준비 중 · 현재는 레퍼런스 저장과 메모를 사용할 수 있습니다.</p>}
             <p className="mb-3 mt-1 text-xs text-muted">관찰 사실과 해석·제안을 구분합니다. 성공 원인을 확정하지 않습니다.</p>
-            {d.quote && (
+            {d.mode === 'mock' && d.quote && (
               <div className="mb-3">
                 <QuoteConfirm quote={d.quote} title="분석 실행 확인" action={confirmAnalysis} hidden={{ id: ref.id }} cancelHref={`/app/references/${id}`}
                   scopeLines={['대상: 이 레퍼런스 1건 (제목·본문·태그·내 메모·음성 문안이 있으면 포함)', '데모 모드: 규칙 기반 분석, 외부 AI 호출 없음']} />

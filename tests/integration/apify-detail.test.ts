@@ -12,7 +12,7 @@ const service: Runner = async (fn) => { const c = await pool.connect(); try { aw
 const asUser = <T>(fn: (ctx: Ctx) => Promise<T>) => service(async db => {
   await db.query(`select set_config('request.jwt.claim.sub', $1, true)`, [uid]);
   await db.query('set local role authenticated');
-  return fn({ db, uid, orgId: org, role: 'student', mode: 'live' });
+  return fn({ db, uid, orgId: org, role: 'org_admin', mode: 'live' });
 });
 const scope = { noteId: note };
 const quote = () => asUser(ctx => createQuote(ctx, service, 'note_enrichment', scope, { env }));
@@ -28,7 +28,7 @@ const deps: JobDeps = { service, provider: new MockXhsProvider(), env, apifyDeta
 beforeAll(async () => {
   await pool.query(`insert into auth.users(id,email) values ($1,$2)`, [uid, `${uid}@demo.invalid`]);
   await pool.query(`insert into organizations(id,name,settings) values ($1,'Apify test',$2)`, [org, { provider_switches: { live: true }, daily_limits: { provider_search: 100 } }]);
-  await pool.query(`insert into memberships(org_id,user_id,role) values ($1,$2,'student')`, [org, uid]);
+  await pool.query(`insert into memberships(org_id,user_id,role) values ($1,$2,'org_admin')`, [org, uid]);
   await pool.query(`insert into notes(id,org_id,provider,platform_note_id,data_mode,canonical_url,title,provenance) values ($1,$2,'redfox','aaaaaaaaaaaaaaaaaaaaaaaa','live','https://www.xiaohongshu.com/explore/aaaaaaaaaaaaaaaaaaaaaaaa','Original RedFox','{}')`,[note,org]);
   await pool.query(`insert into usage_budgets(org_id,subject_type,subject_id,period_start,period_end,currency,amount_limit) values ($1,'org',$1,current_date-1,current_date+30,'USD',10)`,[org]);
   await pool.query(`insert into provider_price_versions(provider,endpoint,currency,unit,unit_cost,effective_at,verified_by,evidence) values ('apify','AP01','USD','run',0.05,now()-interval '1 minute',$1,'synthetic apify test')`,[uid]);
@@ -37,6 +37,13 @@ beforeAll(async () => {
 afterAll(async () => { await pool.query(`update provider_capabilities set price_status='unknown' where provider='apify'`); await pool.end(); });
 
 describe('Apify enrichment alongside RedFox (fake fetch only)', () => {
+  it('rejects students and reviewers before quoting or reserving enrichment', async () => {
+    for (const role of ['student', 'reviewer'] as const) {
+      await expect(asUser(ctx => createQuote({...ctx,role},service,'note_enrichment',scope,{env}))).rejects.toMatchObject({code:'FORBIDDEN'});
+      const q = await quote();
+      await expect(asUser(ctx => reserveJob({...ctx,role},{quoteId:q.id,route:'test',idempotencyKey:randomUUID(),operation:'note_enrichment',scope,jobKind:'note_enrichment',dedupeKey:q.id,inputRef:scope,consent:true}))).rejects.toMatchObject({code:'FORBIDDEN'});
+    }
+  });
   it('quotes a pinned run in USD, requires explicit consent, and reserves only once', async () => {
     const q = await quote();
     expect(q).toMatchObject({ maxAmount: '0.05000000', currency: 'USD', maxBillableUnits: 1 });

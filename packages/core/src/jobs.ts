@@ -171,7 +171,12 @@ async function providerSearch(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
   return deps.service(async db => {
     const { runId, noteIds } = await ingestSearchResult(db, { orgId: job.org_id, provider: result.mode === 'mock' ? 'mock' : 'redfox', endpoint: result.endpoint, query: { ...input, jobId: job.id }, permissionId: null }, result);
     if (!target) return { state: 'succeeded', result: { ingestionRunId: runId, notes: noteIds.length } };
-    const next = advanceCollection(progress, noteIds, result.mode === 'mock' ? { rawCount: result.notes.length, hasMore: false } : result.coverage, target);
+    const matchingIds = input.topic ? (await db.query<{ id: string }>(`select n.id from notes n
+      where n.org_id=$1 and n.id=any($2::uuid[]) and exists (
+        select 1 from note_taxonomy nt join taxonomy_terms t on t.id=nt.taxonomy_id
+        where nt.note_id=n.id and t.kind='topic' and t.slug=$3)`, [job.org_id,noteIds,input.topic])).rows.map(n=>n.id) : noteIds;
+    const next = { ...advanceCollection(progress, matchingIds, result.mode === 'mock' ? { rawCount: result.notes.length, hasMore: false } : result.coverage, target),
+      fetchedNoteIds: [...new Set([...(Array.isArray(job.result_ref?.fetchedNoteIds) ? job.result_ref.fetchedNoteIds as string[] : progress.noteIds), ...noteIds])] };
     await db.query(`update app_jobs set provider_task_id=null,result_ref=$2 where id=$1`,[job.id,next]);
     return next.stopReason ? { state: 'succeeded', result: next } : { state: 'waiting_external', retryInMs: 100 };
   });

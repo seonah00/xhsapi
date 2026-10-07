@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import { EnrichmentScope, enrichmentIds } from '@xhs/domain';
 import { getNotes, getQuote, requestHash } from '@xhs/core';
-import { withPageCtx } from '@/server/ctx';
+import { withAdmin } from '@/app/admin/forbidden-guard';
 import { QuoteConfirm } from '@/components/quote-confirm';
 import { JobStatus } from '@/components/job-status';
 import { PendingButton } from '@/components/pending-button';
@@ -16,7 +16,7 @@ export default async function EnrichBatch({ searchParams }: { searchParams: Prom
   const parsed = EnrichmentScope.safeParse({noteIds:(sp.ids ?? '').split(',')});
   if (!parsed.success) notFound();
   const scope = parsed.data, ids = enrichmentIds(scope);
-  const d = await withPageCtx(async ctx => ({
+  const d = await withAdmin(async ctx => ({
     notes: await getNotes(ctx,ids), mode:ctx.mode,
     quote: sp.quote && z.string().uuid().safeParse(sp.quote).success ? await getQuote(ctx,sp.quote) : null,
   }));

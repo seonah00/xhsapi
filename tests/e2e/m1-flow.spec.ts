@@ -82,27 +82,11 @@ test('student onboarding → discover → reference → analysis → transcript 
   await expect(page.getByRole('heading', { name: '시간대별 문장' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('00:00')).toBeVisible();
   await expect(page.getByText('ASR 자동 받아쓰기라 오인식이 있을 수 있습니다.').first()).toBeVisible();
-  await page.locator('details').first().locator('summary').click();
-  await page.locator('details').first().getByRole('textbox', { name: '뜻' }).fill('여러분');
-  await page.locator('details').first().getByRole('button', { name: '저장' }).click();
-  await expect(page.getByText('내 표현장에 저장했습니다(미검수).')).toBeVisible();
-
   // Re-analysis now includes the audio transcript scope
   await page.goto(refUrl);
   await page.getByRole('button', { name: '다시 분석' }).click();
   await page.getByRole('button', { name: '확인하고 실행' }).click();
   await expect(page.getByText('음성 문안', { exact: true })).toBeVisible({ timeout: 20_000 });
-
-  // Expressions (F07): personal entry is labelled unreviewed; sentence explanation
-  await page.goto('/app/expressions?scope=mine');
-  await expect(page.getByText('내 표현장 · 미검수').first()).toBeVisible();
-  await page.goto('/app/expressions?sentence=' + encodeURIComponent('姐妹们，这个面霜我亲测好用'));
-  await expect(page.getByText('직접 써 봄', { exact: false }).first()).toBeVisible();
-
-  // Keywords (F06)
-  await page.goto('/app/keywords');
-  await expect(page.getByText(/표본: 게시물 \d+개/)).toBeVisible();
-  await expect(page.getByText('공식 검색량이나 인기 순위가 아닙니다.', { exact: false })).toBeVisible();
 
   // Isolation: another student cannot open this reference
   await page.context().clearCookies();
@@ -115,7 +99,7 @@ test('student onboarding → discover → reference → analysis → transcript 
 
 test('mobile home and discover render without horizontal overflow @mobile', async ({ page }) => {
   await login(page, 'student-a@demo.invalid');
-  for (const path of ['/app', '/app/discover', '/app/references', '/app/expressions', '/app/keywords', '/app/plans', '/app/plans/new', '/app/check', '/app/submissions', '/app/results', '/app/library', '/app/privacy']) {
+  for (const path of ['/app', '/app/discover', '/app/references', '/app/plans', '/app/plans/new', '/app/check', '/app/submissions', '/app/results', '/app/privacy']) {
     await page.goto(path);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `${path} horizontal overflow`).toBeLessThanOrEqual(1);

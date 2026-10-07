@@ -2,9 +2,11 @@ import { AppError, canonicalJson, enrichmentIds, type AppEnv } from '@xhs/domain
 import { APIFY_ACTOR, APIFY_DETAIL_CAPABILITY, ApifyBuild, evaluateLiveGate, ProviderNotReadyError,
   type ApifyDetailOptions, type ApifyNoteDetailProvider, type ProviderNote } from '@xhs/providers';
 import type { Ctx, Db, ServiceRunner } from './context.ts';
+import { requireAdmin } from './admin.ts';
 import { orgOps } from './ops.ts';
 
 export async function enrichmentTarget(ctx: Ctx, scope: unknown) {
+  requireAdmin(ctx);
   const ids = enrichmentIds(scope);
   const rows = (await ctx.db.query(`select id, platform_note_id, data_mode from notes where id=any($1::uuid[]) and org_id=$2 and data_mode=$3`, [ids, ctx.orgId, ctx.mode])).rows;
   if (rows.length !== ids.length) throw new AppError('NOT_FOUND', '노트를 찾을 수 없습니다.');

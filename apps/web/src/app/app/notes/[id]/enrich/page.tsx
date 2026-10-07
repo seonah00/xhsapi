@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import { getNotes, getQuote, requestHash } from '@xhs/core';
-import { withPageCtx } from '@/server/ctx';
+import { withAdmin } from '@/app/admin/forbidden-guard';
 import { QuoteConfirm } from '@/components/quote-confirm';
 import { JobStatus } from '@/components/job-status';
 import { PendingButton } from '@/components/pending-button';
@@ -13,7 +13,7 @@ export const metadata={title:'정보 업데이트'};
 export default async function Enrich({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{quote?:string;job?:string;error?:string}>}) {
   const {id}=await params; if(!z.string().uuid().safeParse(id).success) notFound();
   const sp=await searchParams;
-  const {note,quote,mode}=await withPageCtx(async ctx=>({note:(await getNotes(ctx,[id]))[0],quote:sp.quote&&z.string().uuid().safeParse(sp.quote).success?await getQuote(ctx,sp.quote):null,mode:ctx.mode}));
+  const {note,quote,mode}=await withAdmin(async ctx=>({note:(await getNotes(ctx,[id]))[0],quote:sp.quote&&z.string().uuid().safeParse(sp.quote).success?await getQuote(ctx,sp.quote):null,mode:ctx.mode}));
   if(!note||note.dataMode!==mode) notFound();
   const back=`/app/notes/${id}/enrich`;
   const matching=quote?.operation==='note_enrichment'&&quote.requestHash===requestHash('note_enrichment',{noteId:id});

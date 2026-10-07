@@ -7,7 +7,7 @@ import { Metric, formatMetric } from './metric';
 import { Badge, DemoBadge, Thumb, btn } from './ui';
 import { CoverThumb } from './cover-thumb';
 
-export function NoteCard({ note, back, inCompare, reasons, cons }: { note: Note; back: string; inCompare?: boolean; reasons?: string[]; cons?: string[] }) {
+export function NoteCard({ note, back, inCompare, reasons, cons, canManage = false }: { note: Note; back: string; canManage?: boolean; inCompare?: boolean; reasons?: string[]; cons?: string[] }) {
   const href = safeExternalHref(note.canonicalUrl);
   const demoLink = note.canonicalUrl.includes('.invalid');
   return (
@@ -40,7 +40,7 @@ export function NoteCard({ note, back, inCompare, reasons, cons }: { note: Note;
         </ul>
       )}
       <div className="mt-auto flex flex-wrap gap-1.5 pt-3">
-        <Link href={`/app/notes/${note.id}/enrich`} className={btn.small}>정보 업데이트</Link>
+        {canManage && <Link href={`/app/notes/${note.id}/enrich`} className={btn.small}>정보 업데이트</Link>}
         <form action={toggleSaveNote}><input type="hidden" name="noteId" value={note.id} /><input type="hidden" name="back" value={back} />
           <button className={btn.small} aria-pressed={note.saved}>{note.saved ? '★ 저장됨' : '☆ 저장'}</button></form>
         <form action={toggleCompare}><input type="hidden" name="noteId" value={note.id} /><input type="hidden" name="back" value={back} />

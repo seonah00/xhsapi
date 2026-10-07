@@ -1,3 +1,4 @@
+// Category collection counts matching taxonomy results toward its bounded target (ADR 0017).
 import pg from 'pg';
 import { loadEnv, publicCapabilities } from '@xhs/domain';
 import { ApifyNoteDetailProvider, createXhsProvider, MockXhsProvider, RedfoxXhsProvider } from '@xhs/providers';

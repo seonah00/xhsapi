@@ -19,8 +19,6 @@ for (const [name, viewport] of [['desktop', { width: 1280, height: 900 }], ['mob
     const shots: [string, string][] = [
       ['home', '/app'],
       ['discover', '/app/discover?q=' + encodeURIComponent('카페')],
-      ['keywords', '/app/keywords'],
-      ['expressions', '/app/expressions?sentence=' + encodeURIComponent('姐妹们，这家咖啡店我亲测好喝')],
       ['account-new', '/app/accounts/new'],
     ];
     for (const [file, path] of shots) {
@@ -62,7 +60,7 @@ for (const [name, viewport] of [['desktop', { width: 1280, height: 900 }], ['mob
     await page.getByRole('button', { name: '점검' }).click();
     await page.getByRole('heading', { name: /결과/ }).waitFor();
     await page.screenshot({ path: `docs/screenshots/m2-${name}-check.png`, fullPage: name === 'desktop', caret: 'initial' });
-    for (const [m, f, path] of [['m3', 'results', '/app/results'], ['m3', 'library', '/app/library'], ['m4', 'reference-accounts', '/app/reference-accounts']] as const) {
+    for (const [m, f, path] of [['m3', 'results', '/app/results'], ['m4', 'reference-accounts', '/app/reference-accounts']] as const) {
       await page.goto(path);
       await page.waitForLoadState('networkidle');
       await page.screenshot({ path: `docs/screenshots/${m}-${name}-${f}.png`, fullPage: name === 'desktop', caret: 'initial' });

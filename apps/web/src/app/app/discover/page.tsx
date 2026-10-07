@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { categorySearch } from '@/components/category-search';
 import { discover, DiscoverQuery, getQuote, requestHash } from '@xhs/core';
 import { withPageCtx } from '@/server/ctx';
 import { confirmRefresh, getCompareIds, quoteRefresh } from './actions';
@@ -21,13 +22,14 @@ export default async function Discover({ searchParams }: { searchParams: Promise
     terms: sp.terms ? ([] as string[]).concat(sp.terms) : undefined, cursor: sp.cursor,
   });
   const query = parsed.success ? parsed.data : DiscoverQuery.parse({});
-  const [[result, quote, mode], compare] = await Promise.all([
-    withPageCtx(async (ctx) => [await discover(ctx, query), sp.quote && /^[0-9a-f-]{36}$/.test(sp.quote) ? await getQuote(ctx, sp.quote) : null, ctx.mode] as const),
+  const [[result, quote, mode, canManage], compare] = await Promise.all([
+    withPageCtx(async (ctx) => [await discover(ctx, query), sp.quote && /^[0-9a-f-]{36}$/.test(sp.quote) ? await getQuote(ctx, sp.quote) : null, ctx.mode, ctx.role === 'org_admin'] as const),
     getCompareIds(),
   ]);
   const qs = new URLSearchParams(Object.entries({ q: sp.q ?? '', topic: sp.topic ?? '', format: sp.format ?? '', days: sp.days ?? '', sort: sp.sort ?? '' }).filter(([, v]) => v));
+  const searchQuery = categorySearch(sp.q, sp.topic);
   const targetCount = sp.targetCount === '100' ? '100' : '50';
-  const quoteScope = {query:sp.q ?? '',targetCount:Number(targetCount),...(sp.topic?{topic:sp.topic}:{}),...(sp.days?{days:Number(sp.days)}:{})};
+  const quoteScope = {query:searchQuery,targetCount:Number(targetCount),...(sp.topic?{topic:sp.topic}:{}),...(sp.days?{days:Number(sp.days)}:{})};
   const quoteMatches = quote?.operation === 'provider_search' && quote.requestHash === requestHash('provider_search',quoteScope);
   const back = `/app/discover${qs.size ? `?${qs}` : ''}`;
   return (
@@ -63,17 +65,18 @@ export default async function Discover({ searchParams }: { searchParams: Promise
           <p className="mt-1 text-xs text-muted">실제 검색에 사용: <span className="zh">{result.searchedTerms.join(', ') || '없음'}</span></p>
         </div>
       )}
+      {sp.topic && !sp.cursor && result.notes.length < 50 && <p className="mb-3 text-sm text-muted">이 조건에 맞는 게시물 {result.notes.length}건 · 목표 50건. 아래 ‘새 게시물 찾기’에서 해당 주제를 추가 조회할 수 있습니다.</p>}
       {result.postFilters.length > 0 && <p className="mb-3 text-xs text-muted">기간 조건은 저장 자료에 사후 필터로 적용했습니다. 게시일이 확인되지 않은 자료는 제외됩니다.</p>}
 
-      {sp.q && <div className="mb-4 rounded-xl bg-info-soft p-3 text-sm">
-        현재 저장된 “{sp.q}” 관련 게시물입니다. <a href="#refresh" className="font-semibold underline">새 게시물 50건 찾기</a>
+      {(sp.q || sp.topic) && <div className="mb-4 rounded-xl bg-info-soft p-3 text-sm">
+        현재 저장된 “{sp.q || TOPIC_LABEL[sp.topic ?? '']}” 관련 게시물입니다. <a href="#refresh" className="font-semibold underline">새 게시물 50건 찾기</a>
         {sp.job && <div className="mt-2"><JobStatus jobId={sp.job} label="새 게시물 찾기" /></div>}
       </div>}
       {result.notes.length === 0 ? (
         <Empty title="관련 근거가 부족합니다">조건에 맞는 저장 자료가 없습니다. 결과를 만들어 채우지 않았습니다. 검색어나 기간을 바꿔 보세요.</Empty>
       ) : (
-        <CoverRepair key={back} notes={result.notes.map(n=>({id:n.id,coverUrl:n.coverUrl}))}><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {result.notes.map((n) => <NoteCard key={n.id} note={n} back={back} inCompare={compare.includes(n.id)} />)}
+        <CoverRepair canManage={canManage} key={back} notes={result.notes.map(n=>({id:n.id,coverUrl:n.coverUrl}))}><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {result.notes.map((n) => <NoteCard canManage={canManage} key={n.id} note={n} back={back} inCompare={compare.includes(n.id)} />)}
         </div></CoverRepair>
       )}
       {result.nextCursor && <div className="mt-4 text-center"><Link className={btn.secondary} href={`${back}${qs.size ? '&' : '?'}cursor=${result.nextCursor}`}>더 보기</Link></div>}
@@ -86,15 +89,15 @@ export default async function Discover({ searchParams }: { searchParams: Promise
           </p>
           {sp.refresh && quote && quoteMatches ? (
             <div className="mt-3"><QuoteConfirm quote={quote} title="외부 조회 확인" action={confirmRefresh}
-              hidden={Object.fromEntries(Object.entries({ targetCount, q: sp.q ?? '', topic: sp.topic ?? '', days: sp.days ?? '', back }).filter(([, v]) => v))} cancelHref={back}
-              scopeLines={[`목표: 관련 게시물 ${targetCount}건 이상 · 최대 ${Math.ceil(Number(targetCount)/20)+2}페이지`, '중복을 제외하며 공급자 결과가 부족하면 목표보다 적을 수 있습니다. 화면 필터에 따라 표시 건수도 달라집니다.', '이미지 업데이트는 별도 비용 확인 후 실행합니다.', `검색어: ${sp.q ?? ''}`, `조건: ${sp.topic ? TOPIC_LABEL[sp.topic] ?? sp.topic : '모든 주제'} · ${sp.days ? `최근 ${sp.days}일` : '전체 기간'}`, '결과는 저장 자료에 추가되어 조직 안에서 다시 검색됩니다.']} /></div>
-          ) : sp.q ? (
+              hidden={Object.fromEntries(Object.entries({ targetCount, q: searchQuery, topic: sp.topic ?? '', days: sp.days ?? '', back }).filter(([, v]) => v))} cancelHref={back}
+              scopeLines={[`목표: 관련 게시물 ${targetCount}건 이상 · 최대 ${Math.ceil(Number(targetCount)/20)+2}페이지`, '중복을 제외하며 공급자 결과가 부족하면 목표보다 적을 수 있습니다. 화면 필터에 따라 표시 건수도 달라집니다.', '이미지 업데이트는 별도 비용 확인 후 실행합니다.', `검색어: ${searchQuery}`, `조건: ${sp.topic ? TOPIC_LABEL[sp.topic] ?? sp.topic : '모든 주제'} · ${sp.days ? `최근 ${sp.days}일` : '전체 기간'}`, '결과는 저장 자료에 추가되어 조직 안에서 다시 검색됩니다.']} /></div>
+          ) : searchQuery ? (
             <form action={quoteRefresh} className="mt-3">
-              {Object.entries({ q: sp.q, topic: sp.topic, days: sp.days, back }).map(([k, v]) => v ? <input key={k} type="hidden" name={k} value={v} /> : null)}
+              {Object.entries({ q: searchQuery, topic: sp.topic, days: sp.days, back }).map(([k, v]) => v ? <input key={k} type="hidden" name={k} value={v} /> : null)}
               <label className="mr-2 text-sm">수집 목표 <select name="targetCount" defaultValue={targetCount} className={input}><option value="50">50건 이상</option><option value="100">100건 이상</option></select></label>
-              <PendingButton className={btn.secondary} pendingText="견적 계산 중…">“{sp.q}”로 비용 확인 후 조회</PendingButton>
+              <PendingButton className={btn.secondary} pendingText="견적 계산 중…">“{searchQuery}”로 비용 확인 후 조회</PendingButton>
             </form>
-          ) : <p className="mt-2 text-sm text-muted">먼저 위에서 검색어를 입력하세요.</p>}
+          ) : <p className="mt-2 text-sm text-muted">위에서 카테고리를 선택하거나 검색어를 입력하세요.</p>}
           {sp.job && <div className="mt-3"><p className="mt-1 text-xs text-muted">완료되면 <Link href={back} className="underline">검색 결과 새로고침</Link></p></div>}
         </section>
       </div>

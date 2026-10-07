@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import { analyzeReference, getQuote, getReference, getTranscript, pendingJobFor } from '@xhs/core';
 import { withPageCtx } from '@/server/ctx';
-import { confirmTranscript, quoteTranscript, removeTranscript, saveExpressionFromTranscript } from '../actions';
+import { confirmTranscript, quoteTranscript, removeTranscript } from '../actions';
 import { JobStatus, TranscriptStatus } from '@/components/job-status';
 import { ReportButton } from '@/components/report-button';
 import { QuoteConfirm } from '@/components/quote-confirm';
-import { Badge, btn, Card, DemoBadge, Empty, ErrorNotice, input, Notice, PageHeader } from '@/components/ui';
+import { Badge, btn, Card, DemoBadge, Empty, ErrorNotice, Notice, PageHeader } from '@/components/ui';
 import { FAIL_LABEL, TRANSCRIPT_STATUS_LABEL, fmtDate } from '@/components/labels';
 
 export const metadata = { title: '음성 문안' };
@@ -34,7 +34,6 @@ export default async function TranscriptPage({ params, searchParams }: { params:
       <PageHeader title="음성 문안 추출" description={<span className="zh">{ref.note?.title ?? ref.title}</span>}
         actions={<Link href={`/app/references/${id}`} className={btn.secondary}>레퍼런스로</Link>} />
       <ErrorNotice message={sp.error} />
-      {sp.savedExpr && <div className="mb-3"><Notice tone="ok">내 표현장에 저장했습니다(미검수).</Notice></div>}
       {sp.deleted && <div className="mb-3"><Notice tone="ok">추출 결과를 삭제했습니다.</Notice></div>}
       <div className="mb-4"><Notice tone="warn">음성만 받아쓴 결과입니다. 화면 자막·표지 문구·편집·장면은 포함하지 않습니다. ASR 자동 받아쓰기라 오인식이 있을 수 있습니다.</Notice></div>
 
@@ -79,17 +78,7 @@ export default async function TranscriptPage({ params, searchParams }: { params:
                       <span className="shrink-0 font-mono text-xs text-muted">{mmss(s.startMs)}</span>
                       <p className="zh text-sm" lang="zh-CN">{s.text ?? s.excerpt}{s.masked && <Badge tone="warn">개인정보 가림</Badge>}</p>
                     </div>
-                    <details className="mt-2 text-xs">
-                      <summary className="cursor-pointer text-muted">표현장에 저장</summary>
-                      <form action={saveExpressionFromTranscript} className="mt-2 flex flex-wrap gap-2">
-                        <input type="hidden" name="id" value={id} />
-                        <label className="sr-only" htmlFor={`e${s.seq}`}>표현</label>
-                        <input id={`e${s.seq}`} name="expression" required maxLength={60} defaultValue={(s.excerpt ?? '').slice(0, 20)} className={`${input} zh max-w-[14rem] py-1.5`} />
-                        <label className="sr-only" htmlFor={`m${s.seq}`}>뜻</label>
-                        <input id={`m${s.seq}`} name="meaning" maxLength={100} placeholder="한국어 뜻(선택)" className={`${input} max-w-[14rem] py-1.5`} />
-                        <button className={btn.small}>저장</button>
-                      </form>
-                    </details>
+
                   </li>
                 ))}
               </ol>

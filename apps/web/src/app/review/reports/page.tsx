@@ -50,7 +50,7 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
                 </div>
                 {r.note && <p className="mt-1">메모: {r.note}</p>}
                 <p className="mt-1 text-xs text-muted">{fmtDate(r.createdAt, true)} · 대상 {r.targetId.slice(0, 8)}
-                  {r.targetType === 'library_item' && <> · <Link href="/review/library" className="underline">자료실 검토</Link>(권리·원본 신고는 즉시 비공개 처리됨)</>}</p>
+                  {r.targetType === 'library_item' && <> · 종료된 자료실의 과거 신고</>}</p>
               </div>
               {r.status === 'open' && (
                 <div className="flex gap-1">

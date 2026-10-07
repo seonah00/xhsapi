@@ -30,7 +30,7 @@ export default async function AdminHome() {
           {o.recent.map((a) => <li key={a.id} className="flex flex-wrap justify-between gap-2 py-2"><span>{ACTION_LABEL[a.action] ?? a.action} · {a.actor}</span><span className="text-xs text-muted">{fmtDate(a.at, true)}</span></li>)}
         </ul>
       </Card>
-      <div className="mt-6"><Notice>공통 자료실·표현 사전 검수·점검 규칙·공급자 허가·사용량 화면은 다음 단계에서 추가됩니다.</Notice></div>
+      <div className="mt-6"><Notice>공급자 실행 설정과 예산은 공급자·스위치 및 사용량·한도에서 관리합니다.</Notice></div>
     </>
   );
 }

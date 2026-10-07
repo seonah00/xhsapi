@@ -17,8 +17,8 @@ async function scan(page: Page, path: string) {
 }
 
 const STUDENT = ['/app', '/app/discover?q=' + encodeURIComponent('护肤'), '/app/discover/compare', '/app/reference-accounts', '/app/references', '/app/references/new', '/app/library',
-  '/app/keywords', '/app/expressions', '/app/plans', '/app/plans/new', '/app/check', '/app/submissions', '/app/results', '/app/accounts', '/app/privacy'];
-const STAFF = ['/review/submissions', '/review/library', '/review/expressions', '/review/rules', '/review/reports'];
+  '/app/plans', '/app/plans/new', '/app/check', '/app/submissions', '/app/results', '/app/accounts', '/app/privacy'];
+const STAFF = ['/review/submissions', '/review/rules', '/review/reports'];
 const ADMIN = ['/admin', '/admin/members', '/admin/invitations', '/admin/cohorts', '/admin/taxonomy', '/admin/providers', '/admin/usage', '/admin/jobs', '/admin/audit'];
 
 test('axe: no WCAG A/AA violations on core screens', async ({ page }) => {

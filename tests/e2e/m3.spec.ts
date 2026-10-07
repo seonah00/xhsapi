@@ -11,7 +11,7 @@ const chunk = (t: string, d: number[]) => [...u32(d.length), ...[...t].map((c) =
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...chunk('IHDR', [...u32(2), ...u32(2), 8, 2, 0, 0, 0]),
   ...chunk('tEXt', [...'GPS\0Seoul'].map((c) => c.charCodeAt(0))), ...chunk('IDAT', [1]), ...chunk('IEND', [])]);
 
-test('results, uploads, library sharing, admin switches and data deletion', async ({ page }) => {
+test('results, uploads, admin switches and data deletion', async ({ page }) => {
   test.setTimeout(150_000);
   const errors: string[] = [];
   let allow422 = false;
@@ -64,22 +64,8 @@ test('results, uploads, library sharing, admin switches and data deletion', asyn
   await expect(page.getByRole('alert').filter({ hasText: '허용되지 않는 형식' })).toBeVisible();
   allow422 = false;
 
-  // Request library sharing
-  await page.getByLabel(/공유하는 데 동의합니다/).check();
-  await page.getByRole('button', { name: '공유 요청' }).click();
-  await expect(page.getByText('공유를 요청했습니다.', { exact: false })).toBeVisible();
-
   await login(page, 'student-a@demo.invalid');
   expect((await page.request.get(assetUrl)).status()).toBe(404);
-
-  // Reviewer publishes; student-a sees it
-  await login(page, 'reviewer@demo.invalid');
-  await page.goto('/review/library');
-  await page.getByRole('button', { name: '검토 후 공개' }).first().click();
-  await expect(page.getByText('공개했습니다.')).toBeVisible();
-  await login(page, 'student-a@demo.invalid');
-  await page.goto('/app/library');
-  await expect(page.locator('li').filter({ hasText: '공개' }).first()).toBeVisible();
 
   // Admin: no evidence prerequisite; operational stop switch remains
   await login(page, 'admin@demo.invalid');

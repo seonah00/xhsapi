@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('selected-note enrichment uses an explicit zero-cost demo confirmation', async ({ page }) => {
   await page.goto('/login');
-  await page.getByRole('button', { name: /student-b@demo\.invalid/ }).click();
+  await page.getByRole('button', { name: /admin@demo\.invalid/ }).click();
   await page.waitForURL(/\/app/);
   await page.goto('/app/discover?q=敏感肌');
   await page.getByRole('link', { name: '정보 업데이트' }).first().click();
@@ -18,7 +18,7 @@ test('selected-note enrichment uses an explicit zero-cost demo confirmation', as
 
 test('50-note target and batch cover confirmation remain explicit in demo mode', async ({ page }) => {
   await page.goto('/login');
-  await page.getByRole('button', { name: /student-b@demo\.invalid/ }).click();
+  await page.getByRole('button', { name: /admin@demo\.invalid/ }).click();
   await page.waitForURL(/\/app/);
   await page.goto('/app/discover?q=敏感肌');
   await expect(page.getByLabel('수집 목표')).toHaveValue('50');
@@ -45,11 +45,36 @@ test('a browser image failure becomes an update target without starting a paid r
   try {
     await page.route(cover,route=>route.abort());
     await page.goto('/login');
-    await page.getByRole('button',{name:/student-b@demo\.invalid/}).click();
+    await page.getByRole('button',{name:/admin@demo\.invalid/}).click();
     await page.waitForURL(/\/app/);
     await page.goto('/app/discover?q=coverfailurefixture');
     await expect(page.getByText('표지를 불러오지 못함')).toBeVisible();
     await expect(page.getByRole('link',{name:'이미지 업데이트 (1건)'})).toHaveAttribute('href',`/app/notes/enrich?ids=${row.id}`);
     await expect(page.getByText(/Apify 보완/)).toHaveCount(0);
   } finally { await db.query('delete from notes where id=$1',[row.id]); await db.end(); }
+});
+
+
+test('students cannot access image operations or retired features', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByRole('button', { name: /student-b@demo\.invalid/ }).click();
+  await page.waitForURL(/\/app/);
+  await page.goto('/app/discover?q=敏感肌');
+  await expect(page.getByRole('link', { name: /이미지 업데이트|정보 업데이트/ })).toHaveCount(0);
+  for (const name of ['자료실', '해시태그', '표현 사전']) await expect(page.getByRole('link',{name,exact:true})).toHaveCount(0);
+  for (const path of ['/app/library','/app/keywords','/app/expressions','/review/library','/review/expressions','/api/v1/keywords','/api/v1/expressions',
+    '/app/notes/enrich?ids=00000000-0000-4000-a000-000000000001','/app/notes/00000000-0000-4000-a000-000000000001/enrich']) {
+    expect((await page.request.get(path)).status(), path).toBe(404);
+  }
+});
+
+test('a category alone can quote a 50-result collection without an extra keyword', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByRole('button', { name: /admin@demo\.invalid/ }).click();
+  await page.waitForURL(/\/app/);
+  await page.goto('/app/discover?topic=travel-outing');
+  await expect(page.getByLabel('수집 목표')).toHaveValue('50');
+  await page.getByRole('button', {name:'“旅行”로 비용 확인 후 조회'}).click();
+  await expect(page.getByText('검색어: 旅行', {exact:true})).toBeVisible();
+  await expect(page.getByText('목표: 관련 게시물 50건 이상 · 최대 5페이지')).toBeVisible();
 });
