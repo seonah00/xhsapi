@@ -120,3 +120,13 @@ pnpm bootstrap:org --org-name "<조직 이름>" --admin-email <관리자 이메�
 ### Zen Studio 전환 (2026-10-07)
 
 마이그레이션 17은 AP01 단가를 unknown으로 되돌립니다. 새 Actor의 고정 빌드(APIFY_ACTOR_BUILD)를 web·worker에 설정하고 새 가격 근거로 USD/run 상한을 재검증하세요. 이전 SocialDataX 빌드 번호·단가를 그대로 사용하면 안 됩니다. 새 견적과 apify-zen-detail-v1 동의가 필요합니다. 모든 다운로드 옵션은 false이며 images[0].url_pre를 우선 사용합니다.
+
+
+## 상세 텍스트 AI v2 운영 (ADR 0021)
+
+- 마이그레이션 23 적용 후 AI01 가격은 미확인이다. 이전 2,000 출력 토큰 단가로 새 작업은 실행되지 않는다.
+- `pnpm price register --provider openai --endpoint AI01 --model <등록한 모델> --unit run --currency USD --unit-cost <검증한 최대금액> --output-token-limit 6000 --evidence '<입력 20000 + 출력 6000 토큰의 공식 단가 근거>' --verified-by <관리자 이메일>`로 새 버전을 등록한다. 임의 금액을 넣지 않는다.
+- AI01이 suspended이면 가격 등록만으로 재개되지 않는다. 운영 예산/재개 범위 확인 후 capability 상태와 web/worker LIVE_LLM_CALLS_ENABLED·LLM_MODEL, worker OPENAI_API_KEY, 조직 AI/live 스위치를 확인한다.
+- 레퍼런스 분석, 기획 제안, 성과 회고는 같은 AI01 상한을 사용한다. 요청별 전송 동의와 예산 예약을 유지한다. 새로운 일회성/반복 예산 승인을 기존 Apify 승인으로 대신하지 않는다.
+- 합성 자료 1건씩 품질 점검할 때도 호출 예산을 먼저 정한다. unknown_outcome은 실제 발송 여부를 확정할 수 없어 자동 재시도하지 않는다.
+- 기획은 대상·확인 사실·촬영 가능 장면을 저장해야 요청 가능하다. 참고 자료의 경험은 사용자 사실이 아니며 생성문은 적용 전 확인한다. 성과는 게시물당 기록 1개, 최대 20개 선택한다.

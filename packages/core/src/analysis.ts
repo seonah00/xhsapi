@@ -1,4 +1,5 @@
 import type { AnalysisScope } from '@xhs/domain';
+import { demoReferenceSections, type ReferenceSection } from './reference-detail.ts';
 
 export type EvidenceClaim = { kind: 'observation' | 'inference' | 'suggestion'; textKo: string; evidenceIds: string[]; uncertainty: string | null };
 
@@ -19,7 +20,8 @@ export type AnalysisOutput = {
   suggestions: EvidenceClaim[];
   missingFacts: string[];
   limitations: string[];
-  generator: 'mock-rules-v1' | 'openai-reference-v1';
+  generator: 'mock-rules-v1' | 'openai-reference-v1' | 'openai-reference-v2';
+  sections?: ReferenceSection[];
 };
 
 const CTA = /(收藏|关注|评论|点赞|私信|下期)/;
@@ -38,6 +40,7 @@ export function analyzeReference(input: AnalysisInput): AnalysisOutput {
   const limitations: string[] = [];
   const missing: string[] = [];
   const body = input.body ?? input.userText;
+  const bodyId = input.body ? 'body' : 'userText';
 
   if (input.title) {
     scope.push(body ? 'body_only' : 'metadata_only');
@@ -48,7 +51,7 @@ export function analyzeReference(input: AnalysisInput): AnalysisOutput {
     scope.push('body_only');
   }
   if (body) {
-    obs.push({ kind: 'observation', textKo: `본문(또는 붙여넣은 텍스트)은 ${[...body].length}자입니다.`, evidenceIds: ['body'], uncertainty: null });
+    obs.push({ kind: 'observation', textKo: `본문(또는 붙여넣은 텍스트)은 ${[...body].length}자입니다.`, evidenceIds: [bodyId], uncertainty: null });
   } else {
     missing.push('본문 텍스트가 없어 정보 구성은 분석하지 않았습니다.');
   }
@@ -70,7 +73,7 @@ export function analyzeReference(input: AnalysisInput): AnalysisOutput {
     if (!input.transcript) limitations.push('음성 문안을 추출하지 않아 말하기 구조는 분석하지 않았습니다.');
   }
   if (input.title && body) {
-    inf.push({ kind: 'inference', textKo: '제목이 약속한 내용이 본문에 실제로 있는지 직접 확인해 보세요. 자동 판단하지 않았습니다.', evidenceIds: ['title', 'body'], uncertainty: '검증할 가설입니다.' });
+    inf.push({ kind: 'inference', textKo: '제목이 약속한 내용이 본문에 실제로 있는지 직접 확인해 보세요. 자동 판단하지 않았습니다.', evidenceIds: ['title', bodyId], uncertainty: '검증할 가설입니다.' });
   }
   sug.push({ kind: 'suggestion', textKo: '이 자료를 그대로 따라 하기보다, 내 경험·장소·제품으로 바꿨을 때 달라지는 점을 기획 메모에 적어 두세요.', evidenceIds: [], uncertainty: null });
 
@@ -82,6 +85,7 @@ export function analyzeReference(input: AnalysisInput): AnalysisOutput {
     missingFacts: missing,
     limitations,
     generator: 'mock-rules-v1',
+    sections: demoReferenceSections(input),
   };
 }
 

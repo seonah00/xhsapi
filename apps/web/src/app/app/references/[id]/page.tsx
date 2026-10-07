@@ -95,8 +95,8 @@ export default async function ReferenceDetail({ params, searchParams }: { params
               <h2 className="font-semibold">레퍼런스 분석</h2>
               {!ref.deletedAt && !d.quote && <form action={quoteAnalysis}><input type="hidden" name="id" value={ref.id} /><button className={btn.secondary}>{d.analysis ? '다시 분석' : '분석하기'}</button></form>}
             </div>
-            {d.mode === 'live' && <p className="mt-2 text-sm text-muted">제목·본문·태그·메모를 AI로 분석합니다. 실행 전에 전송 범위와 비용을 확인합니다.</p>}
-            <p className="mb-3 mt-1 text-xs text-muted">관찰 사실과 해석·제안을 구분합니다. 성공 원인을 확정하지 않습니다.</p>
+            {d.mode === 'live' && <p className="mt-2 text-sm text-muted">제목·본문·태그를 바탕으로 주제, 예상 독자, 관심 유도 문구, 본문 구성, 표현, 태그, 행동 유도, 적용 방법을 자세히 분석합니다. 영상 업로드는 필요하지 않습니다.</p>}
+            <p className="mb-3 mt-1 text-xs text-muted">본문은 수집된 발췌 범위만 분석합니다. 실제 문구와 새 문구 제안을 구별하며 촬영·편집·영상 자막은 확인할 수 없습니다.</p>
             {d.quote && (
               <div className="mb-3">
                 <QuoteConfirm quote={d.quote} title="분석 실행 확인" action={confirmAnalysis} hidden={{ id: ref.id }} cancelHref={`/app/references/${id}`}

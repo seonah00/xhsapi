@@ -9,7 +9,7 @@
  *   pnpm price unverify --endpoint RF13      # future quotes are blocked again; history is kept
  */
 import pg from 'pg';
-import { pgConfig } from '@xhs/core';
+import { REFERENCE_OUTPUT_TOKENS, pgConfig } from '@xhs/core';
 import { REDFOX_CAPABILITIES } from '@xhs/providers';
 
 export function parseArgs(argv: string[]): { cmd: string; opts: Record<string, string> } {
@@ -28,7 +28,7 @@ export function validateRegister(o: Record<string, string>) {
   if (!o.endpoint || (o.provider === 'openai' ? o.endpoint !== 'AI01' : o.provider === 'apify' ? o.endpoint !== 'AP01' : !(o.endpoint in REDFOX_CAPABILITIES))) errors.push('--endpoint: RedFox RF01~RF14, Apify AP01, OpenAI AI01');
   if (o.provider && !['redfox','apify','openai'].includes(o.provider)) errors.push('--provider: redfox, apify 또는 openai');
   if (o.provider === 'apify' && (o.unit !== 'run' || o.currency !== 'USD' || !(Number(o['unit-cost']) > 0))) errors.push('Apify는 검증된 양수 USD/run 최대 비용만 등록');
-  if (o.provider === 'openai' && (o.unit !== 'run' || o.currency !== 'USD' || !(Number(o['unit-cost']) > 0) || !o.model || !/^[a-zA-Z0-9.-]{1,100}$/.test(o.model))) errors.push('OpenAI: --model과 검증된 양수 USD/run 상한 필요 (입력 20,000 + 출력 2,000 토큰 포함)');
+  if (o.provider === 'openai' && (o.unit !== 'run' || o.currency !== 'USD' || !(Number(o['unit-cost']) > 0) || !o.model || !/^[a-zA-Z0-9.-]{1,100}$/.test(o.model) || !Number.isSafeInteger(Number(o['output-token-limit'])) || Number(o['output-token-limit']) < REFERENCE_OUTPUT_TOKENS)) errors.push('OpenAI: --model과 검증된 양수 USD/run 상한 필요 (입력 20,000 + 출력 6,000 토큰 포함, --output-token-limit 6000 이상)');
   if (!o.unit || !/^[a-z_]{2,20}$/.test(o.unit)) errors.push('--unit: 예) call, page, minute');
   if (!o['unit-cost'] || !/^\d{1,12}(\.\d{1,8})?$/.test(o['unit-cost'])) errors.push('--unit-cost: 0 이상 숫자(소수 8자리까지)');
   if (!o.currency || !/^[A-Z]{3}$/.test(o.currency)) errors.push('--currency: 예) CNY, USD');
@@ -63,9 +63,9 @@ async function main() {
       if (!user) throw new Error('--verified-by 사용자를 찾을 수 없습니다.');
       await db.query('begin');
       await db.query(
-        `insert into provider_price_versions (provider, endpoint, currency, unit, unit_cost, effective_at, verified_by, evidence, model)
-         values ($8, $1, $2, $3, $4::numeric, coalesce($5::timestamptz, now()), $6, $7, $9)`,
-        [opts.endpoint, opts.currency, opts.unit, opts['unit-cost'], opts['effective-at'] ?? null, user.id, (opts.evidence ?? '').trim(), provider, provider==='openai' ? opts.model : null],
+        `insert into provider_price_versions (provider, endpoint, currency, unit, unit_cost, effective_at, verified_by, evidence, model, output_token_limit)
+         values ($8, $1, $2, $3, $4::numeric, coalesce($5::timestamptz, now()), $6, $7, $9, $10)`,
+        [opts.endpoint, opts.currency, opts.unit, opts['unit-cost'], opts['effective-at'] ?? null, user.id, (opts.evidence ?? '').trim(), provider, provider==='openai' ? opts.model : null, provider==='openai' ? Number(opts['output-token-limit']) : null],
       );
       await db.query(`update provider_capabilities set price_status = 'verified' where provider = $2 and endpoint = $1`, [opts.endpoint,provider]);
       await db.query('commit');

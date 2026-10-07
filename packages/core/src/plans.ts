@@ -124,7 +124,7 @@ const STALE = () => new AppError('STALE_REVISION', '다른 창이나 기기에�
 export async function saveDraft(ctx: Ctx, id: string, input: unknown, revision: number): Promise<{ revision: number; draftHash: string }> {
   const draft = PlanDraft.parse(input);
   const r = await ctx.db.query<{ revision: number }>(
-    `update plans set draft_json = $3, draft_updated_at = now(), revision = revision + 1
+    `update plans set draft_json = $3::jsonb || jsonb_build_object('sourceRefs', coalesce(draft_json->'sourceRefs', '[]'::jsonb)), draft_updated_at = now(), revision = revision + 1
      where id = $1 and owner_user_id = $2 and revision = $4 and deleted_at is null returning revision`,
     [id, ctx.uid, draft, revision],
   );
@@ -162,6 +162,7 @@ export async function applyProposal(ctx: Ctx, planId: string, proposalVersionId:
   if (plan.revision !== revision) throw STALE();
   const proposal = plan.versions.find((v) => v.id === proposalVersionId && v.kind === 'ai_proposal');
   if (!proposal) notFound();
+  if(contentHash(proposal.facts)!==contentHash(plan.draft.facts)) throw new AppError('STALE_REVISION','제안 생성 후 사실 입력이 달라졌습니다. 현재 사실로 다시 제안을 생성하세요.');
   const draft: PlanDraft = { content: proposal.content, facts: plan.draft.facts };
   await saveDraft(ctx, planId, draft, revision);
   return saveVersion(ctx, planId, revision + 1);

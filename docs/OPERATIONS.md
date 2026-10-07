@@ -159,3 +159,13 @@ pnpm price unverify --provider apify --endpoint AP01
 - 자동 검색: web/worker에 AUTO_REFRESH_ENABLED=true를 설정하고 관리자 > 공급자에서 한도와 승인 종료일을 저장한다. 기존 월간 CNY 예산 안에서만 실행한다. 비활성/만료 시 학생은 저장 결과만 검색한다. 키는 worker 전용이다.
 - AI: worker에 OPENAI_API_KEY, web/worker에 동일한 LLM_MODEL 및 LIVE_LLM_CALLS_ENABLED=true. OpenAI 모델의 확인된 가격으로 입력 20,000+출력 2,000 토큰 비용 이상인 회당 USD 상한을 계산한 후 `pnpm price register --provider openai --endpoint AI01 --model MODEL --unit run --unit-cost VERIFIED_CAP --currency USD --evidence '확인한 요금과 상한 계산 근거' --verified-by ADMIN_EMAIL`로 등록한다. 실제 단가를 추측하지 않는다. 별도의 현재 USD 예산을 확인한다. 모델 변경은 새 가격 버전 등록이 필요하다. 한 번의 성공도 보수적으로 이 상한을 정산하며 원장 actual은 제공자 청구서 실측값이 아니다.
 - AI 응답 불명/출력 검증 실패는 unknown_outcome으로 남고 자동 재시도하지 않는다. 관리자가 공급자 청구 내역으로 기존 정산 화면에서 확인한다.
+
+
+## 상세 텍스트 AI v2 운영 (ADR 0021)
+
+- 마이그레이션 23 적용 후 AI01 가격은 미확인이다. 이전 2,000 출력 토큰 단가로 새 작업은 실행되지 않는다.
+- `pnpm price register --provider openai --endpoint AI01 --model <등록한 모델> --unit run --currency USD --unit-cost <검증한 최대금액> --output-token-limit 6000 --evidence '<입력 20000 + 출력 6000 토큰의 공식 단가 근거>' --verified-by <관리자 이메일>`로 새 버전을 등록한다. 임의 금액을 넣지 않는다.
+- AI01이 suspended이면 가격 등록만으로 재개되지 않는다. 운영 예산/재개 범위 확인 후 capability 상태와 web/worker LIVE_LLM_CALLS_ENABLED·LLM_MODEL, worker OPENAI_API_KEY, 조직 AI/live 스위치를 확인한다.
+- 레퍼런스 분석, 기획 제안, 성과 회고는 같은 AI01 상한을 사용한다. 요청별 전송 동의와 예산 예약을 유지한다. 새로운 일회성/반복 예산 승인을 기존 Apify 승인으로 대신하지 않는다.
+- 합성 자료 1건씩 품질 점검할 때도 호출 예산을 먼저 정한다. unknown_outcome은 실제 발송 여부를 확정할 수 없어 자동 재시도하지 않는다.
+- 기획은 대상·확인 사실·촬영 가능 장면을 저장해야 요청 가능하다. 참고 자료의 경험은 사용자 사실이 아니며 생성문은 적용 전 확인한다. 성과는 게시물당 기록 1개, 최대 20개 선택한다.

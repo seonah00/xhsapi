@@ -1,3 +1,4 @@
+import { isTextAiOperation, runTextWorkflow } from './ai-workflows.ts';
 import { runReferenceAi } from './ai-reference.ts';
 import { advanceCollection, CollectionTarget, collectionPages, enrichmentIds, contentHash, type AppEnv, type DataMode, type JobKind } from '@xhs/domain';
 import { redactString } from '@xhs/security';
@@ -63,7 +64,7 @@ export async function runJob(deps: JobDeps, jobId: string, workerId: string): Pr
   if (!job) return null;
 
   let outcome: JobOutcome;
-  if ((job.kind === 'reference_analysis' || job.kind === 'note_enrichment' || (job.kind === 'provider_search' && job.input_ref.targetCount !== undefined)) && job.data_mode === 'live') {
+  if ((isTextAiOperation(job.kind) || job.kind === 'note_enrichment' || (job.kind === 'provider_search' && job.input_ref.targetCount !== undefined)) && job.data_mode === 'live') {
     const submitted = await deps.service(async db => (await db.query('select provider_task_id from app_jobs where id=$1',[job.id])).rows[0]?.provider_task_id);
     if (submitted) {
       const uncertain: JobOutcome = {state:'unknown_outcome',errorCode:'PREVIOUS_SUBMISSION_UNKNOWN'};
@@ -89,6 +90,8 @@ export async function runJob(deps: JobDeps, jobId: string, workerId: string): Pr
       outcome = { state: 'failed', errorCode: blocked, sent: false };
     } else if (job.kind === 'reference_analysis' && job.data_mode === 'live') {
       outcome = await runReferenceAi(deps, job);
+    } else if (isTextAiOperation(job.kind) && job.data_mode === 'live') {
+      outcome = await runTextWorkflow(deps,job);
     } else if (job.kind === 'note_enrichment') {
       outcome = await enrichNote(deps, job);
     } else if (job.data_mode === 'live' && job.kind !== 'user_deletion') {

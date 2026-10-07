@@ -23,7 +23,7 @@ export default async function PlanPage({ params, searchParams }: { params: Promi
     const checks = latestEdit ? await checksForVersion(ctx, latestEdit.id) : [];
     const selected = sp.check ? await getCheck(ctx, sp.check).catch(() => null) : checks[0] ?? null;
     return {
-      plan, latestEdit, checks, selected,
+      plan, latestEdit, checks, selected, mode:ctx.mode,
       generations: await listGenerations(ctx, id),
       cohorts: await myCohorts(ctx),
       submissions: await listMySubmissions(ctx, id),
@@ -62,11 +62,11 @@ export default async function PlanPage({ params, searchParams }: { params: Promi
 
         <div className="space-y-4">
           <Card>
-            <h2 id="ai" className="font-semibold">AI 기획 제안 <DemoBadge /></h2>
-            <p className="mt-1 text-xs text-muted">사실 입력을 바탕으로 별도 제안 버전을 만듭니다. 적용하기 전까지 초안은 바뀌지 않습니다.</p>
+            <h2 id="ai" className="font-semibold">AI 기획 제안 <DemoBadge mode={d.mode} /></h2>
+            <p className="mt-1 text-xs text-muted">저장한 사실과 레퍼런스 분석을 바탕으로 제목 후보·본문·촬영 제안을 별도 버전으로 만듭니다. 적용하기 전까지 초안은 바뀌지 않습니다.</p>
             {sp.confirm === 'generation' && d.quote ? (
               <div className="mt-3"><QuoteConfirm quote={d.quote} title="기획 제안 생성 확인" action={A.confirmGeneration} hidden={{ planId: p }} cancelHref={`/app/plans/${p}`}
-                scopeLines={['입력: 현재 초안의 사실 입력, 계정 방향, 선택한 레퍼런스 제목·태그', '데모 모드: 템플릿 기반, 외부 AI 호출 없음']} /></div>
+                scopeLines={['입력: 저장한 사실 입력, 계정 방향, 선택한 레퍼런스 제목·태그·분석 요약', d.mode==='live'?'OpenAI가 중국어 제목·본문·자막 초안과 한국어 설명·촬영 제안을 만듭니다.':'데모 모드: 템플릿 기반, 외부 AI 호출 없음']} /></div>
             ) : (
               <form action={A.quoteGeneration} className="mt-3">{hidden()}<button className={btn.secondary}>제안 받기</button></form>
             )}

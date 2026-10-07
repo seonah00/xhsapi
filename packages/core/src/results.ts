@@ -147,7 +147,9 @@ export async function deletePublication(ctx: Ctx, id: string): Promise<void> {
 
 export type ReflectionOutput = {
   basedOn: { snapshotIds: string[]; posts: number };
-  observations: string[]; hypotheses: string[]; limitations: string[]; generator: 'mock-rules-v1';
+  observations: string[]; hypotheses: string[]; limitations: string[]; generator: 'mock-rules-v1' | 'openai-reflection-v1';
+  experiments?: {change:string;keepConstant:string;measure:string;when:string;evidenceIds:string[]}[];
+  evidence?: {id:string;title:string|null;observedAt:string}[];
 };
 
 /** Mock reflection: compares only the selected own snapshots; never changes the account direction. */

@@ -46,7 +46,7 @@ export async function confirmReflection(f: FormData) {
   const scope = { accountId, snapshotIds: ids.join(',') };
   const { jobId } = await orRedirectWithError(back, () => withPageCtx((ctx) => reserveJob(ctx, {
     quoteId, route: 'POST /results/reflections', idempotencyKey: z.string().uuid().parse(f.get('idem')), operation: 'results_reflection', scope,
-    jobKind: 'results_reflection', dedupeKey: `results_reflection:${quoteId}`, inputRef: { accountId, snapshotIds: ids },
+    consent: f.get('consent')==='on', jobKind: 'results_reflection', dedupeKey: `results_reflection:${quoteId}`, inputRef: { accountId, snapshotIds: ids },
   })));
   redirect(`${back}&job=${jobId}#reflect`);
 }

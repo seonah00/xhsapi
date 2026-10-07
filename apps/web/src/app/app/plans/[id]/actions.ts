@@ -35,7 +35,7 @@ export async function confirmGeneration(f: FormData) {
   const scope = { planId: id };
   const { jobId } = await orRedirectWithError(path(id), () => withPageCtx((ctx) => reserveJob(ctx, {
     quoteId, route: 'POST /plans/:id/generations', idempotencyKey: uuid.parse(f.get('idem')), operation: 'plan_generation', scope,
-    jobKind: 'plan_generation', dedupeKey: `plan_generation:${quoteId}`, inputRef: scope,
+    consent: f.get('consent')==='on', jobKind: 'plan_generation', dedupeKey: `plan_generation:${quoteId}`, inputRef: scope,
   })));
   redirect(path(id, `?job=${jobId}#ai`));
 }

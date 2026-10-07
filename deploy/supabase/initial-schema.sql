@@ -2287,3 +2287,14 @@ insert into public.provider_capabilities(provider,endpoint,path,params_status,ve
 values('openai','AI01','/v1/chat/completions','documented','documented','unknown','P1','Text-only reference analysis. Verified run cap must cover 20,000 input tokens and 2,000 completion tokens for the configured model.');
 
 insert into app.applied_migrations (version, name) values ('20261007000022', '20261007000022_reference_ai.sql');
+
+-- ==== 20261007000023_detailed_ai_contract.sql ====
+
+-- Versioned output bounds: a quote approved for 2,000 tokens must not fund a 6,000-token request.
+alter table public.provider_price_versions add column output_token_limit integer check (output_token_limit > 0);
+update public.provider_price_versions set output_token_limit=2000 where provider='openai';
+update public.provider_capabilities set price_status='unknown',
+  note='Text-only AI workflows. Run cap must cover 20,000 input and 6,000 output tokens; output_token_limit must be recorded. Reverify price before activation.'
+where provider='openai' and endpoint='AI01';
+
+insert into app.applied_migrations (version, name) values ('20261007000023', '20261007000023_detailed_ai_contract.sql');

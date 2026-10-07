@@ -71,8 +71,10 @@ test('student onboarding → discover → reference → analysis → transcript 
   await expect(page.getByText('분석 실행 확인')).toBeVisible();
   await expect(page.getByText('0 (데모 모드, 실제 과금 없음)')).toBeVisible();
   await page.getByRole('button', { name: '확인하고 실행' }).click();
-  await expect(page.getByText('관찰 사실', { exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('heading', { name: '주제와 핵심 메시지', exact: true })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('영상의 화면 구도·편집·장면 전환은 분석하지 않았습니다.')).toBeVisible();
+
+  for(const name of ['예상 독자와 필요','제목·첫 문장의 관심 유도','본문 전개 방식','핵심 문구와 표현','태그의 역할','저장·댓글·팔로우 유도','내 콘텐츠에 적용하기']) await expect(page.getByRole('heading',{name,exact:true})).toBeVisible();
 
   // F15 transcript (mock)
   await page.getByRole('link', { name: /추출하러 가기/ }).click();

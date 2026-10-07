@@ -18,7 +18,7 @@ export default async function Results({ searchParams }: { searchParams: Promise<
     const accounts = await listAccounts(ctx);
     const account = accounts.find((a) => a.id === sp.account) ?? accounts[0] ?? null;
     return {
-      accounts, account,
+      accounts, account, mode:ctx.mode,
       pubs: account ? await listPublications(ctx, account.id) : [],
       reflections: account ? await listReflections(ctx, account.id) : [],
       quote: sp.quote ? await getQuote(ctx, sp.quote) : null,
@@ -107,11 +107,11 @@ export default async function Results({ searchParams }: { searchParams: Promise<
           </Card>
 
           <Card>
-            <h2 id="reflect" className="font-semibold">회고 제안 <Badge tone="warn">데모 · AI 아님</Badge></h2>
+            <h2 id="reflect" className="font-semibold">회고 제안 <Badge tone={d.mode==='mock'?'warn':'info'}>{d.mode==='mock'?'데모 · AI 아님':'AI 텍스트 회고'}</Badge></h2>
             <p className="mt-1 text-xs text-muted">고른 본인 게시물의 최신 기록만 사용해 다음 촬영에서 검증할 가설을 만듭니다. 계정 방향은 자동으로 바뀌지 않습니다.</p>
             {sp.confirm && d.quote ? (
               <div className="mt-3"><QuoteConfirm quote={d.quote} title="회고 제안 확인" action={confirmReflection} hidden={{ accountId: d.account.id, ids: sp.ids ?? '' }} cancelHref={`/app/results?account=${d.account.id}`}
-                scopeLines={[`대상: 선택한 게시물 ${(sp.ids ?? '').split(',').filter(Boolean).length}개의 최신 기록`, '외부 AI 호출 없음(데모 규칙)']} /></div>
+                scopeLines={[`대상: 선택한 게시물 ${(sp.ids ?? '').split(',').filter(Boolean).length}개의 최신 기록`, d.mode==='mock'?'외부 AI 호출 없음(데모 규칙)':'제목·주제·형식·수치·발행/관찰 시점·프로모션/협찬 정보를 OpenAI로 전송합니다.']} /></div>
             ) : withSnap.length === 0 ? <p className="mt-2 text-sm text-muted">지표가 기록된 게시물이 필요합니다.</p> : (
               <form action={quoteReflection} className="mt-3 space-y-1 text-sm">
                 <input type="hidden" name="accountId" value={d.account.id} />
@@ -125,6 +125,7 @@ export default async function Results({ searchParams }: { searchParams: Promise<
                 <p className="text-xs text-muted">{fmtDate(r.createdAt, true)} · 게시물 {r.output.basedOn.posts}개 기준</p>
                 <ul className="mt-1 list-disc pl-5">{r.output.observations.map((o) => <li key={o}>{o}</li>)}</ul>
                 <p className="mt-1 font-medium">검증할 가설</p><ul className="list-disc pl-5">{r.output.hypotheses.map((h) => <li key={h}>{h}</li>)}</ul>
+                {r.output.experiments?.map((e,i)=><div key={i} className="mt-3 rounded-lg border border-line p-2"><p className="font-medium">다음 실험 {i+1}: {e.change}</p><p>유지할 조건: {e.keepConstant}</p><p>측정 지표: {e.measure}</p><p>기록 시점: {e.when}</p><p className="text-xs text-muted">근거: {e.evidenceIds.map(id=>r.output.evidence?.find(x=>x.id===id)?.title??id).join(', ')}</p></div>)}
                 <ul className="mt-1 text-xs text-warn">{r.output.limitations.map((l) => <li key={l}>! {l}</li>)}</ul>
               </div>
             ))}

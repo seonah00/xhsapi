@@ -1,7 +1,8 @@
+import { detailedAiFixture } from '../fixtures/detailed-ai.ts';
 import { beforeAll,afterAll,it,expect } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { pool,asUser } from './db.ts';
-import { requestAutoSearch,autoSearchStatus,setAutoSearchPolicy,originalNoteLink,storeNoteAccessLink,createReference,createQuote,reserveJob,runJob,type Ctx,type Runner } from '@xhs/core';
+import { createAccount,createPlan,getPlan,saveDraft,applyProposal,createPublication,addSnapshot,listPublications,listReflections,PlanContent,requestAutoSearch,autoSearchStatus,setAutoSearchPolicy,originalNoteLink,storeNoteAccessLink,createReference,createQuote,reserveJob,runJob,type Ctx,type Runner } from '@xhs/core';
 import { MockXhsProvider } from '@xhs/providers';
 import { loadEnv } from '@xhs/domain';
 const org=randomUUID(),admin=randomUUID(),student=randomUUID(),other=randomUUID();
@@ -56,7 +57,7 @@ it('performs gated live AI through fake fetch, records actual analysis and never
   const refId=await user(student,ctx=>createReference(ctx,{sourceType:'pasted_text',text:'这是我的测试文本'}));
   const scope={referenceId:refId};
   await expect(user(student,ctx=>createQuote(ctx,service,'reference_analysis',scope,{env:aiEnv}),'live')).rejects.toMatchObject({code:'LIVE_BLOCKED'});
-  await pool.query(`insert into provider_price_versions(provider,endpoint,currency,unit,unit_cost,effective_at,verified_by,evidence,model) values('openai','AI01','USD','run',0.01,now(),$1,'synthetic fixture','synthetic-model')`,[admin]);
+  await pool.query(`insert into provider_price_versions(provider,endpoint,currency,unit,unit_cost,effective_at,verified_by,evidence,model,output_token_limit) values('openai','AI01','USD','run',0.01,now(),$1,'synthetic fixture','synthetic-model',6000)`,[admin]);
   await pool.query(`update provider_capabilities set price_status='verified' where provider='openai' and endpoint='AI01'`);
   await pool.query(`insert into usage_budgets(org_id,subject_type,subject_id,period_start,period_end,currency,amount_limit) values($1,'org',$1,current_date,current_date+1,'USD',1)`,[org]);
   const enqueue=async()=>{
@@ -66,15 +67,86 @@ it('performs gated live AI through fake fetch, records actual analysis and never
     return (await user(student,ctx=>reserveJob(ctx,{...args,consent:true}),'live')).jobId;
   };
   const job=await enqueue();let calls=0;
-  const aiFetch=async()=>{calls++;return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify({observations:[{kind:'observation',textKo:'텍스트 제공',evidenceIds:['userText'],uncertainty:null}],inferences:[],suggestions:[],missingFacts:[]})}}]});};
+  const aiFetch=async()=>{calls++;return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(detailedAiFixture('userText','这是我的测试文本'))}}]});};
   const deps={service,provider:new MockXhsProvider(),env:aiEnv,aiFetch};
   expect(await runJob(deps,job,'ai-worker')).toMatchObject({state:'succeeded'});expect(calls).toBe(1);
   const result=(await pool.query(`select output_json,data_mode,model from analyses where target_id=$1`,[refId])).rows[0];
-  expect(result.data_mode).toBe('live');expect(result.output_json.generator).toBe('openai-reference-v1');
+  expect(result.data_mode).toBe('live');expect(result.output_json.generator).toBe('openai-reference-v2');
   expect((await pool.query(`select status from usage_ledger where job_id=$1`,[job])).rows[0].status).toBe('settled');
   const ambiguous=await enqueue();
   expect(await runJob({...deps,aiFetch:async()=>{calls++;throw new Error('lost response');}},ambiguous,'ai-worker')).toMatchObject({state:'unknown_outcome'});
   expect(calls).toBe(2);
   await pool.query(`update app_jobs set state='queued' where id=$1`,[ambiguous]);
   expect(await runJob(deps,ambiguous,'ai-worker')).toMatchObject({state:'unknown_outcome'});expect(calls).toBe(2);
+});
+
+
+it('uses owned reference analysis for live planning, preserves references on autosave and applies explicitly',async()=>{
+  const accountId=await user(student,ctx=>createAccount(ctx,{displayName:'AI 기획 테스트',topics:['travel'],mainTopic:'travel',audience:'여행자',goals:['learn_chinese'],tone:'plain',formats:['vlog'],chineseLevel:'beginner',showFace:false,useVoice:true}));
+  const refId=await user(student,ctx=>createReference(ctx,{sourceType:'pasted_text',text:'公园散步',title:'公园',tags:['散步']}));
+  await pool.query(`insert into analyses(org_id,owner_user_id,target_type,target_id,input_hash,analysis_scope,schema_version,prompt_version,model,data_mode,output_json,status) values($1,$2,'reference',$3,'fixture','{body_only}','reference-analysis-v2','openai-reference-v2','synthetic-model','live',$4,'succeeded')`,[org,student,refId,{inferences:[],suggestions:[{textKo:'산책 순서대로 정보를 설명하세요.'}]}]);
+  const planId=await user(student,ctx=>createPlan(ctx,{accountId,title:'산책 기획',referenceIds:[refId]}));
+  await expect(user(student,ctx=>createQuote(ctx,service,'plan_generation',{planId},{env:aiEnv}),'live')).rejects.toMatchObject({code:'VALIDATION_FAILED'});
+  const before=await user(student,ctx=>getPlan(ctx,planId));
+  const facts={subject:'公园散步',confirmedFacts:['走过公园'],shootableScenes:['公园入口'],sponsorship:'no'};
+  await user(student,ctx=>saveDraft(ctx,planId,{content:{title:'내 초안'},facts},before.revision));
+  expect((await pool.query(`select draft_json->'sourceRefs' as refs from plans where id=$1`,[planId])).rows[0].refs).toEqual([refId]);
+  await expect(user(other,ctx=>createQuote(ctx,service,'plan_generation',{planId},{env:aiEnv}),'live')).rejects.toThrow();
+  const scope={planId};
+  const quote=await user(student,ctx=>createQuote(ctx,service,'plan_generation',scope,{env:aiEnv}),'live');
+  const args={quoteId:quote.id,route:'test/plan-ai',idempotencyKey:randomUUID(),operation:'plan_generation' as const,scope,jobKind:'plan_generation' as const,dedupeKey:quote.id,inputRef:scope};
+  await expect(user(student,ctx=>reserveJob(ctx,args),'live')).rejects.toMatchObject({code:'VALIDATION_FAILED'});
+  const {jobId}=await user(student,ctx=>reserveJob(ctx,{...args,consent:true}),'live');
+  let sent='';
+  const aiFetch:typeof fetch=async(_url,init)=>{sent=String(init?.body);return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify({candidates:[{angle:'산책 순서',difference:'내 동선',neededFacts:[],difficulty:'low'}],titleOptions:['公园散步','散步记录'],content:PlanContent.parse({title:'公园散步',body:'走过公园',shots:[{scene:'公园入口',note:'촬영 제안'}]}),evidenceRefs:['ref1'],missingFacts:[],notes:[]})}}]});};
+  expect(await runJob({service,provider:new MockXhsProvider(),env:aiEnv,aiFetch},jobId,'test')).toMatchObject({state:'succeeded'});
+  expect(sent).toContain('산책 순서대로 정보를 설명하세요.');expect(sent).not.toContain(refId);
+  const after=await user(student,ctx=>getPlan(ctx,planId));
+  expect(after.draft.content.title).toBe('내 초안');
+  const proposal=after.versions.find(v=>v.kind==='ai_proposal')!;
+  expect(proposal.sourceRefs).toEqual([refId]);
+  await user(student,ctx=>applyProposal(ctx,planId,proposal.id,after.revision));
+  const applied=await user(student,ctx=>getPlan(ctx,planId));
+  expect(applied.draft.content.title).toBe('公园散步');
+  await user(student,ctx=>saveDraft(ctx,planId,{...applied.draft,facts:{...applied.draft.facts,confirmedFacts:['새로운 사실']}},applied.revision));
+  const changed=await user(student,ctx=>getPlan(ctx,planId));
+  await expect(user(student,ctx=>applyProposal(ctx,planId,proposal.id,changed.revision))).rejects.toMatchObject({code:'STALE_REVISION'});
+  expect((await pool.query(`select status from usage_ledger where job_id=$1`,[jobId])).rows[0].status).toBe('settled');
+});
+
+it('reflects only selected own publications with evidence and never resends an ambiguous reflection',async()=>{
+  const accountId=(await pool.query(`select id from creator_accounts where owner_user_id=$1 limit 1`,[student])).rows[0].id;
+  const publicationId=await user(student,ctx=>createPublication(ctx,{accountId,title:'산책 기록',topic:'travel',format:'vlog'}));
+  await user(student,ctx=>addSnapshot(ctx,publicationId,{metrics:{saves:2,likes:10}}));
+  const pubs=await user(student,ctx=>listPublications(ctx,accountId));
+  const ids=[pubs.find(p=>p.id===publicationId)!.snapshots[0]!.id];
+  const scope={accountId,snapshotIds:ids.join(',')};
+  await expect(user(other,ctx=>createQuote(ctx,service,'results_reflection',scope,{env:aiEnv}),'live')).rejects.toThrow();
+  await expect(user(student,ctx=>createQuote(ctx,service,'results_reflection',{accountId,snapshotIds:ids.concat(ids).join(',')},{env:aiEnv}),'live')).rejects.toThrow();
+  const enqueue=async()=>{const q=await user(student,ctx=>createQuote(ctx,service,'results_reflection',scope,{env:aiEnv}),'live');return (await user(student,ctx=>reserveJob(ctx,{quoteId:q.id,route:'test/reflection-ai',idempotencyKey:randomUUID(),operation:'results_reflection',scope,jobKind:'results_reflection',dedupeKey:q.id,inputRef:{accountId,snapshotIds:ids},consent:true}),'live')).jobId;};
+  const jobId=await enqueue();let calls=0;
+  const aiFetch:typeof fetch=async()=>{calls++;return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify({hypotheses:[{textKo:'다음 게시물과 같은 시점에 비교하세요.',evidenceIds:['post1'],uncertainty:'표본 부족'}],experiments:[{change:'제목에서 주제 먼저',keepConstant:'산책 주제',measure:'저장 수',when:'같은 경과 시점',evidenceIds:['post1']}]})}}]});};
+  expect(await runJob({service,provider:new MockXhsProvider(),env:aiEnv,aiFetch},jobId,'test')).toMatchObject({state:'succeeded'});
+  const results=await user(student,ctx=>listReflections(ctx,accountId));
+  expect(results[0]!.output.generator).toBe('openai-reflection-v1');
+  expect(results[0]!.output.experiments).toHaveLength(1);
+  const uncertain=await enqueue();
+  const deps={service,provider:new MockXhsProvider(),env:aiEnv,aiFetch:async()=>{calls++;throw new Error('lost');}};
+  expect(await runJob(deps,uncertain,'test')).toMatchObject({state:'unknown_outcome'});
+  await pool.query(`update app_jobs set state='queued' where id=$1`,[uncertain]);
+  expect(await runJob(deps,uncertain,'test')).toMatchObject({state:'unknown_outcome'});expect(calls).toBe(2);
+});
+
+it('blocks an old 2000-token price both at quotation and before sending a queued job',async()=>{
+  await pool.query(`update provider_price_versions set output_token_limit=2000 where provider='openai' and verified_by=$1`,[admin]);
+  await expect(user(student,ctx=>createQuote(ctx,service,'reference_analysis',{referenceId:randomUUID()},{env:aiEnv}),'live')).rejects.toMatchObject({code:'LIVE_BLOCKED'});
+  await pool.query(`update provider_price_versions set output_token_limit=6000 where provider='openai' and verified_by=$1`,[admin]);
+  const ref=await user(student,ctx=>createReference(ctx,{sourceType:'pasted_text',text:'合成文本'}));
+  const scope={referenceId:ref};
+  const q=await user(student,ctx=>createQuote(ctx,service,'reference_analysis',scope,{env:aiEnv}),'live');
+  const {jobId}=await user(student,ctx=>reserveJob(ctx,{quoteId:q.id,route:'test/old-cap',idempotencyKey:randomUUID(),operation:'reference_analysis',scope,jobKind:'reference_analysis',dedupeKey:q.id,inputRef:scope,consent:true}),'live');
+  await pool.query(`update provider_price_versions set output_token_limit=2000 where provider='openai' and verified_by=$1`,[admin]);
+  let calls=0;
+  expect(await runJob({service,provider:new MockXhsProvider(),env:aiEnv,aiFetch:async()=>{calls++;throw new Error('must not send');}},jobId,'test')).toMatchObject({state:'failed',sent:false});
+  expect(calls).toBe(0);expect((await pool.query(`select status from usage_ledger where job_id=$1`,[jobId])).rows[0].status).toBe('released');
 });

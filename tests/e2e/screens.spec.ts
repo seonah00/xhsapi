@@ -44,7 +44,7 @@ for (const [name, viewport] of [['desktop', { width: 1280, height: 900 }], ['mob
       await page.getByRole('button', { name: '분석하기' }).click();
       await page.getByRole('button', { name: '확인하고 실행' }).click();
     }
-    await page.getByText('관찰 사실', { exact: true }).waitFor({ timeout: 20_000 });
+    await page.getByRole('heading', { name: '주제와 핵심 메시지', exact: true }).waitFor({ timeout: 20_000 });
     await page.screenshot({ path: `docs/screenshots/m1-${name}-reference.png`, fullPage: name === 'desktop', caret: 'initial' });
     // M2 screens (a plan exists from the M2 spec, which runs earlier in the same database).
     await page.goto('/app/plans');
