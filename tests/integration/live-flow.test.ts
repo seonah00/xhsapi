@@ -229,7 +229,7 @@ describe('live transcript path with a fake RedFox (no network)', () => {
     ] } })]);
     expect(await runJob(deps(fake.impl), jobId, 't')).toMatchObject({ state: 'succeeded' });
     expect(fake.calls[0]!.url).toBe('https://redfox.hk/story/api/xhsUser/searchArticle');
-    expect(fake.calls[0]!.body).toEqual({ keyword: '首尔旅行', offset: 0, sortType: '_0' });
+    expect(fake.calls[0]!.body).toEqual({ keyword: '首尔旅行', offset: 0, sortType: '_4' });
     expect(await ledgerOf(jobId)).toEqual({ status: 'settled', reserved: '0.02000000', actual: '0.02000000' });
     const rows = (await pool.query(`select id, platform_note_id, note_type, cover_url from notes where org_id = $1 and platform_note_id like '6a00000000000000000000e%' order by platform_note_id`, [ORG])).rows;
     expect(rows.map((r) => [r.note_type, r.cover_url])).toEqual([['image', cover], ['video', null]]); // non-XHS image hosts are dropped

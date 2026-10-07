@@ -30,12 +30,18 @@ export const DiscoverQuery = z.object({
   topic: z.string().optional(),
   format: z.string().optional(),
   days: z.coerce.number().int().refine((d) => [7, 14, 30].includes(d)).optional(),
+  /** popular = most likes, saves = most saves (latest snapshot; exact value or lower bound), recent = newest first. */
+  sort: z.enum(['popular', 'saves', 'recent']).default('popular'),
   terms: z.array(z.string().trim().min(1).max(40)).max(10).optional(),
   cursor: z.string().max(40).optional(),
 });
 export type DiscoverQuery = z.infer<typeof DiscoverQuery>;
 
 const PAGE = 20;
+
+const metricOrder = (key: 'likes' | 'saves') => `(select coalesce((m.metrics_json->'${key}'->>'exact')::numeric, (m.metrics_json->'${key}'->>'lowerBound')::numeric)
+  from metric_snapshots m where m.note_id = n.id order by m.observed_at desc limit 1) desc nulls last,`;
+const ORDER: Record<'popular' | 'saves' | 'recent', string> = { popular: metricOrder('likes'), saves: metricOrder('saves'), recent: '' };
 
 const NOTE_SELECT = `
   select n.id, n.platform_note_id, n.title, n.body_excerpt, n.canonical_url, n.note_type,
@@ -77,7 +83,7 @@ export type DiscoverResult = {
  * Searches stored data only: no provider call and no cost (spec F04 step 1).
  * Korean queries are expanded via the editorial seed dictionary and the candidates are shown.
  */
-export async function discover(ctx: Ctx, input: DiscoverQuery): Promise<DiscoverResult> {
+export async function discover(ctx: Ctx, input: z.input<typeof DiscoverQuery>): Promise<DiscoverResult> {
   const q = DiscoverQuery.parse(input);
   let expansion: QueryExpansion | null = null;
   let terms: string[] = [];
@@ -118,7 +124,7 @@ export async function discover(ctx: Ctx, input: DiscoverQuery): Promise<Discover
   }
   params.push(PAGE + 1, offset);
   const rows = (await ctx.db.query<NoteRow>(
-    `${NOTE_SELECT} where ${where.join(' and ')} order by n.published_at desc nulls last, n.id limit $${params.length - 1} offset $${params.length}`,
+    `${NOTE_SELECT} where ${where.join(' and ')} order by ${ORDER[q.sort]} n.published_at desc nulls last, n.id limit $${params.length - 1} offset $${params.length}`,
     params,
   )).rows;
   const hasMore = rows.length > PAGE;

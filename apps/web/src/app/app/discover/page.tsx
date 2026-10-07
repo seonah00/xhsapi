@@ -4,18 +4,19 @@ import { withPageCtx } from '@/server/ctx';
 import { confirmRefresh, getCompareIds, quoteRefresh } from './actions';
 import { JobStatus } from '@/components/job-status';
 import { QuoteConfirm } from '@/components/quote-confirm';
+import { PendingButton } from '@/components/pending-button';
 import { NoteCard } from '@/components/note-card';
 import { Badge, btn, Empty, ErrorNotice, input, PageHeader } from '@/components/ui';
 import { FORMAT_LABEL, TOPIC_LABEL, fmtDate } from '@/components/labels';
 
 export const metadata = { title: '탐색' };
 
-type SP = { q?: string; topic?: string; format?: string; days?: string; terms?: string | string[]; cursor?: string; error?: string; refresh?: string; quote?: string; job?: string };
+type SP = { q?: string; topic?: string; format?: string; days?: string; sort?: string; terms?: string | string[]; cursor?: string; error?: string; refresh?: string; quote?: string; job?: string };
 
 export default async function Discover({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const parsed = DiscoverQuery.safeParse({
-    q: sp.q ?? '', topic: sp.topic || undefined, format: sp.format || undefined, days: sp.days || undefined,
+    q: sp.q ?? '', topic: sp.topic || undefined, format: sp.format || undefined, days: sp.days || undefined, sort: sp.sort || undefined,
     terms: sp.terms ? ([] as string[]).concat(sp.terms) : undefined, cursor: sp.cursor,
   });
   const query = parsed.success ? parsed.data : DiscoverQuery.parse({});
@@ -23,18 +24,19 @@ export default async function Discover({ searchParams }: { searchParams: Promise
     withPageCtx(async (ctx) => [await discover(ctx, query), sp.quote && /^[0-9a-f-]{36}$/.test(sp.quote) ? await getQuote(ctx, sp.quote) : null, ctx.mode] as const),
     getCompareIds(),
   ]);
-  const qs = new URLSearchParams(Object.entries({ q: sp.q ?? '', topic: sp.topic ?? '', format: sp.format ?? '', days: sp.days ?? '' }).filter(([, v]) => v));
+  const qs = new URLSearchParams(Object.entries({ q: sp.q ?? '', topic: sp.topic ?? '', format: sp.format ?? '', days: sp.days ?? '', sort: sp.sort ?? '' }).filter(([, v]) => v));
   const back = `/app/discover${qs.size ? `?${qs}` : ''}`;
   return (
     <>
       <PageHeader title="탐색" description={<>저장된 자료에서만 검색합니다(외부 비용 없음). 샤오홍슈 전체 검색이 아닙니다. 마지막 갱신 {fmtDate(result.lastFetchedAt, true)}</>}
         actions={<><Link href="/app/reference-accounts" className={btn.secondary}>참고 계정</Link><Link href="/app/discover/compare" className={btn.secondary}>비교 ({compare.length}/3)</Link></>} />
       <ErrorNotice message={sp.error ?? (parsed.success ? undefined : '검색 조건을 확인하세요.')} />
-      <form role="search" className="mb-4 grid gap-2 rounded-2xl border border-line bg-surface p-3 sm:grid-cols-[1fr_auto_auto_auto_auto]">
+      <form role="search" className="mb-4 grid gap-2 rounded-2xl border border-line bg-surface p-3 sm:grid-cols-[1fr_auto_auto_auto_auto_auto]">
         <label className="sr-only" htmlFor="q">검색어</label>
         <input id="q" name="q" defaultValue={sp.q} placeholder="한국어 또는 중국어 (예: 스킨케어, 护肤)" className={input} />
         <select name="topic" defaultValue={sp.topic ?? ''} className={input} aria-label="주제"><option value="">모든 주제</option>{Object.entries(TOPIC_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
         <select name="format" defaultValue={sp.format ?? ''} className={input} aria-label="형식"><option value="">모든 형식</option>{Object.entries(FORMAT_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+        <select name="sort" defaultValue={sp.sort ?? 'popular'} className={input} aria-label="정렬"><option value="popular">좋아요 많은 순</option><option value="saves">저장 많은 순</option><option value="recent">최신순</option></select>
         <select name="days" defaultValue={sp.days ?? ''} className={input} aria-label="기간"><option value="">전체 기간</option><option value="7">최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option></select>
         <button className={btn.primary}>검색</button>
       </form>
@@ -44,7 +46,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
           <p><span className="text-muted">원문</span> <strong>{result.expansion.original}</strong> → <span className="text-muted">중국어 후보(편집 시드 사전)</span></p>
           {result.expansion.candidates.length > 0 && (
             <form className="mt-2 flex flex-wrap items-center gap-2">
-              {Object.entries({ q: sp.q, topic: sp.topic, format: sp.format, days: sp.days }).map(([k, v]) => v ? <input key={k} type="hidden" name={k} value={v} /> : null)}
+              {Object.entries({ q: sp.q, topic: sp.topic, format: sp.format, days: sp.days, sort: sp.sort }).map(([k, v]) => v ? <input key={k} type="hidden" name={k} value={v} /> : null)}
               {result.expansion.candidates.map((c) => (
                 <label key={c.text} className="zh inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-1 has-[:checked]:border-accent has-[:checked]:bg-accent-soft">
                   <input type="checkbox" name="terms" value={c.text} defaultChecked={result.searchedTerms.includes(c.text)} /> {c.text}
@@ -81,7 +83,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
           ) : sp.q ? (
             <form action={quoteRefresh} className="mt-3">
               {Object.entries({ q: sp.q, topic: sp.topic, days: sp.days, back }).map(([k, v]) => v ? <input key={k} type="hidden" name={k} value={v} /> : null)}
-              <button className={btn.secondary}>“{sp.q}”로 비용 확인 후 조회</button>
+              <PendingButton className={btn.secondary} pendingText="견적 계산 중…">“{sp.q}”로 비용 확인 후 조회</PendingButton>
             </form>
           ) : <p className="mt-2 text-sm text-muted">먼저 위에서 검색어를 입력하세요.</p>}
           {sp.job && <div className="mt-3"><JobStatus jobId={sp.job} label="외부 조회" /><p className="mt-1 text-xs text-muted">완료되면 <Link href={back} className="underline">검색 결과 새로고침</Link></p></div>}

@@ -86,12 +86,12 @@ export class RedfoxXhsProvider implements XhsDataProvider {
     };
   }
 
-  /** RF02: one page (offset 0, relevance order). The provider has no date filter, so `days` is applied here. */
+  /** RF02: one page (offset 0, most interactions first: `_4`). The provider has no date filter, so `days` is applied here. */
   private async searchNotesRf02(input: { query: string; topic?: TopicSlug; days?: 7 | 14 | 30 }): Promise<SearchResult> {
     const keyword = input.query.trim();
     if (!keyword) throw new ProviderNotReadyError('RF02 requires a keyword');
     const fetchedAt = this.now().toISOString();
-    const parsed = Rf02Data.safeParse(await this.post('RF02', { keyword, offset: 0, sortType: '_0' }));
+    const parsed = Rf02Data.safeParse(await this.post('RF02', { keyword, offset: 0, sortType: '_4' }));
     if (!parsed.success) throw new ProviderContractError('RF02 response failed schema');
     let notes = (parsed.data.list ?? []).map(toNoteRf02).filter((x): x is ProviderNote => !!x);
     const postFilters: string[] = input.topic ? ['topic_not_supported_by_provider'] : [];

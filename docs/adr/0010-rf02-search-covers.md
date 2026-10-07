@@ -9,7 +9,7 @@ RF01(첫 실측 성공)은 표지 이미지, 노트 형식, 조회수를 주지 
 ## 결정
 
 1. 외부 검색은 **RF02 단가가 등록되고 승인된 허가에 RF02가 있으면 RF02**, 아니면 RF01을 쓴다. 선택은 견적 때 고정되어 작업도 같은 엔드포인트를 쓴다(`cost_quotes.scope_json.endpoint`).
-2. RF02 요청은 `keyword`, `offset: 0`, `sortType: "_0"`(관련도)만 보낸다. 기간 조건은 공급자가 지원하지 않아 받은 뒤 게시일로 거른다(`days_filtered_after_fetch`).
+2. RF02 요청은 `keyword`, `offset: 0`, `sortType: "_4"`(상호작용 많은 순)만 보낸다. 기간 조건은 공급자가 지원하지 않아 받은 뒤 게시일로 거른다(`days_filtered_after_fetch`).
 3. 표지는 **샤오홍슈 이미지 CDN(https, `*.rednotecdn.com`, `*.xhscdn.com`, `*.xhscdn.net`) 주소만** `notes.cover_url`에 보관한다. 서버는 이미지를 내려받거나 다시 올리지 않는다. 브라우저가 CDN에서 직접 불러온다(`referrerpolicy=no-referrer`, CSP img-src에 같은 도메인).
 4. 저장은 허가에 **미디어 표시**가 있을 때만 한다. 표시는 읽을 때마다 `app.org_allows_media_display`로 다시 확인하므로, 허가를 철회하면 이미 저장된 표지도 바로 숨겨진다.
 5. 서명된 표지 주소는 만료되거나 거부될 수 있다. 실패하면 내부 생성 썸네일로 대체한다.

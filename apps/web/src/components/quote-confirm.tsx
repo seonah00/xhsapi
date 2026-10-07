@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import Link from 'next/link';
 import type { Quote } from '@xhs/core';
 import { btn } from './ui';
+import { PendingButton } from './pending-button';
 
 /** Confirmation panel before any (paid-in-live) job: scope, limits, max cost, expiry (spec F04 step 3, 9.2). */
 export function QuoteConfirm({ quote, title, scopeLines, action, hidden, cancelHref }: {
@@ -30,7 +31,7 @@ export function QuoteConfirm({ quote, title, scopeLines, action, hidden, cancelH
               <span>요청 정보(검색어 또는 노트 링크)가 외부 공급자(RedFox)로 전송되고 비용이 발생하는 것에 동의합니다. 내 문안·개인정보는 보내지 않습니다.</span>
             </label>
           )}
-          <button className={btn.primary}>확인하고 실행</button>
+          <PendingButton className={btn.primary} pendingText="요청 보내는 중…">확인하고 실행</PendingButton>
           <Link href={cancelHref} className={btn.secondary}>취소</Link>
         </form>
       )}

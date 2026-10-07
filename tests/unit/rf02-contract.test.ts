@@ -27,7 +27,7 @@ describe('RF02 keyword search contract (documented shape)', () => {
     const r = await provider(f).searchNotes({ query: ' 净水器 ' });
     const [url, init] = f.mock.calls[0] as unknown as [URL, RequestInit];
     expect(url.toString()).toBe('https://redfox.hk/story/api/xhsUser/searchArticle');
-    expect(JSON.parse(String(init.body))).toEqual({ keyword: '净水器', offset: 0, sortType: '_0' });
+    expect(JSON.parse(String(init.body))).toEqual({ keyword: '净水器', offset: 0, sortType: '_4' });
     expect(r).toMatchObject({ endpoint: 'RF02', relatedTerms: [], latestHotArticles: [], coverage: { providerTotal: 100 } });
     expect(r.notes.map((n) => n.noteType)).toEqual(['image', 'video']);
     const n = r.notes[0]!;
