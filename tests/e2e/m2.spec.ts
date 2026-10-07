@@ -118,6 +118,9 @@ test('plan → AI proposal → check & fix → submit → reviewer feedback → 
 
 
 
+  expect(errors).toEqual([]);
+});
+
 test('autosave conflict across two tabs and standalone check keeps text out of the URL', async ({ page, context }) => {
   await login(page, 'student-a@demo.invalid');
   await page.goto('/app/plans/new');
