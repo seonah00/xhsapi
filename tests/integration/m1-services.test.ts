@@ -76,16 +76,16 @@ describe('discover (stored data only)', () => {
     const base = await provider.searchNotes({query:''});
     const notes = Array.from({length:55}, (_,i) => ({...base.notes[0]!, platformNoteId:`query-match-${i}`, title:`相关行程 ${i}`, bodyExcerpt:null, providerTags:[], topics:[], formats:[]}));
     const result = {...base, notes, latestHotArticles:[], relatedTerms:[]};
-    const added = await service(db=>ingestSearchResult(db,{orgId:ORG1,provider:'mock',endpoint:'RF02',query:{query:'韩国旅行'}},result));
+    const added = await service(db=>ingestSearchResult(db,{orgId:ORG1,provider:'mock',endpoint:'RF02',query:{query:'韩国旅行测试'}},result));
     // A second search for the same notes must not erase their first query association.
     await service(db=>ingestSearchResult(db,{orgId:ORG1,provider:'mock',endpoint:'RF02',query:{query:'首尔路线'}},{...result,notes:[notes[0]!]}));
-    const first = await as(U.studentA,ORG1,ctx=>discover(ctx,{q:'韩国旅行'}));
+    const first = await as(U.studentA,ORG1,ctx=>discover(ctx,{q:'韩国旅行测试'}));
     expect(first.notes).toHaveLength(50);
     expect(first.nextCursor).not.toBeNull();
-    const second = await as(U.studentA,ORG1,ctx=>discover(ctx,{q:'韩国旅行',cursor:first.nextCursor!}));
+    const second = await as(U.studentA,ORG1,ctx=>discover(ctx,{q:'韩国旅行测试',cursor:first.nextCursor!}));
     expect(new Set([...first.notes,...second.notes].map(n=>n.id))).toEqual(new Set(added.noteIds));
-    expect((await as(U.studentB,ORG1,ctx=>discover(ctx,{q:'韩国旅行'}))).notes).toHaveLength(50);
-    expect((await as(U.studentC,ORG2,ctx=>discover(ctx,{q:'韩国旅行'}))).notes).toHaveLength(0);
+    expect((await as(U.studentB,ORG1,ctx=>discover(ctx,{q:'韩国旅行测试'}))).notes).toHaveLength(50);
+    expect((await as(U.studentC,ORG2,ctx=>discover(ctx,{q:'韩国旅行测试'}))).notes).toHaveLength(0);
     await pool.query('delete from notes where id=any($1::uuid[])',[added.noteIds]);
   });
 
