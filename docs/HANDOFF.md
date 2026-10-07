@@ -20,9 +20,9 @@
 
   | 명령 | 결과 |
   |---|---|
-  | `pnpm test` (단위) | 102개 통과 |
+  | `pnpm test` (단위) | 104개 통과 |
   | `pnpm test:db` | 128개 통과 |
-  | `pnpm test:e2e` (기본) | 12개 통과 |
+  | `pnpm test:e2e` (기본) | 13개 통과 |
   | `E2E_AUTH=supabase bash scripts/e2e.sh` | 1개 통과 |
 
   모두 외부 연결 시도 0건입니다.
@@ -48,7 +48,7 @@
    - 남은 경로: RedFox에 최신 서명 주소를 받을 방법이 있는지 문의.
    - 하지 말 것: 우회, 스크래핑, `videoDownload/xhs`(워터마크 제거 다운로드).
 2. **원문 링크 오류**: RF01/RF02 링크에 `xsec_token`이 없어 샤오홍슈가 막을 수 있습니다. 카드에 "제목으로 찾기"를 추가해 두었습니다.
-3. **live 노트의 주제 분류가 비어 있음**: 어댑터가 `topics: []`를 반환하므로, 탐색의 "주제" 필터가 live 노트에서는 동작하지 않습니다. 분류 규칙(`packages/domain`)을 live 노트에도 적용할지 결정이 필요합니다.
+3. ~~live 노트 주제 분류 없음~~ → 키워드 분류기(`keyword-v1`, 신뢰도 low)로 해결했습니다(ADR 0011). 키워드 목록 보강과 이미 저장된 노트의 소급 분류가 남아 있습니다.
 4. **RF08(계정 노트 목록)·RF10(인기 계정)**: 파라미터 이름은 공식 Python SDK(`github.com/redfox-data/redfox-python-sdk`)에 나옵니다.
    - RF08: `redId|userid, offset, sortType, publishTimeStart/End`
    - RF10: `dateType, rankDate, type`
@@ -56,8 +56,8 @@
    응답 예시와 단가를 받기 전까지 `parameter_unverified`로 막아 둡니다.
 5. **RF09(노트 상세)** 어댑터가 미구현이고 `ProviderNotReadyError`를 던집니다. 문서 기준 필드는 RF02와 같습니다.
 6. **RF13/RF14(음성 문안) 단가 미확인**: 실행하려면 단가 등록과 `TRANSCRIPT_ENABLED=true`가 필요합니다. 이제 RF02가 노트 형식(영상/이미지)을 주므로 영상 노트를 고를 수 있습니다.
-7. **배포 중 서버 액션 불일치**: 재배포 전에 열어 둔 페이지에서 버튼을 누르면 "Server Action not found"가 납니다. Next `deploymentId`(빌드 시 커밋 SHA)로 스큐 보호를 검토할 만합니다. 미구현입니다.
-8. **지연**: Railway와 Supabase 지역이 다르면 요청마다 왕복 지연이 쌓입니다(운영 설정 문제). 탐색 페이지의 쿼리 수 줄이기도 후보입니다.
+7. ~~배포 중 서버 액션 불일치~~ → 오류 경계가 감지해 한 번 자동 새로고침하도록 해결했습니다(ADR 0011).
+8. **지연**: `withUser` 왕복을 3번에서 1번으로 줄였습니다(ADR 0011). Railway와 Supabase의 지역 일치는 여전히 운영자가 확인해야 합니다. 탐색 페이지의 쿼리 수 줄이기는 남아 있습니다.
 9. **운영 미확인 항목**: 보안 헤더, 관리자 비밀번호 재설정 링크, 학생 데이터 삭제를 실제 환경에서 아직 확인하지 않았습니다(`docs/DEPLOY.md` 점검 절차).
 10. **백업 자동화 없음**: `docs/OPERATIONS.md` §5 권고만 있습니다.
 11. **오래된 문서**: `docs/P0_REPORT.md` 일부(로컬 shim 기준 설명)는 배포 이전 시점의 서술입니다. 최신 사실은 이 문서와 ADR 0009·0010입니다.

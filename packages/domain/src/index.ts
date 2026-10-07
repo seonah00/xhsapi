@@ -6,3 +6,4 @@ export * from './env.ts';
 export * from './api.ts';
 export * from './text.ts';
 export * from './recommend.ts';
+export * from './classify.ts';

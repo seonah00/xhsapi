@@ -14,16 +14,19 @@ function pool(): pg.Pool {
 
 export type Db = pg.PoolClient;
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Runs fn in a transaction as the given user with RLS enforced
  * (role `authenticated`, auth.uid() = uid). All user-facing reads/writes use this.
  */
 export async function withUser<T>(uid: string, fn: (db: Db) => Promise<T>): Promise<T> {
+  // The uid is inlined so the three setup statements travel in one round trip (the database may be far away).
+  // It must be a plain UUID; anything else is refused before reaching SQL.
+  if (!UUID.test(uid)) throw new Error('invalid user id');
   const c = await pool().connect();
   try {
-    await c.query('begin');
-    await c.query(`select set_config('request.jwt.claim.sub', $1, true)`, [uid]);
-    await c.query('set local role authenticated');
+    await c.query(`begin; select set_config('request.jwt.claim.sub', '${uid}', true); set local role authenticated;`);
     const out = await fn(c);
     await c.query('commit');
     return out;

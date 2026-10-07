@@ -233,6 +233,8 @@ describe('live transcript path with a fake RedFox (no network)', () => {
     expect(await ledgerOf(jobId)).toEqual({ status: 'settled', reserved: '0.02000000', actual: '0.02000000' });
     const rows = (await pool.query(`select id, platform_note_id, note_type, cover_url from notes where org_id = $1 and platform_note_id like '6a00000000000000000000e%' order by platform_note_id`, [ORG])).rows;
     expect(rows.map((r) => [r.note_type, r.cover_url])).toEqual([['image', cover], ['video', null]]); // non-XHS image hosts are dropped
+    const labels = (await pool.query(`select t.kind, t.slug, nt.classifier_version, nt.confidence from note_taxonomy nt join taxonomy_terms t on t.id = nt.taxonomy_id where nt.note_id = $1 order by t.kind`, [rows[0].id])).rows;
+    expect(labels).toEqual([{ kind: 'topic', slug: 'travel-outing', classifier_version: 'keyword-v1', confidence: 'low' }]); // tag 首尔旅行 → 旅行
     const cards = async () => asStudent((ctx) => getNotes(ctx, rows.map((r) => r.id)));
     const first = (await cards()).find((c) => c.platformNoteId.endsWith('e5'))!;
     expect(first.coverUrl).toBe(cover);

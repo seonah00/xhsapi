@@ -1,4 +1,4 @@
-import { canonicalTerm, extractHashtags, sha256Hex, canonicalJson } from '@xhs/domain';
+import { canonicalTerm, classifyNote, CLASSIFIER_VERSION, extractHashtags, sha256Hex, canonicalJson } from '@xhs/domain';
 import type { ProviderNote, SearchResult } from '@xhs/providers';
 import type { Db } from './context.ts';
 
@@ -70,13 +70,17 @@ async function upsertNote(db: Db, meta: IngestMeta, result: SearchResult, runId:
     `insert into metric_snapshots (note_id, observed_at, provider_snapshot_at, metrics_json, ingestion_run_id) values ($1, $2, $3, $4, $5)`,
     [id, result.fetchedAt, n.providerSnapshotAt, n.metrics, runId],
   );
-  for (const [kind, slugs] of [['topic', n.topics], ['format', n.formats]] as const) {
+  // Provider/fixture labels when given; otherwise our keyword classifier (low confidence, see @xhs/domain classify).
+  const provided = n.topics.length > 0 || n.formats.length > 0;
+  const labels = provided ? { topics: n.topics, formats: n.formats } : classifyNote({ title: n.title, body: n.bodyExcerpt, tags: n.providerTags });
+  const [version, confidence] = provided ? ['provider-map-v1', 'medium'] : [CLASSIFIER_VERSION, 'low'];
+  for (const [kind, slugs] of [['topic', labels.topics], ['format', labels.formats]] as const) {
     for (const slug of slugs) {
       const tid = taxonomy.get(`${kind}:${slug}`);
       if (tid) {
         await db.query(
-          `insert into note_taxonomy (note_id, taxonomy_id, classifier_version, confidence) values ($1, $2, 'provider-map-v1', 'medium') on conflict do nothing`,
-          [id, tid],
+          `insert into note_taxonomy (note_id, taxonomy_id, classifier_version, confidence) values ($1, $2, $3, $4) on conflict do nothing`,
+          [id, tid, version, confidence],
         );
       }
     }
