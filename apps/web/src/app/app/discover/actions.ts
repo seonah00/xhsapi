@@ -48,11 +48,16 @@ const refreshScope = (f: FormData) => {
   return { query: s.query, targetCount: Number(s.targetCount), ...(s.topic ? { topic: s.topic } : {}), ...(s.days ? { days: Number(s.days) } : {}) };
 };
 
+const presentation = (f: FormData) => Object.fromEntries(['format', 'sort'].flatMap(key => {
+  const value = String(f.get(key) ?? '');
+  return value ? [[key, value]] : [];
+}));
+
 /** "외부 자료 새로 조회": quote first (spec F04 step 3). In mock mode the provider returns synthetic fixtures only. */
 export async function quoteRefresh(f: FormData) {
   const scope = await orRedirectWithError(back(f), async () => refreshScope(f));
   const q = await orRedirectWithError(back(f), () => withPageCtx((ctx) => createQuote(ctx, service, 'provider_search', scope)));
-  const qs = new URLSearchParams({ q: scope.query, targetCount: String(scope.targetCount), ...(scope.topic ? {topic:scope.topic} : {}), ...(scope.days ? {days:String(scope.days)} : {}), refresh: '1', quote: q.id });
+  const qs = new URLSearchParams({ q: scope.query, targetCount: String(scope.targetCount), ...(scope.topic ? {topic:scope.topic} : {}), ...(scope.days ? {days:String(scope.days)} : {}), ...presentation(f), refresh: '1', quote: q.id });
   qs.delete('query');
   redirect(`/app/discover?${qs}#refresh`);
 }
@@ -64,6 +69,6 @@ export async function confirmRefresh(f: FormData) {
     quoteId, route: 'POST /discover/refresh', idempotencyKey: id.parse(f.get('idem')), operation: 'provider_search', scope,
     jobKind: 'provider_search', dedupeKey: `provider_search:${quoteId}`, consent: f.get('consent') === 'on', inputRef: scope,
   })));
-  const qs = new URLSearchParams({ q: scope.query, ...(scope.topic ? { topic: scope.topic } : {}), ...(scope.days ? { days: String(scope.days) } : {}), targetCount:String(scope.targetCount), job: jobId });
-  redirect(`/app/discover?${qs}#refresh`);
+  const qs = new URLSearchParams({ q: scope.query, ...(scope.topic ? { topic: scope.topic } : {}), ...(scope.days ? { days: String(scope.days) } : {}), ...presentation(f), targetCount:String(scope.targetCount), job: jobId });
+  redirect(`/app/discover?${qs}`);
 }

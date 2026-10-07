@@ -10,13 +10,17 @@ import { CoverThumb } from './cover-thumb';
 export function NoteCard({ note, back, inCompare, reasons, cons, canManage = false }: { note: Note; back: string; canManage?: boolean; inCompare?: boolean; reasons?: string[]; cons?: string[] }) {
   const href = safeExternalHref(note.canonicalUrl);
   const demoLink = note.canonicalUrl.includes('.invalid');
-  return (
-    <article className="flex flex-col rounded-2xl border border-line bg-surface p-3">
-      {note.coverUrl
+  const thumbnail = (
+    note.coverUrl
         ? <div className="relative"><CoverThumb key={note.coverUrl} noteId={note.id} src={note.coverUrl} alt="" fallback={<Thumb seed={note.platformNoteId} type={note.noteType} />} />
             {note.noteType && <span className="absolute left-2 top-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] text-white">{note.noteType === 'video' ? '▶ 영상' : '이미지'}</span>}
             </div>
-        : <Thumb seed={note.platformNoteId} type={note.noteType} />}
+        : <Thumb seed={note.platformNoteId} type={note.noteType} />
+  );
+  return (
+    <article className="flex flex-col rounded-2xl border border-line bg-surface p-3">
+      {href && !demoLink ? <a href={href} target="_blank" rel="noopener noreferrer" aria-label={`${note.title ?? '게시물'} 원문 열기 (새 탭)`}
+        className="block rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">{thumbnail}</a> : thumbnail}
       <div className="mt-3 flex flex-wrap items-center gap-1">
         <DemoBadge mode={note.dataMode} />
         {note.topics.map((t) => <Badge key={t} tone="accent">{topicLabel(t)}</Badge>)}

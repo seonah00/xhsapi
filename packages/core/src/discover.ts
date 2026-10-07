@@ -1,4 +1,4 @@
-import { expandKoreanQuery, containsHangul, rankForProfile, REASON_TEXT, CON_TEXT, RANKING_VERSION, type MetricValue, type QueryExpansion, type TopicSlug, type FormatSlug } from '@xhs/domain';
+import { normalizeSearchQuery, expandKoreanQuery, containsHangul, rankForProfile, REASON_TEXT, CON_TEXT, RANKING_VERSION, type MetricValue, type QueryExpansion, type TopicSlug, type FormatSlug } from '@xhs/domain';
 import { coverExpired } from '@xhs/security';
 import { z } from 'zod';
 import type { Ctx } from './context.ts';
@@ -27,7 +27,8 @@ export type NoteCard = {
 };
 
 export const DiscoverQuery = z.object({
-  q: z.string().trim().max(100).default(''),
+  q: z.string().max(100).default('').transform(normalizeSearchQuery),
+  job: z.string().uuid().optional(),
   topic: z.string().optional(),
   format: z.string().optional(),
   days: z.coerce.number().int().refine((d) => [7, 14, 30].includes(d)).optional(),
@@ -102,6 +103,14 @@ export async function discover(ctx: Ctx, input: z.input<typeof DiscoverQuery>): 
   const where: string[] = ['n.org_id = $2', 'n.data_mode = $3', 'not n.is_fallback'];
   const params: unknown[] = [ctx.uid, ctx.orgId, ctx.mode];
   const postFilters: string[] = [];
+
+  if (q.job) {
+    // Restrict fresh results to this user's search. Never expose another member's job payload.
+    params.push(q.job);
+    where.push(`exists (select 1 from app_jobs j where j.id=$${params.length}::uuid
+      and j.org_id=n.org_id and j.owner_user_id=$1 and j.data_mode=$3 and j.kind='provider_search'
+      and (coalesce(j.result_ref->'fetchedNoteIds',j.result_ref->'noteIds','[]'::jsonb) ? n.id::text))`);
+  }
 
   if (q.q && terms.length === 0) {
     // Korean query with no candidate: report honestly instead of returning unrelated popular items.

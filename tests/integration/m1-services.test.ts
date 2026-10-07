@@ -273,6 +273,20 @@ describe('keywords and expressions', () => {
     }
   });
 
+  it('shows only this search job results and never another user or organization job', async () => {
+    const notes = (await as(U.studentA, ORG1,ctx=>discover(ctx,{}))).notes;
+    expect(notes.length).toBeGreaterThan(1);
+    const row = (await pool.query(`insert into app_jobs(org_id,owner_user_id,kind,data_mode,dedupe_key,state,result_ref)
+      values ($1,$2,'provider_search','mock','fresh-result-test','succeeded',$3) returning id`, [ORG1,U.studentA,{fetchedNoteIds:[notes[0]!.id]}])).rows[0];
+    try {
+      expect((await as(U.studentA,ORG1,ctx=>discover(ctx,{job:row.id}))).notes.map(n=>n.id)).toEqual([notes[0]!.id]);
+      expect((await as(U.studentB,ORG1,ctx=>discover(ctx,{job:row.id}))).notes).toEqual([]);
+      expect((await as(U.studentC,ORG2,ctx=>discover(ctx,{job:row.id}))).notes).toEqual([]);
+      await pool.query(`update app_jobs set result_ref=$2 where id=$1`,[row.id,{noteIds:[notes[1]!.id]}]);
+      expect((await as(U.studentA,ORG1,ctx=>discover(ctx,{job:row.id}))).notes.map(n=>n.id)).toEqual([notes[1]!.id]);
+    } finally { await pool.query('delete from app_jobs where id=$1',[row.id]); }
+  });
+
   it('keeps personal entries private and explains dictionary matches with UTF-16 offsets', async () => {
     const id = await as(U.studentA, ORG1, (ctx) => savePersonalExpression(ctx, { expression: '宝子们', meaningKo: '여러분' }));
     expect((await as(U.studentB, ORG1, (ctx) => listExpressions(ctx))).some((e) => e.id === id)).toBe(false);

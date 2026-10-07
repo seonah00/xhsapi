@@ -9,3 +9,5 @@ export * from './recommend.ts';
 export * from './classify.ts';
 
 export * from './collection.ts';
+
+export * from './search-query.ts';

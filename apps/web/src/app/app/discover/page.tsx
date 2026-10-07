@@ -19,14 +19,14 @@ export default async function Discover({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   const parsed = DiscoverQuery.safeParse({
     q: sp.q ?? '', topic: sp.topic || undefined, format: sp.format || undefined, days: sp.days || undefined, sort: sp.sort || undefined,
-    terms: sp.terms ? ([] as string[]).concat(sp.terms) : undefined, cursor: sp.cursor,
+    terms: sp.terms ? ([] as string[]).concat(sp.terms) : undefined, cursor: sp.cursor, job: sp.job,
   });
   const query = parsed.success ? parsed.data : DiscoverQuery.parse({});
   const [[result, quote, mode, canManage], compare] = await Promise.all([
     withPageCtx(async (ctx) => [await discover(ctx, query), sp.quote && /^[0-9a-f-]{36}$/.test(sp.quote) ? await getQuote(ctx, sp.quote) : null, ctx.mode, ctx.role === 'org_admin'] as const),
     getCompareIds(),
   ]);
-  const qs = new URLSearchParams(Object.entries({ q: sp.q ?? '', topic: sp.topic ?? '', format: sp.format ?? '', days: sp.days ?? '', sort: sp.sort ?? '' }).filter(([, v]) => v));
+  const qs = new URLSearchParams(Object.entries({ q: sp.q ?? '', topic: sp.topic ?? '', format: sp.format ?? '', days: sp.days ?? '', sort: sp.sort ?? '', job: sp.job ?? '' }).filter(([, v]) => v));
   const searchQuery = categorySearch(sp.q, sp.topic);
   const targetCount = sp.targetCount === '100' ? '100' : '50';
   const quoteScope = {query:searchQuery,targetCount:Number(targetCount),...(sp.topic?{topic:sp.topic}:{}),...(sp.days?{days:Number(sp.days)}:{})};
@@ -34,17 +34,18 @@ export default async function Discover({ searchParams }: { searchParams: Promise
   const back = `/app/discover${qs.size ? `?${qs}` : ''}`;
   return (
     <>
-      <PageHeader title="탐색" description={<>먼저 저장된 게시물을 찾습니다. 더 많은 게시물은 아래 “새 게시물 찾기”에서 조회하세요. 마지막 갱신 {fmtDate(result.lastFetchedAt, true)}</>}
+      <PageHeader title="탐색" description={<>검색어·해시태그로 새 게시물을 조회하거나 저장된 게시물을 검색하세요. 마지막 갱신 {fmtDate(result.lastFetchedAt, true)}</>}
         actions={<><Link href="/app/reference-accounts" className={btn.secondary}>참고 계정</Link><Link href="/app/discover/compare" className={btn.secondary}>비교 ({compare.length}/3)</Link></>} />
       <ErrorNotice message={sp.error ?? (parsed.success ? undefined : '검색 조건을 확인하세요.')} />
-      <form role="search" className="mb-4 grid gap-2 rounded-2xl border border-line bg-surface p-3 sm:grid-cols-[1fr_auto_auto_auto_auto_auto]">
+      <form role="search" className="mb-4 grid gap-2 rounded-2xl border border-line bg-surface p-3 sm:grid-cols-[1fr_auto_auto_auto]">
         <label className="sr-only" htmlFor="q">검색어</label>
-        <input id="q" name="q" defaultValue={sp.q} placeholder="한국어 또는 중국어 (예: 스킨케어, 护肤)" className={input} />
+        <input id="q" name="q" defaultValue={sp.q} placeholder="검색어·해시태그 (예: #韩国旅行, 스킨케어)" className={input} />
         <select name="topic" defaultValue={sp.topic ?? ''} className={input} aria-label="주제"><option value="">모든 주제</option>{Object.entries(TOPIC_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
         <select name="format" defaultValue={sp.format ?? ''} className={input} aria-label="형식"><option value="">모든 형식</option>{Object.entries(FORMAT_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
         <select name="sort" defaultValue={sp.sort ?? 'popular'} className={input} aria-label="정렬"><option value="popular">좋아요 많은 순</option><option value="saves">저장 많은 순</option><option value="recent">최신순</option></select>
         <select name="days" defaultValue={sp.days ?? ''} className={input} aria-label="기간"><option value="">전체 기간</option><option value="7">최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option></select>
-        <button className={btn.primary}>저장된 게시물 검색</button>
+        <PendingButton formAction={quoteRefresh} className={btn.primary} pendingText="검색 준비 중…">새 게시물 검색</PendingButton>
+        <button className={btn.secondary}>저장된 게시물 검색</button>
       </form>
 
       {result.expansion && (
@@ -69,11 +70,11 @@ export default async function Discover({ searchParams }: { searchParams: Promise
       {result.postFilters.length > 0 && <p className="mb-3 text-xs text-muted">기간 조건은 저장 자료에 사후 필터로 적용했습니다. 게시일이 확인되지 않은 자료는 제외됩니다.</p>}
 
       {(sp.q || sp.topic) && <div className="mb-4 rounded-xl bg-info-soft p-3 text-sm">
-        현재 저장된 “{sp.q || TOPIC_LABEL[sp.topic ?? '']}” 관련 게시물입니다. <a href="#refresh" className="font-semibold underline">새 게시물 50건 찾기</a>
+        {sp.job ? '이번 조회의' : '현재 저장된'} “{sp.q || TOPIC_LABEL[sp.topic ?? '']}” 관련 게시물입니다. <a href="#refresh" className="font-semibold underline">새 게시물 50건 찾기</a>
         {sp.job && <div className="mt-2"><JobStatus jobId={sp.job} label="새 게시물 찾기" /></div>}
       </div>}
       {result.notes.length === 0 ? (
-        <Empty title="관련 근거가 부족합니다">조건에 맞는 저장 자료가 없습니다. 결과를 만들어 채우지 않았습니다. 검색어나 기간을 바꿔 보세요.</Empty>
+        <Empty title={sp.job ? "이번 조회 결과가 아직 없습니다" : "관련 근거가 부족합니다"}>{sp.job ? "조회 상태를 확인하세요. 완료되면 결과가 자동으로 갱신됩니다." : "조건에 맞는 저장 자료가 없습니다. 새 게시물 검색을 이용하거나 검색 조건을 바꿔 보세요."}</Empty>
       ) : (
         <CoverRepair canManage={canManage} key={back} notes={result.notes.map(n=>({id:n.id,coverUrl:n.coverUrl}))}><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {result.notes.map((n) => <NoteCard canManage={canManage} key={n.id} note={n} back={back} inCompare={compare.includes(n.id)} />)}
@@ -89,11 +90,11 @@ export default async function Discover({ searchParams }: { searchParams: Promise
           </p>
           {sp.refresh && quote && quoteMatches ? (
             <div className="mt-3"><QuoteConfirm quote={quote} title="외부 조회 확인" action={confirmRefresh}
-              hidden={Object.fromEntries(Object.entries({ targetCount, q: searchQuery, topic: sp.topic ?? '', days: sp.days ?? '', back }).filter(([, v]) => v))} cancelHref={back}
+              hidden={Object.fromEntries(Object.entries({ targetCount, q: searchQuery, topic: sp.topic ?? '', days: sp.days ?? '', format: sp.format ?? '', sort: sp.sort ?? '', back }).filter(([, v]) => v))} cancelHref={back}
               scopeLines={[`목표: 관련 게시물 ${targetCount}건 이상 · 최대 ${Math.ceil(Number(targetCount)/20)+2}페이지`, '중복을 제외하며 공급자 결과가 부족하면 목표보다 적을 수 있습니다. 화면 필터에 따라 표시 건수도 달라집니다.', '이미지 업데이트는 별도 비용 확인 후 실행합니다.', `검색어: ${searchQuery}`, `조건: ${sp.topic ? TOPIC_LABEL[sp.topic] ?? sp.topic : '모든 주제'} · ${sp.days ? `최근 ${sp.days}일` : '전체 기간'}`, '결과는 저장 자료에 추가되어 조직 안에서 다시 검색됩니다.']} /></div>
           ) : searchQuery ? (
             <form action={quoteRefresh} className="mt-3">
-              {Object.entries({ q: searchQuery, topic: sp.topic, days: sp.days, back }).map(([k, v]) => v ? <input key={k} type="hidden" name={k} value={v} /> : null)}
+              {Object.entries({ q: searchQuery, topic: sp.topic, days: sp.days, format: sp.format, sort: sp.sort, back }).map(([k, v]) => v ? <input key={k} type="hidden" name={k} value={v} /> : null)}
               <label className="mr-2 text-sm">수집 목표 <select name="targetCount" defaultValue={targetCount} className={input}><option value="50">50건 이상</option><option value="100">100건 이상</option></select></label>
               <PendingButton className={btn.secondary} pendingText="견적 계산 중…">“{searchQuery}”로 비용 확인 후 조회</PendingButton>
             </form>
