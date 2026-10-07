@@ -124,7 +124,7 @@ it('uses owned reference analysis for live planning, preserves references on aut
 it('reflects only selected own publications with evidence and never resends an ambiguous reflection',async()=>{
   const accountId=await user(student,ctx=>createAccount(ctx,{displayName:'AI 회고 테스트',topics:['travel-outing'],mainTopic:'travel-outing',audience:'여행자',goals:['learn_chinese'],tone:'plain',formats:['vlog'],chineseLevel:'beginner',showFace:false,useVoice:true}));
   const publicationId=await user(student,ctx=>createPublication(ctx,{accountId,title:'산책 기록',topic:'travel-outing',format:'vlog'}));
-  await user(student,ctx=>addSnapshot(ctx,publicationId,{metrics:{saves:2,likes:10}}));
+  await user(student,ctx=>addSnapshot(ctx,publicationId,{observedAt:new Date().toISOString(),metrics:{saves:2,likes:10}}));
   const pubs=await user(student,ctx=>listPublications(ctx,accountId));
   const ids=[pubs.find(p=>p.id===publicationId)!.snapshots[0]!.id];
   const scope={accountId,snapshotIds:ids.join(',')};
