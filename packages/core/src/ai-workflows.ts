@@ -97,6 +97,8 @@ export async function savePlanAi(db:Db,job:JobRow,prep:Awaited<ReturnType<typeof
   const planId=String(job.input_ref.planId);
   const current=(await db.query(`select revision from plans where id=$1 and org_id=$2 and owner_user_id=$3 and deleted_at is null for update`,[planId,job.org_id,job.owner_user_id])).rows[0];
   if(!current||current.revision!==prep.revision||output.kind!=='proposal') throw new Error('AI_TARGET_CHANGED');
+  const fresh=await preparePlanAi(db,job.org_id,job.owner_user_id!,planId);
+  if(fresh.profileVersionId!==prep.profileVersionId||contentHash(fresh.input)!==contentHash(prep.input)) throw new Error('AI_TARGET_CHANGED');
   const withIds={...output,evidenceRefs:output.evidenceRefs.map(alias=>prep.refIds[Number(alias.slice(3))-1]!)};
   const proposalId=await insertProposalVersion(db,{orgId:job.org_id,planId,ownerId:job.owner_user_id!,content:withIds.content,facts:prep.facts,sourceRefs:prep.refIds,profileVersionId:prep.profileVersionId,jobId:job.id});
   await db.query(`insert into analyses(org_id,owner_user_id,target_type,target_id,input_hash,analysis_scope,schema_version,prompt_version,model,data_mode,output_json,status)

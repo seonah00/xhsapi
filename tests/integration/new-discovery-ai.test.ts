@@ -112,6 +112,13 @@ it('uses owned reference analysis for live planning, preserves references on aut
   const changed=await user(student,ctx=>getPlan(ctx,planId));
   await expect(user(student,ctx=>applyProposal(ctx,planId,proposal.id,changed.revision))).rejects.toMatchObject({code:'STALE_REVISION'});
   expect((await pool.query(`select status from usage_ledger where job_id=$1`,[jobId])).rows[0].status).toBe('settled');
+  const nextQuote=await user(student,ctx=>createQuote(ctx,service,'plan_generation',scope,{env:aiEnv}),'live');
+  const next=await user(student,ctx=>reserveJob(ctx,{...args,quoteId:nextQuote.id,idempotencyKey:randomUUID(),dedupeKey:nextQuote.id,consent:true}),'live');
+  let pendingCalls=0;
+  const changedFetch:typeof fetch=async(url,init)=>{pendingCalls++;await pool.query(`update reference_items set deleted_at=now() where id=$1`,[refId]);return aiFetch(url,init);};
+  expect(await runJob({service,provider:new MockXhsProvider(),env:aiEnv,aiFetch:changedFetch},next.jobId,'test')).toMatchObject({state:'unknown_outcome'});
+  expect(pendingCalls).toBe(1);
+  expect((await user(student,ctx=>getPlan(ctx,planId))).versions.filter(v=>v.kind==='ai_proposal')).toHaveLength(1);
 });
 
 it('reflects only selected own publications with evidence and never resends an ambiguous reflection',async()=>{
