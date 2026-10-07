@@ -82,7 +82,7 @@ it('performs gated live AI through fake fetch, records actual analysis and never
 
 
 it('uses owned reference analysis for live planning, preserves references on autosave and applies explicitly',async()=>{
-  const accountId=await user(student,ctx=>createAccount(ctx,{displayName:'AI 기획 테스트',topics:['travel'],mainTopic:'travel',audience:'여행자',goals:['learn_chinese'],tone:'plain',formats:['vlog'],chineseLevel:'beginner',showFace:false,useVoice:true}));
+  const accountId=await user(student,ctx=>createAccount(ctx,{displayName:'AI 기획 테스트',topics:['travel-outing'],mainTopic:'travel-outing',audience:'여행자',goals:['learn_chinese'],tone:'plain',formats:['vlog'],chineseLevel:'beginner',showFace:false,useVoice:true}));
   const refId=await user(student,ctx=>createReference(ctx,{sourceType:'pasted_text',text:'公园散步',title:'公园',tags:['散步']}));
   await pool.query(`insert into analyses(org_id,owner_user_id,target_type,target_id,input_hash,analysis_scope,schema_version,prompt_version,model,data_mode,output_json,status) values($1,$2,'reference',$3,'fixture','{body_only}','reference-analysis-v2','openai-reference-v2','synthetic-model','live',$4,'succeeded')`,[org,student,refId,{inferences:[],suggestions:[{textKo:'산책 순서대로 정보를 설명하세요.'}]}]);
   const planId=await user(student,ctx=>createPlan(ctx,{accountId,title:'산책 기획',referenceIds:[refId]}));
@@ -115,8 +115,8 @@ it('uses owned reference analysis for live planning, preserves references on aut
 });
 
 it('reflects only selected own publications with evidence and never resends an ambiguous reflection',async()=>{
-  const accountId=(await pool.query(`select id from creator_accounts where owner_user_id=$1 limit 1`,[student])).rows[0].id;
-  const publicationId=await user(student,ctx=>createPublication(ctx,{accountId,title:'산책 기록',topic:'travel',format:'vlog'}));
+  const accountId=await user(student,ctx=>createAccount(ctx,{displayName:'AI 회고 테스트',topics:['travel-outing'],mainTopic:'travel-outing',audience:'여행자',goals:['learn_chinese'],tone:'plain',formats:['vlog'],chineseLevel:'beginner',showFace:false,useVoice:true}));
+  const publicationId=await user(student,ctx=>createPublication(ctx,{accountId,title:'산책 기록',topic:'travel-outing',format:'vlog'}));
   await user(student,ctx=>addSnapshot(ctx,publicationId,{metrics:{saves:2,likes:10}}));
   const pubs=await user(student,ctx=>listPublications(ctx,accountId));
   const ids=[pubs.find(p=>p.id===publicationId)!.snapshots[0]!.id];
