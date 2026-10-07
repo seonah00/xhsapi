@@ -1,6 +1,7 @@
-import { contentHash, type AppEnv, type DataMode, type JobKind } from '@xhs/domain';
+import { advanceCollection, CollectionTarget, collectionPages, enrichmentIds, contentHash, type AppEnv, type DataMode, type JobKind } from '@xhs/domain';
 import { redactString } from '@xhs/security';
 import { isUnchargedError, LiveCallBlockedError, ProviderContractError, ProviderHttpError, type EndpointCapability, type EndpointId, type GateContextFor, type XhsDataProvider } from '@xhs/providers';
+import { enrichmentOptions, storeEnrichment, type EnrichmentProviderFactory } from './note-enrichment.ts';
 import { liveGateForJob, MAX_TRANSCRIPT_POLLS } from './live.ts';
 import { analyzeReference } from './analysis.ts';
 import type { Db } from './context.ts';
@@ -16,7 +17,7 @@ export type Runner = <T>(fn: (db: Db) => Promise<T>) => Promise<T>;
 
 export type JobRow = {
   id: string; org_id: string; owner_user_id: string | null; kind: JobKind; data_mode: DataMode; input_ref: Record<string, unknown>;
-  attempts: number; reserved_usage_id: string | null; created_at: Date;
+  result_ref?: Record<string, unknown> | null; attempts: number; reserved_usage_id: string | null; created_at: Date;
 };
 
 export type JobOutcome =
@@ -35,6 +36,7 @@ export type JobDeps = {
   pollBaseMs?: number;
   /** Live mode only: builds the provider for one job from its stored gate state. Absent = live jobs are refused. */
   liveProvider?: (gate: { gateFor: GateContextFor; capabilities: Record<EndpointId, EndpointCapability>; searchEndpoint: 'RF01' | 'RF02' }) => XhsDataProvider;
+  apifyDetailProvider?: EnrichmentProviderFactory;
   env?: AppEnv;
 };
 
@@ -59,10 +61,18 @@ export async function runJob(deps: JobDeps, jobId: string, workerId: string): Pr
   if (!job) return null;
 
   let outcome: JobOutcome;
+  if ((job.kind === 'note_enrichment' || (job.kind === 'provider_search' && job.input_ref.targetCount !== undefined)) && job.data_mode === 'live') {
+    const submitted = await deps.service(async db => (await db.query('select provider_task_id from app_jobs where id=$1',[job.id])).rows[0]?.provider_task_id);
+    if (submitted) {
+      const uncertain: JobOutcome = {state:'unknown_outcome',errorCode:'PREVIOUS_SUBMISSION_UNKNOWN'};
+      await finish(deps,job,uncertain);
+      return uncertain;
+    }
+  }
   try {
     const blocked = await deps.service(async (db) => {
       const s = (await db.query(`select settings from organizations where id = $1`, [job.org_id])).rows[0]?.settings ?? {};
-      const feature = ({ transcript_submit: 'transcript', transcript_result: 'transcript', provider_search: 'provider_search', reference_analysis: 'ai',
+      const feature = ({ transcript_submit: 'transcript', transcript_result: 'transcript', provider_search: 'provider_search', note_enrichment: 'provider_search', reference_analysis: 'ai',
         plan_generation: 'ai', contextual_check: 'ai', results_reflection: 'ai' } as Record<string, string>)[job.kind];
       // Housekeeping (deletion, expiry) is never blocked by the kill switch.
       if (!feature) return null;
@@ -75,6 +85,8 @@ export async function runJob(deps: JobDeps, jobId: string, workerId: string): Pr
       outcome = { state: 'failed', errorCode: 'membership_revoked', sent: false };
     } else if (blocked) {
       outcome = { state: 'failed', errorCode: blocked, sent: false };
+    } else if (job.kind === 'note_enrichment') {
+      outcome = await enrichNote(deps, job);
     } else if (job.data_mode === 'live' && job.kind !== 'user_deletion') {
       if (!deps.liveProvider || !deps.env) {
         outcome = { state: 'failed', errorCode: 'live_not_configured', sent: false };
@@ -87,7 +99,8 @@ export async function runJob(deps: JobDeps, jobId: string, workerId: string): Pr
     }
   } catch (e) {
     const errorCode = redactString(e instanceof Error ? `${e.name}: ${e.message}` : 'error').slice(0, 200);
-    outcome = isUnchargedError(e) ? { state: 'failed', errorCode, sent: false } : { state: 'failed', errorCode };
+    const collectionSent = job.kind === 'provider_search' && job.input_ref.targetCount !== undefined && job.data_mode === 'live' && await deps.service(async db => !!(await db.query('select provider_task_id from app_jobs where id=$1',[job.id])).rows[0]?.provider_task_id);
+    outcome = collectionSent ? {state:'unknown_outcome',errorCode:'SEARCH_RESULT_NEEDS_REVIEW'} : isUnchargedError(e) ? { state: 'failed', errorCode, sent: false } : { state: 'failed', errorCode };
   }
   await finish(deps, job, outcome);
   return outcome;
@@ -104,18 +117,24 @@ async function finish(deps: JobDeps, job: JobRow, o: JobOutcome): Promise<void> 
       return;
     }
     await db.query(
-      `update app_jobs set state = $2, error_code = $3, result_ref = $4, lease_expires_at = null where id = $1`,
+      `update app_jobs set state = $2, error_code = $3, result_ref = coalesce($4, result_ref), lease_expires_at = null where id = $1`,
       [job.id, o.state, 'errorCode' in o ? o.errorCode : null, o.state === 'succeeded' ? o.result ?? null : null],
     );
     if (job.reserved_usage_id && job.data_mode === 'live') {
       // Conservative live settlement until provider billing reports exist: success is charged at the
-      // reserved maximum; any failure keeps the reservation as unknown_outcome for admin reconciliation.
+      // maximum for completed units (unused collection pages are released); any uncertain failure keeps the reservation as unknown_outcome for admin reconciliation.
       // Mock ledger rows are `demo` and never settle.
       if (o.state === 'succeeded') {
-        await db.query(`select app.settle_usage($1, 'settled', (select reserved_amount from usage_ledger where id = $1))`, [job.reserved_usage_id]);
+        const usedUnits = job.kind === 'note_enrichment' ? Number(o.result?.completed ?? 1)
+          : job.kind === 'provider_search' && job.input_ref.targetCount !== undefined ? Number(o.result?.pages ?? 1) : null;
+        await db.query(`select app.settle_usage($1, 'settled', (select case when $2::integer is null then l.reserved_amount
+          else least(l.reserved_amount, l.reserved_amount * $2 / greatest(q.max_billable_units,1)) end
+          from usage_ledger l join cost_quotes q on q.id=l.quote_id where l.id=$1))`, [job.reserved_usage_id,usedUnits]);
       } else if (o.state === 'failed' && o.sent === false) {
-        // Nothing reached the provider: give the reservation back.
-        await db.query(`select app.settle_usage($1, 'released')`, [job.reserved_usage_id]);
+        // Release only when no earlier step of this batch reached the provider.
+        const progress = (await db.query(`select result_ref from app_jobs where id=$1`,[job.id])).rows[0]?.result_ref;
+        const previouslySent = Number(progress?.pages ?? progress?.completed ?? 0) > 0;
+        await db.query(`select app.settle_usage($1, $2)`, [job.reserved_usage_id, previouslySent ? 'unknown_outcome' : 'released']);
       } else {
         await db.query(`select app.settle_usage($1, 'unknown_outcome')`, [job.reserved_usage_id]);
       }
@@ -142,8 +161,13 @@ async function dispatch(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
 }
 
 async function providerSearch(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
-  const input = job.input_ref as { query?: string; topic?: string; days?: 7 | 14 | 30 };
-  let result = await deps.provider.searchNotes({ query: input.query ?? '', ...(input.topic ? { topic: input.topic as never } : {}), ...(input.days ? { days: input.days } : {}) });
+  const input = job.input_ref as { query?: string; topic?: string; days?: 7 | 14 | 30; targetCount?: number };
+  const target = input.targetCount === undefined ? null : CollectionTarget.parse(input.targetCount);
+  const progress = (job.result_ref ?? { pages: 0, noteIds: [], fingerprints: [] }) as { pages: number; noteIds: string[]; fingerprints: string[]; stopReason?: string };
+  if (target && progress.stopReason) return { state: 'succeeded', result: progress };
+  if (target && progress.pages >= collectionPages(target)) throw new Error('COLLECTION_PROGRESS_INVALID');
+  if (target && job.data_mode === 'live') await deps.service(db => db.query(`update app_jobs set provider_task_id='search-page-started' where id=$1`,[job.id]));
+  let result = await deps.provider.searchNotes({ query: input.query ?? '', ...(input.topic ? { topic: input.topic as never } : {}), ...(input.days ? { days: input.days } : {}), ...(target ? { offset: progress.pages * 20 } : {}) });
   let permissionId: string | null = null;
   if (result.mode === 'live') {
     // Store only what the approved permission allows: no excerpt without excerpt_display.
@@ -155,8 +179,37 @@ async function providerSearch(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
     });
     result = { ...result, notes: result.notes.map(strip), latestHotArticles: result.latestHotArticles.map(strip) };
   }
-  const { runId, noteIds } = await deps.service((db) => ingestSearchResult(db, { orgId: job.org_id, provider: result.mode === 'mock' ? 'mock' : 'redfox', endpoint: result.endpoint, query: input, permissionId }, result));
-  return { state: 'succeeded', result: { ingestionRunId: runId, notes: noteIds.length } };
+  return deps.service(async db => {
+    const { runId, noteIds } = await ingestSearchResult(db, { orgId: job.org_id, provider: result.mode === 'mock' ? 'mock' : 'redfox', endpoint: result.endpoint, query: { ...input, jobId: job.id }, permissionId }, result);
+    if (!target) return { state: 'succeeded', result: { ingestionRunId: runId, notes: noteIds.length } };
+    const next = advanceCollection(progress, noteIds, result.mode === 'mock' ? { rawCount: result.notes.length, hasMore: false } : result.coverage, target);
+    await db.query(`update app_jobs set provider_task_id=null,result_ref=$2 where id=$1`,[job.id,next]);
+    return next.stopReason ? { state: 'succeeded', result: next } : { state: 'waiting_external', retryInMs: 100 };
+  });
+}
+
+async function enrichNote(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
+  const ids = enrichmentIds(job.input_ref);
+  const completed = Number(job.result_ref?.completed ?? 0);
+  if (completed === ids.length) return {state:'succeeded',result:job.result_ref ?? {completed}};
+  if (job.data_mode === 'mock') return {state:'succeeded',result:{demo:true,completed:ids.length,total:ids.length}};
+  if (!deps.env || !deps.apifyDetailProvider) return {state:'failed',errorCode:'APIFY_NOT_CONFIGURED',sent:false};
+  const options = await deps.service(db=>enrichmentOptions(db,job,deps.env!,completed));
+  const provider = deps.apifyDetailProvider(options);
+  provider.assertReady(options.platformNoteId);
+  // One note per lease; persist before POST and commit the result + checkpoint together.
+  await deps.service(db=>db.query(`update app_jobs set provider_task_id='apify-submission-started' where id=$1`,[job.id]));
+  try {
+    const note = await provider.noteDetail({platformNoteId:options.platformNoteId});
+    const result = {completed:completed+1,total:ids.length,provider:'apify',covers:Number(job.result_ref?.covers ?? 0)+(note.coverUrl?1:0)};
+    await deps.service(async db => {
+      await storeEnrichment(db,job.org_id,options.noteId,note,{permissionId:options.permissionId,ttl:options.ttl,build:options.build,jobId:job.id});
+      await db.query(`update app_jobs set provider_task_id=null,result_ref=$2 where id=$1`,[job.id,result]);
+    });
+    return result.completed === ids.length ? {state:'succeeded',result} : {state:'waiting_external',retryInMs:100};
+  } catch {
+    return {state:'unknown_outcome',errorCode:'APIFY_RESULT_NEEDS_REVIEW'};
+  }
 }
 
 async function referenceAnalysis(deps: JobDeps, job: JobRow): Promise<JobOutcome> {

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { discover, DiscoverQuery, getQuote } from '@xhs/core';
+import { discover, DiscoverQuery, getQuote, requestHash } from '@xhs/core';
 import { withPageCtx } from '@/server/ctx';
 import { confirmRefresh, getCompareIds, quoteRefresh } from './actions';
 import { JobStatus } from '@/components/job-status';
@@ -11,7 +11,7 @@ import { FORMAT_LABEL, TOPIC_LABEL, fmtDate } from '@/components/labels';
 
 export const metadata = { title: '탐색' };
 
-type SP = { q?: string; topic?: string; format?: string; days?: string; sort?: string; terms?: string | string[]; cursor?: string; error?: string; refresh?: string; quote?: string; job?: string };
+type SP = { targetCount?: string; q?: string; topic?: string; format?: string; days?: string; sort?: string; terms?: string | string[]; cursor?: string; error?: string; refresh?: string; quote?: string; job?: string };
 
 export default async function Discover({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -25,6 +25,10 @@ export default async function Discover({ searchParams }: { searchParams: Promise
     getCompareIds(),
   ]);
   const qs = new URLSearchParams(Object.entries({ q: sp.q ?? '', topic: sp.topic ?? '', format: sp.format ?? '', days: sp.days ?? '', sort: sp.sort ?? '' }).filter(([, v]) => v));
+  const targetCount = sp.targetCount === '100' ? '100' : '50';
+  const quoteScope = {query:sp.q ?? '',targetCount:Number(targetCount),...(sp.topic?{topic:sp.topic}:{}),...(sp.days?{days:Number(sp.days)}:{})};
+  const quoteMatches = quote?.operation === 'provider_search' && quote.requestHash === requestHash('provider_search',quoteScope);
+  const missingCovers = result.notes.filter(n => !n.coverUrl).map(n => n.id).slice(0,50);
   const back = `/app/discover${qs.size ? `?${qs}` : ''}`;
   return (
     <>
@@ -61,6 +65,10 @@ export default async function Discover({ searchParams }: { searchParams: Promise
       )}
       {result.postFilters.length > 0 && <p className="mb-3 text-xs text-muted">기간 조건은 저장 자료에 사후 필터로 적용했습니다. 게시일이 확인되지 않은 자료는 제외됩니다.</p>}
 
+      {result.notes.length > 0 && <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+        <span>이 페이지에 {result.notes.length}건 표시 · 페이지당 최대 50건</span>
+        {missingCovers.length > 0 && <Link className={btn.secondary} href={`/app/notes/enrich?ids=${missingCovers.join(',')}`}>표지 없는 {missingCovers.length}건 Apify 보완</Link>}
+      </div>}
       {result.notes.length === 0 ? (
         <Empty title="관련 근거가 부족합니다">조건에 맞는 저장 자료가 없습니다. 결과를 만들어 채우지 않았습니다. 검색어나 기간을 바꿔 보세요.</Empty>
       ) : (
@@ -76,13 +84,14 @@ export default async function Discover({ searchParams }: { searchParams: Promise
           <p className="mt-1 text-sm text-muted">
             저장된 자료가 부족할 때만 쓰세요. 비용·한도를 먼저 확인합니다. {mode === 'mock' ? '데모 모드에서는 외부로 요청하지 않고 합성 예시 자료만 추가됩니다.' : '관리자가 승인한 공급자만 사용합니다.'}
           </p>
-          {sp.refresh && quote ? (
+          {sp.refresh && quote && quoteMatches ? (
             <div className="mt-3"><QuoteConfirm quote={quote} title="외부 조회 확인" action={confirmRefresh}
-              hidden={Object.fromEntries(Object.entries({ q: sp.q ?? '', topic: sp.topic ?? '', days: sp.days ?? '', back }).filter(([, v]) => v))} cancelHref={back}
-              scopeLines={[`검색어: ${sp.q ?? ''}`, `조건: ${sp.topic ? TOPIC_LABEL[sp.topic] ?? sp.topic : '모든 주제'} · ${sp.days ? `최근 ${sp.days}일` : '전체 기간'}`, '결과는 저장 자료에 추가되어 조직 안에서 다시 검색됩니다.']} /></div>
+              hidden={Object.fromEntries(Object.entries({ targetCount, q: sp.q ?? '', topic: sp.topic ?? '', days: sp.days ?? '', back }).filter(([, v]) => v))} cancelHref={back}
+              scopeLines={[`목표: 관련 게시물 ${targetCount}건 이상 · 최대 ${Math.ceil(Number(targetCount)/20)+2}페이지`, '중복을 제외하며 공급자 결과가 부족하면 목표보다 적을 수 있습니다. 화면 필터에 따라 표시 건수도 달라집니다.', '표지의 Apify 보완은 별도 USD 견적을 확인한 뒤 실행합니다.', `검색어: ${sp.q ?? ''}`, `조건: ${sp.topic ? TOPIC_LABEL[sp.topic] ?? sp.topic : '모든 주제'} · ${sp.days ? `최근 ${sp.days}일` : '전체 기간'}`, '결과는 저장 자료에 추가되어 조직 안에서 다시 검색됩니다.']} /></div>
           ) : sp.q ? (
             <form action={quoteRefresh} className="mt-3">
               {Object.entries({ q: sp.q, topic: sp.topic, days: sp.days, back }).map(([k, v]) => v ? <input key={k} type="hidden" name={k} value={v} /> : null)}
+              <label className="mr-2 text-sm">수집 목표 <select name="targetCount" defaultValue={targetCount} className={input}><option value="50">50건 이상</option><option value="100">100건 이상</option></select></label>
               <PendingButton className={btn.secondary} pendingText="견적 계산 중…">“{sp.q}”로 비용 확인 후 조회</PendingButton>
             </form>
           ) : <p className="mt-2 text-sm text-muted">먼저 위에서 검색어를 입력하세요.</p>}

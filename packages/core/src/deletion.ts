@@ -112,6 +112,7 @@ export async function purgeExpired(db: Db): Promise<Record<string, number>> {
   await db.query(`select set_config('app.allow_purge', 'on', true)`);
   const n = async (sql: string) => (await db.query(sql)).rowCount ?? 0;
   return {
+    noteEnrichments: await n(`delete from note_enrichments where expires_at <= now()`),
     notes: await n(`delete from notes where expires_at is not null and expires_at < now() and not exists (select 1 from reference_items r where r.note_id = notes.id)`),
     transcripts: await n(`delete from transcript_runs where expires_at is not null and expires_at < now()`),
     idempotency: await n(`delete from idempotency_keys where expires_at < now() and not holds_paid_work`),

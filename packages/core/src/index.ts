@@ -29,3 +29,5 @@ export * from './deletion.ts';
 export * from './refaccounts.ts';
 export * from './reports.ts';
 export * from './taxonomy.ts';
+
+export * from './note-enrichment.ts';

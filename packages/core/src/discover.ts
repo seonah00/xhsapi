@@ -38,21 +38,22 @@ export const DiscoverQuery = z.object({
 });
 export type DiscoverQuery = z.infer<typeof DiscoverQuery>;
 
-const PAGE = 20;
+const PAGE = 50;
 
 const metricOrder = (key: 'likes' | 'saves') => `(select coalesce((m.metrics_json->'${key}'->>'exact')::numeric, (m.metrics_json->'${key}'->>'lowerBound')::numeric)
   from metric_snapshots m where m.note_id = n.id order by m.observed_at desc limit 1) desc nulls last,`;
 const ORDER: Record<'popular' | 'saves' | 'recent', string> = { popular: metricOrder('likes'), saves: metricOrder('saves'), recent: '' };
 
 const NOTE_SELECT = `
-  select n.id, n.platform_note_id, n.title, n.body_excerpt, n.canonical_url, n.note_type,
-         case when n.cover_url is not null and app.org_allows_media_display(n.org_id) then n.cover_url end as cover_url, n.author_display_name, n.author_ref,
-         n.author_followers, n.published_at, n.observed_at, n.data_mode, n.provider_tags, n.is_fallback,
+  select n.id, n.platform_note_id, coalesce(e.title,n.title) as title, coalesce(e.body_excerpt,n.body_excerpt) as body_excerpt, n.canonical_url, coalesce(e.note_type,n.note_type) as note_type,
+         coalesce(e.cover_url, case when n.cover_url is not null and app.org_allows_media_display(n.org_id) then n.cover_url end) as cover_url, n.author_display_name, n.author_ref,
+         n.author_followers, n.published_at, n.observed_at, n.data_mode, coalesce(nullif(e.provider_tags,'{}'::text[]),n.provider_tags) as provider_tags, n.is_fallback,
          coalesce((select array_agg(t.slug order by t.slug) from note_taxonomy nt join taxonomy_terms t on t.id = nt.taxonomy_id where nt.note_id = n.id and t.kind = 'topic'), '{}') as topics,
          coalesce((select array_agg(t.slug order by t.slug) from note_taxonomy nt join taxonomy_terms t on t.id = nt.taxonomy_id where nt.note_id = n.id and t.kind = 'format'), '{}') as formats,
-         (select m.metrics_json from metric_snapshots m where m.note_id = n.id order by m.observed_at desc limit 1) as metrics,
+         (coalesce((select m.metrics_json from metric_snapshots m where m.note_id = n.id order by m.observed_at desc limit 1), '{}'::jsonb) || coalesce(e.metrics_json, '{}'::jsonb)) as metrics,
          exists (select 1 from personal_saves s where s.target_type = 'note' and s.target_id = n.id and s.owner_user_id = $1) as saved
-  from notes n`;
+  from notes n left join note_enrichments e on e.note_id=n.id and e.org_id=n.org_id
+    and app.can_read_note_enrichment(e.org_id,e.permission_id,e.expires_at)`;
 
 type NoteRow = {
   id: string; platform_note_id: string; title: string | null; body_excerpt: string | null; canonical_url: string; cover_url: string | null;

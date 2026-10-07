@@ -1,6 +1,6 @@
 # 인계 문서 (2026-10-07 기준)
 
-다른 에이전트(Codex 등)나 사람이 이어서 작업할 때 먼저 읽는 문서입니다. 규칙은 `AGENTS.md`, 제품 명세는 `docs/XHS_STUDIO_DEVELOPMENT_SPEC.md`, 최초 지시는 `docs/CODEX_START_PROMPT.md`, 결정 기록은 `docs/adr/0001~0010`에 있습니다.
+다른 에이전트(Codex 등)나 사람이 이어서 작업할 때 먼저 읽는 문서입니다. 규칙은 `AGENTS.md`, 제품 명세는 `docs/XHS_STUDIO_DEVELOPMENT_SPEC.md`, 최초 지시는 `docs/CODEX_START_PROMPT.md`, 결정 기록은 `docs/adr/0001~0013`에 있습니다.
 
 ## 1. 현재 상태
 
@@ -40,13 +40,13 @@
 | `supabase/migrations` | 스키마·RLS·함수. 새 마이그레이션 뒤에는 `pnpm db:sql`로 `deploy/supabase/initial-schema.sql`을 재생성(테스트가 검사함) |
 | `scripts/start.mjs` | 운영 진입점. web은 마이그레이션 → 서버, worker는 `XHS_SERVICE=worker` 또는 Railway 서비스 이름에 worker |
 
-비용이 드는 작업은 항상 **견적(5분·1회용) → 학생 동의 → `app.reserve_and_enqueue`(예산 예약) → worker 실행 → 정산** 순서입니다. 성공은 settled, 보내기 전 실패나 non-2xx는 released, 응답 유실은 unknown_outcome(재전송 금지)입니다.
+비용이 드는 작업은 항상 **견적(5분·1회용) → 학생 동의 → `app.reserve_and_enqueue`(예산 예약) → worker 실행 → 정산** 순서입니다. 성공은 settled, 보내기 전 실패는 released, 응답 유실은 unknown_outcome(재전송 금지)입니다. Apify는 non-2xx도 과금 여부를 확정할 수 없어 unknown_outcome으로 보존합니다.
 
 ## 3. 알려진 문제와 보완 후보 (우선순위 순)
 
-1. **표지 이미지가 안 보임**: RF02(优质库)가 주는 `coverUrl`의 `t=`(서명 만료) 값이 이미 지나 있어 CDN이 403을 줍니다. 앱은 만료 표지를 요청하지 않고 내부 썸네일을 보여 줍니다(ADR 0010).
-   - 남은 경로: RedFox에 최신 서명 주소를 받을 방법이 있는지 문의.
-   - 하지 말 것: 우회, 스크래핑, `videoDownload/xhs`(워터마크 제거 다운로드).
+1. **표지 이미지가 안 보임**: 이전 RF02 표지 요청에서 403이 관측됐습니다. 당시 t를 만료로 해석했지만, 새 실검증에서 t 이후에도 200이 확인돼 해당 추정을 제거했습니다(ADR 0014). 실제 로딩 실패 시 내부 썸네일을 보여 줍니다.
+   - 남은 경로: RedFox에 최신 서명 주소를 받을 방법이 있는지 문의. Apify SocialDataX의 선택 노트 상세·표지 보완을 로컬 구현했습니다(ADR 0012, 미배포). 공급자를 바꿔도 서명 URL 만료는 해결되지 않을 수 있습니다.
+   - 하지 말 것: 차단·토큰 우회, 비공식 로그인·쿠키 공유, `videoDownload/xhs`(워터마크 제거 다운로드).
 2. **원문 링크 오류**: RF01/RF02 링크에 `xsec_token`이 없어 샤오홍슈가 막을 수 있습니다. 카드에 "제목으로 찾기"를 추가해 두었습니다.
 3. ~~live 노트 주제 분류 없음~~ → 키워드 분류기(`keyword-v1`, 신뢰도 low)로 해결했습니다(ADR 0011). 키워드 목록 보강과 이미 저장된 노트의 소급 분류가 남아 있습니다.
 4. **RF08(계정 노트 목록)·RF10(인기 계정)**: 파라미터 이름은 공식 Python SDK(`github.com/redfox-data/redfox-python-sdk`)에 나옵니다.
@@ -65,6 +65,33 @@
 
 ## 4. 작업 방법
 
+### 50/100건 목표 수집과 표지 일괄 보완 (2026-10-07, ADR 0013)
+
+- 외부 조회는 기본 50건, 선택 100건 목표입니다. RF02 offset 0/20/40…을 최대 5/7페이지까지 조회하고 중복을 제외합니다. 목표 도달·결과 종료·같은 페이지 반복·상한 도달 시 종료 이유를 표시합니다. 공급자 결과가 부족하면 50건을 보장하지 않습니다.
+- 탐색은 페이지당 50건 표시합니다. 표지가 없는 현재 페이지 노트 최대 50건을 Apify로 일괄 보완하는 별도 USD 견적 화면을 추가했습니다. 자동 과금 없이 학생이 대상·총비용을 확인합니다.
+- 한 페이지/한 노트씩 진행 위치를 저장하고 재개합니다. 발송 여부 불명 작업은 재전송하지 않습니다. 사용하지 않은 검색 페이지 비용은 성공 정산 시 해제하며, 중간 취소·허가 철회 뒤 이미 처리한 비용은 확인용 예약으로 보존합니다.
+- 마이그레이션 `20261007000016_collection_cancellation.sql` 및 초기 SQL을 추가/갱신했습니다.
+- **추가 검증:** PGlite 0.5.8 내부 PostgreSQL 엔진에서 전체 마이그레이션과 핵심 수집·정산·RLS SQL smoke를 통과했습니다. 실제 API는 가짜 fetch입니다. 재현 명령은 APIFY_VALIDATION.md 참조. native PostgreSQL 전체 테스트·브라우저 E2E는 여전히 별도 검증이 필요합니다.
+
+### RedFox·Apify 병행 구현 (2026-10-07, 로컬 미배포)
+
+- Actor: `socialdatax/socialdatax-xhs-data-api`. RedFox 검색을 유지하며 카드의 **상세·표지 보완 → 비용 확인 → 동의 → 실행**으로 선택한 노트 1건만 조회합니다. 데모는 견적·작업 흐름만 실행하고 자료를 변경하지 않습니다.
+- AP01 어댑터, 합성 fixture, 견적·USD 예산 예약·허가·동의, 발송 표시 및 재전송 방지, 별도 보완 데이터/RLS/TTL, 관리자 Apify 허가 선택, 가격 CLI의 `--provider apify`를 추가했습니다.
+- 표지 URL은 안전성·만료를 검사합니다. 실제 이미지 표시 성공, 실제 Actor 실행, 실제 과금은 미검증입니다. 공개 검색 정렬·분류와 레퍼런스 분석은 기존 RedFox 자료를 유지합니다.
+- 초기 상태는 APIFY_ENABLED=false, AP01 단가 unknown입니다. 토큰은 워커 secret에만 등록합니다. 활성화에는 고정 숫자 빌드, 검증된 USD/run 최대 비용, USD 예산, AP01 허가·증빙·TTL이 추가로 필요합니다. 절차는 DEPLOY §6, OPERATIONS 마지막 절을 참조하세요.
+- 마이그레이션 `20261007000015_apify_note_enrichment.sql`을 추가하고 초기 스키마를 재생성했습니다. 운영 DB 적용·커밋·푸시·배포는 하지 않았습니다.
+- 이 변경의 검증: TypeScript·린트·단위 테스트 및 Next.js 프로덕션 빌드 실행, PGlite 핵심 SQL smoke 통과. 최종 개수와 상세 결과는 `docs/APIFY_VALIDATION.md`에 기록합니다.
+- **미완료 검증:** 로컬 PostgreSQL 실행이 공유 메모리 생성 제한(`shmget: Operation not permitted`)으로 막혀 DB 통합 테스트와 화면 E2E는 통과를 확인하지 못했습니다. 사용 가능한 PostgreSQL 환경에서 `pnpm test:db && pnpm test:e2e`를 실행하고 실패를 수정한 뒤 배포해야 합니다. 이때도 공급자 API는 가짜 fetch로만 검증합니다.
+
 - 로컬 DB: `pnpm db:local`(임시 Postgres). 웹 `pnpm dev:web`, 워커 `pnpm dev:worker`.
 - 커밋 전에는 `pnpm typecheck && pnpm lint && pnpm test && pnpm test:db`를 실행합니다. 화면이 바뀌면 `pnpm test:e2e`도 실행합니다. E2E는 `docs/screenshots`를 다시 만들므로, 의도한 변경이 아니면 되돌립니다(`git checkout -- docs/screenshots`).
 - 외부 응답 형식이 바뀌면 단위 계약 테스트(`tests/unit/rf0*-contract.test.ts`)와 `tests/integration/live-flow.test.ts`에 가짜 응답으로 반영합니다. 실제 응답 원문(닉네임·ID 포함)은 저장소에 넣지 않습니다. 가공한 fixture만 넣습니다.
+
+### Zen Studio 표지 전환 (2026-10-07, 로컬 미배포)
+
+- 현재 AP01 Actor는 `zen-studio/rednote-note-detail-scraper`입니다(ADR 0014). 위 SocialDataX 구현 기록은 이전 단계입니다.
+- 사용자 제공 실제 응답의 url_pre를 GET해 HTTP 200 및 WebP 시그니처를 확인했습니다. SocialDataX 같은 게시물 표지는 GET 404였습니다. 전체 게시물의 성공을 보장하는 검증은 아닙니다.
+- 미리보기 URL 우선, 안전성·만료 확인, 기존 브라우저 onError 대체 표시는 유지합니다. url_original과 원본 다운로드는 사용하지 않습니다.
+- 마이그레이션 17로 단가 재검증이 필요하며 새 Actor의 고정 빌드와 별도 동의 버전을 사용합니다. 운영 배포·50개 실수집 검증은 미완료입니다.
+
+- 추가 실검증: 미리보기 URL의 t 시각이 지난 뒤에도 GET 200/WebP가 확인됐습니다. 기존 t 기반 만료 판정은 근거가 부족해 제거했습니다. URL 서명은 그대로 유지하고, 실제 로딩 실패는 CoverThumb로 처리하며 DB TTL은 계속 적용합니다.

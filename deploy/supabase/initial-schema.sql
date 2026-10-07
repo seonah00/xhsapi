@@ -2120,3 +2120,79 @@ revoke all on function app.org_allows_media_display(uuid) from public;
 grant execute on function app.org_allows_media_display(uuid) to authenticated, service_role;
 
 insert into app.applied_migrations (version, name) values ('20261007000014', '20261007000014_note_covers.sql');
+
+-- ==== 20261007000015_apify_note_enrichment.sql ====
+
+-- Selected-note enrichment is separate from RedFox search data and uses its own permission and USD budget.
+insert into public.provider_capabilities(provider,endpoint,path,params_status,verification_status,price_status,phase,note)
+values ('apify','AP01','/v2/actors/socialdatax~socialdatax-xhs-data-api/run-sync-get-dataset-items','documented','documented','unknown','P0','SocialDataX note detail; pinned build; verified USD/run cap required');
+
+alter table public.app_jobs drop constraint app_jobs_kind_check;
+alter table public.app_jobs add constraint app_jobs_kind_check check(kind in (
+  'provider_search','note_enrichment','rank_refresh','reference_analysis','query_expansion','plan_generation','contextual_check',
+  'results_reflection','trend_aggregation','data_expiry','user_deletion','transcript_submit','transcript_result','ocr','comment_submit','comment_result','csv_import'));
+
+create table public.note_enrichments (
+  note_id uuid primary key,
+  org_id uuid not null references public.organizations(id) on delete cascade,
+  permission_id uuid not null,
+  title text, body_excerpt text check(length(body_excerpt)<=200), cover_url text,
+  note_type text check(note_type in ('video','image')), provider_tags text[] not null default '{}',
+  metrics_json jsonb not null default '{}', actor_build text not null, job_id uuid not null references public.app_jobs(id),
+  fetched_at timestamptz not null default now(), expires_at timestamptz not null,
+  foreign key (org_id,note_id) references public.notes(org_id,id) on delete cascade,
+  foreign key (org_id,permission_id) references public.provider_permissions(org_id,id)
+);
+
+create function app.can_read_note_enrichment(p_org uuid,p_permission uuid,p_expires timestamptz) returns boolean
+language sql stable security definer set search_path='' as $$
+  select app.is_member(p_org) and p_expires>now() and exists (
+    select 1 from public.provider_permissions p where p.id=p_permission and p.org_id=p_org and p.provider='apify'
+      and p.status='approved' and 'AP01'=any(p.allowed_endpoints) and p.allow_fetch and p.allow_metadata_display
+      and p.allow_excerpt_display and p.allow_media_display and p.allow_cache and p.cache_ttl_seconds>0
+      and (p.expires_at is null or p.expires_at>now())
+  );
+$$;
+revoke all on function app.can_read_note_enrichment(uuid,uuid,timestamptz) from public;
+grant execute on function app.can_read_note_enrichment(uuid,uuid,timestamptz) to authenticated,service_role;
+alter table public.note_enrichments enable row level security;
+create policy read_permitted on public.note_enrichments for select to authenticated
+  using(app.can_read_note_enrichment(org_id,permission_id,expires_at));
+revoke all on public.note_enrichments from anon,authenticated;
+grant select on public.note_enrichments to authenticated;
+grant all on public.note_enrichments to service_role;
+
+insert into app.applied_migrations (version, name) values ('20261007000015', '20261007000015_apify_note_enrichment.sql');
+
+-- ==== 20261007000016_collection_cancellation.sql ====
+
+-- Collection/enrichment can pause between paid calls. Cancellation must account for work already sent.
+create or replace function app.cancel_job(p_job uuid) returns boolean
+language plpgsql security definer set search_path = '' as $$
+declare j public.app_jobs; sent boolean;
+begin
+  select * into j from public.app_jobs where id=p_job and state in ('queued','waiting_external')
+    and (owner_user_id=auth.uid() or app.has_role(org_id,array['org_admin'])) for update;
+  if not found then return false; end if;
+  update public.app_jobs set state='cancelled',error_code='cancelled_by_user' where id=p_job;
+  if j.data_mode='live' and j.reserved_usage_id is not null
+    and (j.kind='note_enrichment' or (j.kind='provider_search' and j.input_ref ? 'targetCount')) then
+    sent := j.provider_task_id is not null or coalesce((j.result_ref->>'pages')::integer,0)>0
+      or coalesce((j.result_ref->>'completed')::integer,0)>0;
+    perform app.settle_usage(j.reserved_usage_id,case when sent then 'unknown_outcome' else 'released' end);
+  end if;
+  return true;
+end $$;
+
+insert into app.applied_migrations (version, name) values ('20261007000016', '20261007000016_collection_cancellation.sql');
+
+-- ==== 20261007000017_zen_studio_detail.sql ====
+
+-- AP01 now targets a different Actor. Require pricing verification again before new quotes.
+update public.provider_capabilities
+set path='/v2/actors/zen-studio~rednote-note-detail-scraper/run-sync-get-dataset-items',
+    price_status='unknown',
+    note='Zen Studio note detail; preview URLs only; reverify pinned build and USD/run cap'
+where provider='apify' and endpoint='AP01';
+
+insert into app.applied_migrations (version, name) values ('20261007000017', '20261007000017_zen_studio_detail.sql');

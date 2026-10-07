@@ -14,6 +14,9 @@ export const EnvSchema = z.object({
   OUTBOUND_EMAIL_ENABLED: flag,
   WORKER_ENABLED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
   DATABASE_URL: z.string().optional(),
+  APIFY_ENABLED: flag,
+  APIFY_TOKEN: z.string().optional(),
+  APIFY_ACTOR_BUILD: z.string().regex(/^\d+\.\d+\.\d+$/).optional(),
   REDFOX_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   LLM_MODEL: z.string().optional(),
@@ -32,7 +35,7 @@ export type AppEnv = z.infer<typeof EnvSchema>;
 
 const LIVE_ONLY_FLAGS = [
   'LIVE_PROVIDER_CALLS_ENABLED', 'LIVE_LLM_CALLS_ENABLED', 'AUTO_REFRESH_ENABLED',
-  'COMMENTS_ENABLED', 'OCR_ENABLED', 'TRANSCRIPT_ENABLED',
+  'COMMENTS_ENABLED', 'OCR_ENABLED', 'TRANSCRIPT_ENABLED', 'APIFY_ENABLED',
 ] as const;
 
 export class EnvConfigError extends Error {

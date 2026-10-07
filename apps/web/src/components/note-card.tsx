@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { NoteCard as Note } from '@xhs/core';
 import { safeExternalHref } from '@xhs/security';
 import { toggleCompare, toggleSaveNote, useAsReference } from '@/app/app/discover/actions';
@@ -39,6 +40,7 @@ export function NoteCard({ note, back, inCompare, reasons, cons }: { note: Note;
         </ul>
       )}
       <div className="mt-auto flex flex-wrap gap-1.5 pt-3">
+        <Link href={`/app/notes/${note.id}/enrich`} className={btn.small}>상세·표지 보완</Link>
         <form action={toggleSaveNote}><input type="hidden" name="noteId" value={note.id} /><input type="hidden" name="back" value={back} />
           <button className={btn.small} aria-pressed={note.saved}>{note.saved ? '★ 저장됨' : '☆ 저장'}</button></form>
         <form action={toggleCompare}><input type="hidden" name="noteId" value={note.id} /><input type="hidden" name="back" value={back} />

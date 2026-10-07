@@ -30,6 +30,7 @@ export type SearchResult = {
   latestHotArticles: ProviderNote[];
   /** providerTotal/providerTip: what the provider says it matched (RF01 `total`/`tips`), which can exceed what it returned. */
   coverage: {
+    rawCount?: number; hasMore?: boolean | null; pageFingerprint?: string;
     requestedPages: number; fetchedPages: number; postFilters: string[]; providerTotal?: number | null; providerTip?: string | null;
     /** Cover diagnostics (hosts only, never full URLs): kept, absent, or refused because the host is not an XHS image CDN. */
     covers?: { kept: number; missing: number; expired: number; refusedHosts: Record<string, number> };
@@ -47,7 +48,7 @@ export type TranscriptResult =
 
 export interface XhsDataProvider {
   readonly mode: DataMode;
-  searchNotes(input: { query: string; topic?: TopicSlug; days?: 7 | 14 | 30 }): Promise<SearchResult>;
+  searchNotes(input: { query: string; topic?: TopicSlug; days?: 7 | 14 | 30; offset?: number }): Promise<SearchResult>;
   noteDetail(input: { platformNoteId: string }): Promise<ProviderNote | null>;
   submitTranscript(input: { platformNoteId: string; accessUrl: string }): Promise<TranscriptSubmit>;
   transcriptResult(input: { taskId: string }): Promise<TranscriptResult>;

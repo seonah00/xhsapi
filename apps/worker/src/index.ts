@@ -1,6 +1,6 @@
 import pg from 'pg';
 import { loadEnv, publicCapabilities } from '@xhs/domain';
-import { createXhsProvider, MockXhsProvider, RedfoxXhsProvider } from '@xhs/providers';
+import { ApifyNoteDetailProvider, createXhsProvider, MockXhsProvider, RedfoxXhsProvider } from '@xhs/providers';
 import { resolve } from 'node:path';
 import { hostsFromUrl, installMockNetworkGuard } from '@xhs/security/network-guard';
 import { redactString } from '@xhs/security';
@@ -46,6 +46,7 @@ export function makeRunner(pool: pg.Pool): Runner {
 
 async function main() {
   const { env, provider, liveProvider, capabilities } = bootstrap();
+  const apifyDetailProvider = (o: import('@xhs/providers').ApifyDetailOptions) => new ApifyNoteDetailProvider(o);
   if (!env.WORKER_ENABLED) {
     console.info('worker disabled (WORKER_ENABLED=false)');
     return;
@@ -54,7 +55,7 @@ async function main() {
   // Mock: only loopback and the database (spec 12.2). Live: additionally the provider host, nothing else.
   const live = env.APP_DATA_MODE === 'live';
   installMockNetworkGuard({
-    allowHosts: [...hostsFromUrl(env.DATABASE_URL), ...hostsFromUrl(env.STORAGE_BACKEND === 'supabase' ? env.NEXT_PUBLIC_SUPABASE_URL : undefined), ...(live ? ['redfox.hk'] : [])],
+    allowHosts: [...hostsFromUrl(env.DATABASE_URL), ...hostsFromUrl(env.STORAGE_BACKEND === 'supabase' ? env.NEXT_PUBLIC_SUPABASE_URL : undefined), ...(live ? ['redfox.hk', ...(env.APIFY_ENABLED ? ['api.apify.com'] : [])] : [])],
     onBlock: (c) => console.error(`[network-guard] blocked outbound connection to ${c.host}:${c.port ?? '?'} (${env.APP_DATA_MODE} mode)`),
   });
   console.info(`${env.APP_DATA_MODE} mode: outbound network guard active (worker)`);
@@ -73,7 +74,7 @@ async function main() {
   while (!stopping) {
     try {
       for (const id of await claimableJobIds(service)) {
-        const outcome = await runJob({ service, provider, storage, env, pollBaseMs: live ? 30_000 : 2000, ...(liveProvider ? { liveProvider } : {}) }, id, workerId);
+        const outcome = await runJob({ service, provider, storage, env, apifyDetailProvider, pollBaseMs: live ? 30_000 : 2000, ...(liveProvider ? { liveProvider } : {}) }, id, workerId);
         if (outcome) console.info('job', id, outcome.state);
       }
       if (Date.now() - lastPurge > 3600_000) {

@@ -45,7 +45,7 @@ export const SubmissionStatus = z.enum(['submitted', 'in_review', 'changes_reque
 export type SubmissionStatus = z.infer<typeof SubmissionStatus>;
 
 export const JobKind = z.enum([
-  'provider_search', 'rank_refresh', 'reference_analysis', 'query_expansion', 'plan_generation',
+  'provider_search', 'note_enrichment', 'rank_refresh', 'reference_analysis', 'query_expansion', 'plan_generation',
   'contextual_check', 'results_reflection', 'trend_aggregation', 'data_expiry', 'user_deletion',
   // P1 (F15 runs in mock during P0)
   'transcript_submit', 'transcript_result', 'ocr', 'comment_submit', 'comment_result', 'csv_import',

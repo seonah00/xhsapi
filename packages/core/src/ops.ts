@@ -65,9 +65,9 @@ export async function setDailyLimits(ctx: Ctx, input: unknown, revision: number)
 // ---------------------------------------------------------------- provider permissions
 
 export const PermissionCreate = z.object({
-  provider: z.literal('redfox'),
+  provider: z.enum(['redfox', 'apify']),
   scope: z.enum(['environment', 'cohort', 'internal']).default('environment'),
-  allowedEndpoints: z.array(z.string().regex(/^RF\d{2}$/)).max(20).default([]),
+  allowedEndpoints: z.array(z.string().regex(/^(RF\d{2}|AP01)$/)).max(20).default([]),
   allowFetch: z.boolean().default(false),
   allowMetadataDisplay: z.boolean().default(false),
   allowExcerptDisplay: z.boolean().default(false),
@@ -105,7 +105,7 @@ export async function providerOverview(ctx: Ctx) {
 export async function createPermission(ctx: Ctx, input: unknown): Promise<string> {
   requireAdmin(ctx);
   const d = PermissionCreate.parse(input);
-  const unknown = d.allowedEndpoints.filter((e) => !(e in REDFOX_CAPABILITIES));
+  const unknown = d.allowedEndpoints.filter((e) => d.provider === 'apify' ? e !== 'AP01' : !(e in REDFOX_CAPABILITIES));
   if (unknown.length) throw new AppError('VALIDATION_FAILED', `알 수 없는 엔드포인트: ${unknown.join(', ')}`);
   return (await ctx.db.query<{ id: string }>(
     `insert into provider_permissions (org_id, provider, scope, status, allowed_endpoints, allow_fetch, allow_metadata_display, allow_excerpt_display, allow_media_display,

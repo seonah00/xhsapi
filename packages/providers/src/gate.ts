@@ -35,6 +35,7 @@ export type GateReason =
 export type GateResult = { allowed: true } | { allowed: false; reasons: GateReason[] };
 
 const FEATURE_FLAG: Partial<Record<string, keyof AppEnv>> = {
+  AP01: 'APIFY_ENABLED',
   RF11: 'COMMENTS_ENABLED',
   RF12: 'COMMENTS_ENABLED',
   RF13: 'TRANSCRIPT_ENABLED',

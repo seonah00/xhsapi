@@ -1,6 +1,6 @@
-import { AppError, type AppEnv } from '@xhs/domain';
+import { canonicalJson, collectionPages, CollectionTarget, AppError, type AppEnv } from '@xhs/domain';
 import {
-  evaluateLiveGate, REDFOX_CAPABILITIES, type EndpointCapability, type EndpointId, type GateContextFor, type GateReason, type PermissionPurpose,
+  evaluateLiveGate, LiveCallBlockedError, REDFOX_CAPABILITIES, type EndpointCapability, type EndpointId, type GateContextFor, type GateReason, type PermissionPurpose,
   type ProviderPermission,
 } from '@xhs/providers';
 import type { Ctx, Db, ServiceRunner } from './context.ts';
@@ -112,11 +112,16 @@ export type LivePrice = { endpoint: EndpointId; units: number; priceVersionId: s
  * currencies refuse the quote before the student confirms anything. The maximum
  * amount is computed in SQL numeric (never JS floats).
  */
-export async function priceLiveOperation(ctx: Ctx, service: ServiceRunner, operation: string, env: AppEnv): Promise<{ prices: LivePrice[]; maxAmount: string; currency: string; maxUnits: number }> {
+export async function priceLiveOperation(ctx: Ctx, service: ServiceRunner, operation: string, env: AppEnv, scope: Record<string, unknown> = {}): Promise<{ prices: LivePrice[]; maxAmount: string; currency: string; maxUnits: number }> {
   if (!(operation in OPERATION_ENDPOINTS)) throw new AppError('LIVE_BLOCKED', '이 기능은 아직 실제 연결이 없습니다(AI·OCR 등은 제공자 미선정).');
   // Students cannot read org permissions/budgets (RLS); the pre-check reads them with service rights.
   const st = await service((db) => loadLiveState(db, ctx.orgId));
   const plan = planFor(operation as LiveOperation, st);
+  if (operation === 'provider_search' && scope.targetCount !== undefined) {
+    const target = CollectionTarget.parse(scope.targetCount);
+    if (plan[0]!.endpoint !== 'RF02') throw new AppError('LIVE_BLOCKED', '50건 이상 조회는 RF02 허가와 검증된 단가가 필요합니다.');
+    plan[0]!.units = collectionPages(target);
+  }
   const reasons = new Set<string>();
   for (const { endpoint } of plan) {
     const g = evaluateLiveGate({ env, endpoint: st.capabilities[endpoint], orgLiveEnabled: st.orgLiveEnabled, permission: st.permission, purposes: purposesFor(endpoint),
@@ -130,6 +135,7 @@ export async function priceLiveOperation(ctx: Ctx, service: ServiceRunner, opera
   )).rows;
   const prices = plan.map((p) => {
     const r = rows.find((x) => x.endpoint === p.endpoint);
+    if (r && operation === 'provider_search' && !['call', 'page'].includes(r.unit)) throw new AppError('LIVE_BLOCKED', '검색 단가의 호출 단위를 확인하세요.');
     if (!r) { reasons.add('price_unknown'); return null; }
     return { endpoint: p.endpoint, units: p.units, priceVersionId: r.id, unitCost: r.unit_cost, currency: r.currency, unit: r.unit } as LivePrice;
   }).filter((x): x is LivePrice => !!x);
@@ -169,11 +175,18 @@ export async function liveGateForJob(db: Db, job: { id: string; org_id: string; 
     ledgerId = (await db.query(`select j.reserved_usage_id from transcript_runs r join app_jobs j on j.id = r.job_id where r.id = $1`, [job.input_ref.runId])).rows[0]?.reserved_usage_id ?? null;
   }
   const ledger = ledgerId ? (await db.query(
-    `select l.status, l.reserved_amount, q.consumed_at, q.scope_json->>'endpoint' as endpoint from usage_ledger l left join cost_quotes q on q.id = l.quote_id where l.id = $1`, [ledgerId],
+    `select l.status, l.reserved_amount, q.consumed_at, q.scope_json->>'endpoint' as endpoint, q.scope_json, q.operation, l.job_id, l.org_id, l.user_id from usage_ledger l left join cost_quotes q on q.id = l.quote_id where l.id = $1`, [ledgerId],
   )).rows[0] : null;
+  if (job.kind === 'provider_search' && job.input_ref.targetCount !== undefined) {
+    const { provider: _provider, endpoint: _endpoint, prices: _prices, ...quoted } = ledger?.scope_json ?? {};
+    if (!ledger || ledger.job_id !== job.id || ledger.org_id !== job.org_id || ledger.user_id !== job.owner_user_id
+      || ledger.operation !== 'provider_search' || ledger.endpoint !== 'RF02' || canonicalJson(quoted) !== canonicalJson(job.input_ref)) {
+      throw new LiveCallBlockedError(['not_user_approved']);
+    }
+  }
   const op: LiveOperation = job.kind.startsWith('transcript') ? 'transcript_submit' : 'provider_search';
   const consent = job.owner_user_id ? (await db.query(
-    `select 1 from consent_records where org_id = $1 and user_id = $2 and purpose = $3 and withdrawn_at is null`, [job.org_id, job.owner_user_id, CONSENT_PURPOSE[op]],
+    `select 1 from consent_records where org_id = $1 and user_id = $2 and purpose = $3 and withdrawn_at is null limit 1`, [job.org_id, job.owner_user_id, CONSENT_PURPOSE[op]],
   )).rowCount === 1 : false;
   const budgetReserved = !!ledger && ['reserved', 'settled'].includes(ledger.status) && Number(ledger.reserved_amount) >= 0;
   const userApproved = !!ledger?.consumed_at;

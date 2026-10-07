@@ -91,3 +91,25 @@ pnpm bootstrap:org --org-name "<조직 이름>" --admin-email <관리자 이메�
 - 로그인 시도 제한은 Supabase 자체 제한에 더해 웹 프로세스 메모리에서 계정별로 합니다. web을 여러 개로 늘리면 각자 따로 셉니다.
 - live 실측 절차는 `docs/OPERATIONS.md` 8장을 따릅니다. `REDFOX_API_KEY`는 워커에만 넣습니다.
 - 되돌리기: Railway에서 이전 배포로 롤백할 수 있습니다. DB 마이그레이션은 되돌리지 않는 방향(추가만)으로 작성되어 있습니다.
+
+
+## 6. Apify 상세·표지 보완 추가 배포
+
+이 변경은 로컬 구현 단계입니다. DB 통합·E2E 검증을 마친 뒤 운영자가 배포합니다.
+
+1. `20261007000015_apify_note_enrichment.sql` 적용 후 web과 worker를 같은 코드 버전으로 배포합니다. 기존 RedFox 설정은 유지합니다.
+2. web과 worker에 동일한 고정 숫자 빌드 `APIFY_ACTOR_BUILD`를 설정합니다. Actor 콘솔에서 실제 빌드를 확인하며 `latest`를 쓰지 않습니다. `APIFY_TOKEN`은 worker의 secret에만 넣습니다.
+3. 처음에는 `APIFY_ENABLED=false`로 둡니다. OPERATIONS의 AP01 허가·비용 상한·USD 예산 등록을 먼저 마칩니다.
+4. 운영자가 실제 사용을 결정하면 기존 live 설정과 조직 스위치를 유지하고 두 서비스의 `APIFY_ENABLED=true`를 설정합니다. 이 플래그는 mock 모드에서는 허용되지 않습니다.
+5. 학생이 개별 노트의 비용·전송에 동의해야 실행됩니다. 키 등록이나 카드 열람만으로 Actor가 실행되지는 않습니다.
+
+중지는 `APIFY_ENABLED=false`로 되돌리면 됩니다. 이미 전송된 실행의 취소나 환불은 보장하지 않습니다. 보완 정보 표시를 중지하려면 Apify 허가를 철회합니다. DB 테이블과 비용 기록은 보존합니다.
+
+
+### 여러 페이지 조회·일괄 보완 배포 추가사항
+
+`20261007000016_collection_cancellation.sql`까지 적용해야 합니다. 웹과 워커를 같은 버전으로 배포하고, 실제 활성화 전에 50건 목표의 최대 5회 견적과 Apify 대상 수에 따른 USD 총견적을 확인합니다. 핵심 SQL은 PGlite로 검증했으나 native PostgreSQL 전체 DB 테스트·브라우저 E2E를 별도 환경에서 통과시킨 뒤 운영자가 배포해야 합니다.
+
+### Zen Studio 전환 (2026-10-07)
+
+마이그레이션 17은 AP01 단가를 unknown으로 되돌립니다. 새 Actor의 고정 빌드(APIFY_ACTOR_BUILD)를 web·worker에 설정하고 새 가격 근거로 USD/run 상한을 재검증하세요. 이전 SocialDataX 빌드 번호·단가를 그대로 사용하면 안 됩니다. 새 견적과 apify-zen-detail-v1 동의가 필요합니다. 모든 다운로드 옵션은 false이며 images[0].url_pre를 우선 사용합니다.

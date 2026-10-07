@@ -5,7 +5,7 @@ export type EndpointId =
   | 'RF08' | 'RF09' | 'RF10' | 'RF11' | 'RF12' | 'RF13' | 'RF14';
 
 export type EndpointCapability = {
-  id: EndpointId;
+  id: EndpointId | 'AP01';
   method: 'GET' | 'POST';
   path: string;
   purpose: string;

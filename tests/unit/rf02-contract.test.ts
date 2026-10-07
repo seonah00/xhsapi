@@ -28,7 +28,7 @@ describe('RF02 keyword search contract (documented shape)', () => {
     const [url, init] = f.mock.calls[0] as unknown as [URL, RequestInit];
     expect(url.toString()).toBe('https://redfox.hk/story/api/xhsUser/searchArticle');
     expect(JSON.parse(String(init.body))).toEqual({ keyword: '净水器', offset: 0, sortType: '_4' });
-    expect(r).toMatchObject({ endpoint: 'RF02', relatedTerms: [], latestHotArticles: [], coverage: { providerTotal: 100, covers: { kept: 0, missing: 0, expired: 2, refusedHosts: {} } } });
+    expect(r).toMatchObject({ endpoint: 'RF02', relatedTerms: [], latestHotArticles: [], coverage: { providerTotal: 100, covers: { kept: 2, missing: 0, expired: 0, refusedHosts: {} } } });
     expect(r.notes.map((n) => n.noteType)).toEqual(['image', 'video']);
     const n = r.notes[0]!;
     expect(n).toMatchObject({ coverUrl: COVER, publishedAt: '2026-10-01T09:09:42.000Z', providerTags: ['净水器'], author: { ref: '565b17dc0bf90c754d6615b4' } });
@@ -46,9 +46,9 @@ describe('RF02 keyword search contract (documented shape)', () => {
     await expect(provider(respond({ code: 2000, data: { list: 'nope' } })).searchNotes({ query: 'x' })).rejects.toBeInstanceOf(ProviderContractError);
   });
 
-  it('a cover whose t= signature time has passed counts as expired', () => {
+  it('does not mistake undocumented t for a hard expiry', () => {
     expect(coverExpired(COVER, new Date('2026-05-14T06:14:52Z'))).toBe(false);
-    expect(coverExpired(COVER, new Date('2026-05-14T06:14:54Z'))).toBe(true);
+    expect(coverExpired(COVER, new Date('2026-05-14T06:14:54Z'))).toBe(false);
     expect(coverExpired('https://sns-webpic-qc.xhscdn.com/a.jpg')).toBe(false);
   });
 
@@ -61,5 +61,22 @@ describe('RF02 keyword search contract (documented shape)', () => {
     expect(safeCoverUrl('https://user:pw@sns-i10.rednotecdn.com/x.jpg')).toBeNull();
     expect(safeCoverUrl('javascript:alert(1)')).toBeNull();
     expect(safeCoverUrl('https://sns-webpic-qc.xhscdn.com/a.jpg')).toBe('https://sns-webpic-qc.xhscdn.com/a.jpg');
+  });
+});
+
+describe('RF02 subsequent pages', () => {
+  it('uses documented offsets and reports raw page size even when dates filter everything', async () => {
+    const f = respond({ code: 2000, data: { total: 60, hasMore: true, list: [work('687df3a1000000000d0184a6', { workPublishTime: '2020-01-01 00:00:00' })] } });
+    const r = await provider(f).searchNotes({ query: 'x', days: 7, offset: 20 });
+    expect(JSON.parse(String((f.mock.calls[0] as unknown as [URL, RequestInit])[1].body)).offset).toBe(20);
+    expect(r.notes).toHaveLength(0);
+    expect(r.coverage).toMatchObject({ rawCount: 1, hasMore: true, pageFingerprint: expect.any(String) });
+  });
+  it('rejects negative or non-page offsets before calling the provider', async () => {
+    for (const offset of [-20, 1, 201]) {
+      const f = respond({ code: 2000, data: { list: [] } });
+      await expect(provider(f).searchNotes({ query: 'x', offset })).rejects.toThrow();
+      expect(f).not.toHaveBeenCalled();
+    }
   });
 });

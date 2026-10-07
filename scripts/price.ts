@@ -25,7 +25,9 @@ export function parseArgs(argv: string[]): { cmd: string; opts: Record<string, s
 
 export function validateRegister(o: Record<string, string>) {
   const errors: string[] = [];
-  if (!o.endpoint || !(o.endpoint in REDFOX_CAPABILITIES)) errors.push('--endpoint: RF01~RF14 중 하나');
+  if (!o.endpoint || (o.provider === 'apify' ? o.endpoint !== 'AP01' : !(o.endpoint in REDFOX_CAPABILITIES))) errors.push('--endpoint: RedFox RF01~RF14 또는 Apify AP01');
+  if (o.provider && !['redfox','apify'].includes(o.provider)) errors.push('--provider: redfox 또는 apify');
+  if (o.provider === 'apify' && (o.unit !== 'run' || o.currency !== 'USD' || !(Number(o['unit-cost']) > 0))) errors.push('Apify는 검증된 양수 USD/run 최대 비용만 등록');
   if (!o.unit || !/^[a-z_]{2,20}$/.test(o.unit)) errors.push('--unit: 예) call, page, minute');
   if (!o['unit-cost'] || !/^\d{1,12}(\.\d{1,8})?$/.test(o['unit-cost'])) errors.push('--unit-cost: 0 이상 숫자(소수 8자리까지)');
   if (!o.currency || !/^[A-Z]{3}$/.test(o.currency)) errors.push('--currency: 예) CNY, USD');
@@ -37,6 +39,8 @@ export function validateRegister(o: Record<string, string>) {
 
 async function main() {
   const { cmd, opts } = parseArgs(process.argv.slice(2));
+  const provider = opts.provider ?? 'redfox';
+  if (!['redfox','apify'].includes(provider)) throw new Error('--provider: redfox 또는 apify');
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is required');
   const db = new pg.Client(pgConfig());
@@ -48,7 +52,7 @@ async function main() {
          from provider_capabilities c
          left join lateral (select * from provider_price_versions p where p.provider = c.provider and p.endpoint = c.endpoint order by effective_at desc limit 1) v on true
          left join auth.users u on u.id = v.verified_by
-         where c.provider = 'redfox' order by c.endpoint`,
+         where c.provider = $1 order by c.endpoint`, [provider],
       )).rows;
       console.table(rows.map((r) => ({ endpoint: r.endpoint, status: r.price_status, price: r.unit_cost ? `${r.unit_cost} ${r.currency}/${r.unit}` : '-', since: r.effective_at?.toISOString() ?? '-', by: r.verified_by ?? '-' })));
     } else if (cmd === 'register') {
@@ -59,15 +63,15 @@ async function main() {
       await db.query('begin');
       await db.query(
         `insert into provider_price_versions (provider, endpoint, currency, unit, unit_cost, effective_at, verified_by, evidence)
-         values ('redfox', $1, $2, $3, $4::numeric, coalesce($5::timestamptz, now()), $6, $7)`,
-        [opts.endpoint, opts.currency, opts.unit, opts['unit-cost'], opts['effective-at'] ?? null, user.id, (opts.evidence ?? '').trim()],
+         values ($8, $1, $2, $3, $4::numeric, coalesce($5::timestamptz, now()), $6, $7)`,
+        [opts.endpoint, opts.currency, opts.unit, opts['unit-cost'], opts['effective-at'] ?? null, user.id, (opts.evidence ?? '').trim(), provider],
       );
-      await db.query(`update provider_capabilities set price_status = 'verified' where provider = 'redfox' and endpoint = $1`, [opts.endpoint]);
+      await db.query(`update provider_capabilities set price_status = 'verified' where provider = $2 and endpoint = $1`, [opts.endpoint,provider]);
       await db.query('commit');
       console.info(`등록: ${opts.endpoint} ${opts['unit-cost']} ${opts.currency}/${opts.unit}`);
     } else if (cmd === 'unverify') {
-      if (!opts.endpoint || !(opts.endpoint in REDFOX_CAPABILITIES)) throw new Error('--endpoint 필요');
-      await db.query(`update provider_capabilities set price_status = 'unknown' where provider = 'redfox' and endpoint = $1`, [opts.endpoint]);
+      if (!opts.endpoint || (provider === 'apify' ? opts.endpoint !== 'AP01' : !(opts.endpoint in REDFOX_CAPABILITIES))) throw new Error('--endpoint 필요');
+      await db.query(`update provider_capabilities set price_status = 'unknown' where provider = $2 and endpoint = $1`, [opts.endpoint,provider]);
       console.info(`${opts.endpoint}: 단가 미확인으로 되돌림(새 견적 차단, 기록 유지)`);
     } else {
       console.info('사용법: pnpm price list | register --endpoint .. --unit .. --unit-cost .. --currency .. --evidence .. --verified-by .. | unverify --endpoint ..');

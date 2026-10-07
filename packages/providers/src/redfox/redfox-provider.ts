@@ -1,3 +1,4 @@
+import { sha256Hex } from '@xhs/domain';
 import { extractHashtags, parseMetricValue, type TopicSlug } from '@xhs/domain';
 import { assertFetchableUrl, coverExpired, normalizeXhsNoteUrl, safeCoverUrl } from '@xhs/security';
 import { REDFOX_BASE_URL, REDFOX_CAPABILITIES, type EndpointCapability, type EndpointId } from '../capabilities.ts';
@@ -64,9 +65,12 @@ export class RedfoxXhsProvider implements XhsDataProvider {
     private readonly searchEndpoint: SearchEndpoint = 'RF01',
   ) {}
 
-  async searchNotes(input: { query: string; topic?: TopicSlug; days?: 7 | 14 | 30 }): Promise<SearchResult> {
+  async searchNotes(input: { query: string; topic?: TopicSlug; days?: 7 | 14 | 30; offset?: number }): Promise<SearchResult> {
+    const offset = input.offset ?? 0;
+    if (!Number.isInteger(offset) || offset < 0 || offset > 180 || offset % 20 !== 0) throw new ProviderNotReadyError('invalid search offset');
     if (this.searchEndpoint === 'RF02') return this.searchNotesRf02(input);
     const keyword = input.query.trim();
+    if (offset !== 0) throw new ProviderNotReadyError('RF01 keyword pagination is not supported');
     const body: Record<string, unknown> = keyword ? { keyword } : { pageNum: 1, pageSize: 20 }; // pageNum/pageSize apply only without a keyword
     if (input.days) {
       body.startDate = shanghaiDate(this.now(), -input.days);
@@ -86,12 +90,12 @@ export class RedfoxXhsProvider implements XhsDataProvider {
     };
   }
 
-  /** RF02: one page (offset 0, most interactions first: `_4`). The provider has no date filter, so `days` is applied here. */
-  private async searchNotesRf02(input: { query: string; topic?: TopicSlug; days?: 7 | 14 | 30 }): Promise<SearchResult> {
+  /** RF02: one bounded page (offset increments by 20, most interactions first: `_4`). The provider has no date filter, so `days` is applied here. */
+  private async searchNotesRf02(input: { query: string; topic?: TopicSlug; days?: 7 | 14 | 30; offset?: number }): Promise<SearchResult> {
     const keyword = input.query.trim();
     if (!keyword) throw new ProviderNotReadyError('RF02 requires a keyword');
     const fetchedAt = this.now().toISOString();
-    const parsed = Rf02Data.safeParse(await this.post('RF02', { keyword, offset: 0, sortType: '_4' }));
+    const parsed = Rf02Data.safeParse(await this.post('RF02', { keyword, offset: input.offset ?? 0, sortType: '_4' }));
     if (!parsed.success) throw new ProviderContractError('RF02 response failed schema');
     const list = parsed.data.list ?? [];
     const covers = { kept: 0, missing: 0, expired: 0, refusedHosts: {} as Record<string, number> };
@@ -115,7 +119,7 @@ export class RedfoxXhsProvider implements XhsDataProvider {
     }
     return {
       mode: 'live', endpoint: 'RF02', fetchedAt, notes, latestHotArticles: [], relatedTerms: [],
-      coverage: { requestedPages: 1, fetchedPages: 1, postFilters, providerTotal: parsed.data.total ?? null, providerTip: null, covers },
+      coverage: { rawCount: list.length, hasMore: parsed.data.hasMore == null ? null : !!parsed.data.hasMore, pageFingerprint: sha256Hex(JSON.stringify(list.map(w => w.workId).sort())), requestedPages: 1, fetchedPages: 1, postFilters, providerTotal: parsed.data.total ?? null, providerTip: null, covers },
     };
   }
 

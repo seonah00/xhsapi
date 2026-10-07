@@ -25,7 +25,7 @@ export class MockXhsProvider implements XhsDataProvider {
     this.processingMs = opts.transcriptProcessingMs ?? 2000;
   }
 
-  async searchNotes(input: { query: string; topic?: SearchResult['notes'][number]['topics'][number]; days?: 7 | 14 | 30 }): Promise<SearchResult> {
+  async searchNotes(input: { query: string; topic?: SearchResult['notes'][number]['topics'][number]; days?: 7 | 14 | 30; offset?: number }): Promise<SearchResult> {
     const fetchedAt = this.now().toISOString();
     const q = input.query.trim();
     const base: SearchResult = {

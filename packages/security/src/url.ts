@@ -79,17 +79,12 @@ export function safeCoverUrl(input: string | null | undefined): string | null {
 }
 
 /**
- * Xiaohongshu CDN cover links carry `t=<hex unix seconds>`; links whose `t` is in the past answered 403 in the
- * first real RF02 test (2026-10-07), so `t` is treated as the signature expiry. Links without `t` are kept.
+ * Do not infer expiry from the undocumented CDN `t` parameter. A real Zen Studio preview
+ * returned HTTP 200 after that timestamp. Reject malformed URLs here; loading failures
+ * are handled by CoverThumb, while persisted enrichment retention uses its database TTL.
  */
-export function coverExpired(url: string, now = new Date()): boolean {
-  try {
-    const t = new URL(url).searchParams.get('t');
-    if (!t || !/^[0-9a-f]{8}$/i.test(t)) return false;
-    return Number.parseInt(t, 16) * 1000 <= now.getTime();
-  } catch {
-    return true;
-  }
+export function coverExpired(url: string, _now = new Date()): boolean {
+  try { new URL(url); return false; } catch { return true; }
 }
 
 const XHS_HOSTS = new Set(['www.xiaohongshu.com', 'xiaohongshu.com', 'xhslink.com']);

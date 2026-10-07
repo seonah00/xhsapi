@@ -12,6 +12,7 @@ const LABEL: Record<string, string> = {
 function usePoll(url: string, terminal: string[], initial: string) {
   const router = useRouter();
   const [state, setState] = useState(initial);
+  const [progress, setProgress] = useState<{notes?:number;targetCount?:number;pages?:number;stopReason?:string;completed?:number;total?:number;covers?:number}|null>(null);
   useEffect(() => {
     let stop = false;
     const tick = async () => {
@@ -20,6 +21,7 @@ function usePoll(url: string, terminal: string[], initial: string) {
         const body = await res.json();
         const s = (body?.data?.state ?? body?.data?.status) as string | undefined;
         if (s) setState(s);
+        if (body?.data?.progress) setProgress(body.data.progress);
         if (s && terminal.includes(s)) { router.refresh(); return; }
       } catch { /* keep polling */ }
       if (!stop) setTimeout(tick, 1500);
@@ -27,7 +29,7 @@ function usePoll(url: string, terminal: string[], initial: string) {
     void tick();
     return () => { stop = true; };
   }, [url, terminal, router]);
-  return state;
+  return {state,progress};
 }
 
 function Box({ label, state, terminal }: { label: string; state: string; terminal: string[] }) {
@@ -40,7 +42,7 @@ function Box({ label, state, terminal }: { label: string; state: string; termina
 
 /** Polls a job and refreshes the server page when it finishes. */
 export function JobStatus({ jobId, label }: { jobId: string; label: string }) {
-  const state = usePoll(`/api/v1/jobs/${jobId}`, JOB_TERMINAL, 'queued');
+  const {state,progress} = usePoll(`/api/v1/jobs/${jobId}`, JOB_TERMINAL, 'queued');
   const [msg, setMsg] = useState<string | null>(null);
   const cancel = async () => {
     const res = await fetch(`/api/v1/jobs/${jobId}/cancel`, { method: 'POST' });
@@ -48,6 +50,9 @@ export function JobStatus({ jobId, label }: { jobId: string; label: string }) {
   };
   return (
     <div className="space-y-1">
+      {progress?.notes !== undefined && <p className="text-sm">중복 제외 {progress.notes}건 확보 / 목표 {progress.targetCount ?? '—'}건 · {progress.pages}페이지 조회</p>}
+      {progress?.stopReason && <p className="text-xs text-muted">{({target_reached:'수집 목표에 도달했습니다.',provider_exhausted:'공급자가 제공하는 결과가 끝났습니다.',repeated_page:'같은 페이지가 반복되어 추가 조회를 멈췄습니다.',page_limit:'승인한 페이지 한도에 도달했습니다.'} as Record<string,string>)[progress.stopReason]}</p>}
+      {progress?.completed !== undefined && <p className="text-sm">상세 보완 {progress.completed}/{progress.total}건 · 표지 주소 확보 {progress.covers ?? 0}건</p>}
       <Box label={label} state={state} terminal={JOB_TERMINAL} />
       {(state === 'queued' || state === 'waiting_external') && <button type="button" onClick={() => void cancel()} className="text-xs text-muted underline">작업 취소</button>}
       {msg && <p className="text-xs text-muted">{msg}</p>}
@@ -57,6 +62,6 @@ export function JobStatus({ jobId, label }: { jobId: string; label: string }) {
 
 /** Polls the transcript run itself (submit + async result polling), not just the submit job. */
 export function TranscriptStatus({ referenceId, initial }: { referenceId: string; initial: string }) {
-  const state = usePoll(`/api/v1/references/${referenceId}/transcript`, TRANSCRIPT_TERMINAL, initial);
+  const {state} = usePoll(`/api/v1/references/${referenceId}/transcript`, TRANSCRIPT_TERMINAL, initial);
   return <Box label="추출 진행" state={state} terminal={TRANSCRIPT_TERMINAL} />;
 }

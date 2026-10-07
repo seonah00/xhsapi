@@ -26,7 +26,7 @@ async function saveProvider(f: FormData) {
 async function addPermission(f: FormData) {
   'use server';
   await orRedirectWithError(back, () => withAdmin((ctx) => createPermission(ctx, {
-    provider: 'redfox', scope: String(f.get('scope') ?? 'environment'), allowedEndpoints: f.getAll('endpoints').map(String),
+    provider: String(f.get('provider') ?? 'redfox'), scope: String(f.get('scope') ?? 'environment'), allowedEndpoints: f.getAll('endpoints').map(String),
     ...Object.fromEntries(ALLOW.map(([k]) => [k, f.get(k) === 'on'])),
     cacheTtlSeconds: f.get('ttl') ? Number(f.get('ttl')) * 86400 : undefined,
     expiresAt: f.get('expiresAt') ? new Date(String(f.get('expiresAt'))).toISOString() : undefined,
@@ -63,6 +63,7 @@ export default async function Providers({ searchParams }: { searchParams: Promis
             <li>데이터 모드: <Badge tone={caps.mode === 'mock' ? 'warn' : 'accent'}>{caps.mode}</Badge></li>
             <li>외부 공급자 호출: <Badge>{caps.liveProviderCalls ? '허용' : '꺼짐'}</Badge></li>
             <li>외부 AI 호출: <Badge>{caps.liveLlmCalls ? '허용' : '꺼짐'}</Badge></li>
+            <li>Apify 상세 보완: <Badge>{env().APIFY_ENABLED ? '허용' : '꺼짐'}</Badge></li>
             <li>음성 문안 live: <Badge>{caps.transcript ? '허용' : '꺼짐'}</Badge></li>
           </ul>
           <p className="mt-2 text-xs text-muted">환경에서 꺼진 기능은 조직 스위치로 켤 수 없습니다. 현재 실제 live 가능 여부: <strong>{d.effective.live ? '가능' : '불가'}</strong></p>
@@ -87,7 +88,7 @@ export default async function Providers({ searchParams }: { searchParams: Promis
       </div>
 
       <Card className="mt-4">
-        <h2 className="font-semibold">RedFox 엔드포인트 상태</h2>
+        <h2 className="font-semibold">공급자 엔드포인트 상태</h2>
         <div className="mt-2 overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead><tr className="border-b border-line text-left text-muted"><th scope="col" className="py-2 font-normal">ID</th><th scope="col" className="font-normal">경로</th><th scope="col" className="font-normal">파라미터</th><th scope="col" className="font-normal">검증</th><th scope="col" className="font-normal">단가</th><th scope="col" className="font-normal">단계</th></tr></thead>
@@ -149,6 +150,7 @@ export default async function Providers({ searchParams }: { searchParams: Promis
         <Card>
           <h2 className="font-semibold">새 허가 기록 (대기)</h2>
           <form action={addPermission} className="mt-3 space-y-2 text-sm">
+            <label className="block text-xs">공급자<select name="provider" className={input}><option value="redfox">RedFox (RF)</option><option value="apify">Apify / Zen Studio (AP01)</option></select></label>
             <fieldset><legend className="text-xs text-muted">엔드포인트</legend>
               <div className="flex flex-wrap gap-2">{d.overview.capabilities.filter((c) => c.phase !== 'excluded').map((c) => <label key={c.endpoint} className="font-mono text-xs"><input type="checkbox" name="endpoints" value={c.endpoint} /> {c.endpoint}</label>)}</div></fieldset>
             <fieldset><legend className="text-xs text-muted">허용 범위</legend>

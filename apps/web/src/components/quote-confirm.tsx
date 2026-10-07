@@ -28,7 +28,7 @@ export function QuoteConfirm({ quote, title, scopeLines, action, hidden, cancelH
           {quote.mode === 'live' && (
             <label className="flex basis-full items-start gap-2 text-sm">
               <input type="checkbox" name="consent" required className="mt-1" />
-              <span>요청 정보(검색어 또는 노트 링크)가 외부 공급자(RedFox)로 전송되고 비용이 발생하는 것에 동의합니다. 내 문안·개인정보는 보내지 않습니다.</span>
+              <span>요청 정보(검색어 또는 노트 링크)가 외부 공급자({quote.operation === 'note_enrichment' ? 'Apify / Zen Studio' : 'RedFox'})로 전송되고 비용이 발생하는 것에 동의합니다. 내 문안·개인정보는 보내지 않습니다.</span>
             </label>
           )}
           <PendingButton className={btn.primary} pendingText="요청 보내는 중…">확인하고 실행</PendingButton>

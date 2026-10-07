@@ -1,5 +1,6 @@
 const SECRET_KEYS = /(api[_-]?key|token|secret|password|authorization|cookie|service[_-]?role)/i;
 const SECRET_VALUES: RegExp[] = [
+  /\bapify_api_[A-Za-z0-9_-]+\b/g,
   /\bak_[A-Za-z0-9]{6,}\b/g, // RedFox key format from provider docs
   /\bsk-[A-Za-z0-9_-]{10,}\b/g,
   /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}\b/g, // JWT
