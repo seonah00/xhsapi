@@ -1,3 +1,4 @@
+// Search ingestion validates post identity and refreshes canonical URLs (ADR 0019).
 // Category collection counts matching taxonomy results toward its bounded target (ADR 0017).
 import pg from 'pg';
 import { loadEnv, publicCapabilities } from '@xhs/domain';
