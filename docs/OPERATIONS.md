@@ -150,3 +150,12 @@ pnpm price unverify --provider apify --endpoint AP01
 ## 학생 조회 과금 UI 제거 (ADR 0019)
 
 관리자가 새 게시물 수집과 표지 보완을 실행하고 학생은 공유 저장 자료를 검색한다. 학생에게는 견적/과금 실행 버튼을 제공하지 않는다. 학생 검색 자동 수집은 사전 승인 예산, 쿼터, 동일 검색 재사용 정책을 추가한 뒤 활성화해야 한다. 표지 클릭은 내부 상세를 열며, 외부 원문이 404면 제목 검색을 사용한다. 토큰 없는 canonical URL의 접근 성공은 보장할 수 없다.
+
+## ADR 0020 활성화
+
+마이그레이션 20~22를 적용한 web/worker를 함께 배포한다. 신규 기능은 기존 키만으로 켜지지 않는다.
+
+- 공유 링크: 기존 노트는 서명 정보가 없으므로 버튼이 숨겨지고 제목 검색을 제공한다. 관리자 정보 업데이트/재수집에서 제공자가 공유 URL을 반환하면 24시간 동안 원문 버튼을 사용할 수 있다. 외부 로그인·삭제·접근 제한으로 여전히 실패할 수 있다.
+- 자동 검색: web/worker에 AUTO_REFRESH_ENABLED=true를 설정하고 관리자 > 공급자에서 한도와 승인 종료일을 저장한다. 기존 월간 CNY 예산 안에서만 실행한다. 비활성/만료 시 학생은 저장 결과만 검색한다. 키는 worker 전용이다.
+- AI: worker에 OPENAI_API_KEY, web/worker에 동일한 LLM_MODEL 및 LIVE_LLM_CALLS_ENABLED=true. OpenAI 모델의 확인된 가격으로 입력 20,000+출력 2,000 토큰 비용 이상인 회당 USD 상한을 계산한 후 `pnpm price register --provider openai --endpoint AI01 --model MODEL --unit run --unit-cost VERIFIED_CAP --currency USD --evidence '확인한 요금과 상한 계산 근거' --verified-by ADMIN_EMAIL`로 등록한다. 실제 단가를 추측하지 않는다. 별도의 현재 USD 예산을 확인한다. 모델 변경은 새 가격 버전 등록이 필요하다. 한 번의 성공도 보수적으로 이 상한을 정산하며 원장 actual은 제공자 청구서 실측값이 아니다.
+- AI 응답 불명/출력 검증 실패는 unknown_outcome으로 남고 자동 재시도하지 않는다. 관리자가 공급자 청구 내역으로 기존 정산 화면에서 확인한다.

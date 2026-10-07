@@ -1,8 +1,9 @@
+import { AutoSearchStatus } from '@/components/auto-search-status';
 import Link from 'next/link';
 import { categorySearch } from '@/components/category-search';
-import { discover, DiscoverQuery, getQuote, requestHash } from '@xhs/core';
+import { autoSearchPolicy, discover, DiscoverQuery, getQuote, requestHash } from '@xhs/core';
 import { withPageCtx } from '@/server/ctx';
-import { confirmRefresh, getCompareIds, quoteRefresh } from './actions';
+import { searchAutomatically, confirmRefresh, getCompareIds, quoteRefresh } from './actions';
 import { JobStatus } from '@/components/job-status';
 import { QuoteConfirm } from '@/components/quote-confirm';
 import { PendingButton } from '@/components/pending-button';
@@ -13,7 +14,7 @@ import { FORMAT_LABEL, TOPIC_LABEL, fmtDate } from '@/components/labels';
 
 export const metadata = { title: '탐색' };
 
-type SP = { targetCount?: string; q?: string; topic?: string; format?: string; days?: string; sort?: string; terms?: string | string[]; cursor?: string; error?: string; refresh?: string; quote?: string; job?: string };
+type SP = { auto?: string; targetCount?: string; q?: string; topic?: string; format?: string; days?: string; sort?: string; terms?: string | string[]; cursor?: string; error?: string; refresh?: string; quote?: string; job?: string };
 
 export default async function Discover({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -22,8 +23,8 @@ export default async function Discover({ searchParams }: { searchParams: Promise
     terms: sp.terms ? ([] as string[]).concat(sp.terms) : undefined, cursor: sp.cursor, job: sp.job,
   });
   const query = parsed.success ? parsed.data : DiscoverQuery.parse({});
-  const [[result, quote, mode, canManage], compare] = await Promise.all([
-    withPageCtx(async (ctx) => [await discover(ctx, query), ctx.role === 'org_admin' && sp.quote && /^[0-9a-f-]{36}$/.test(sp.quote) ? await getQuote(ctx, sp.quote) : null, ctx.mode, ctx.role === 'org_admin'] as const),
+  const [[result, quote, mode, canManage, automatic], compare] = await Promise.all([
+    withPageCtx(async (ctx) => [await discover(ctx, query), ctx.role === 'org_admin' && sp.quote && /^[0-9a-f-]{36}$/.test(sp.quote) ? await getQuote(ctx, sp.quote) : null, ctx.mode, ctx.role === 'org_admin', await autoSearchPolicy(ctx)] as const),
     getCompareIds(),
   ]);
   const qs = new URLSearchParams(Object.entries({ q: sp.q ?? '', topic: sp.topic ?? '', format: sp.format ?? '', days: sp.days ?? '', sort: sp.sort ?? '', job: sp.job ?? '' }).filter(([, v]) => v));
@@ -45,9 +46,11 @@ export default async function Discover({ searchParams }: { searchParams: Promise
         <select name="sort" defaultValue={sp.sort ?? 'popular'} className={input} aria-label="정렬"><option value="popular">좋아요 많은 순</option><option value="saves">저장 많은 순</option><option value="recent">최신순</option></select>
         <select name="days" defaultValue={sp.days ?? ''} className={input} aria-label="기간"><option value="">전체 기간</option><option value="7">최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option></select>
         {canManage && <PendingButton formAction={quoteRefresh} className={btn.primary} pendingText="검색 준비 중…">새 게시물 검색</PendingButton>}
-        <button className={canManage ? btn.secondary : btn.primary}>{canManage ? '저장된 게시물 검색' : '검색'}</button>
+        <button formAction={canManage ? undefined : searchAutomatically} className={canManage ? btn.secondary : btn.primary}>{canManage ? '저장된 게시물 검색' : '검색'}</button>
       </form>
 
+      {!canManage && automatic.enabled && <p className="mb-3 text-xs text-muted">검색어로 외부 공개 게시물을 찾아옵니다. 최근에 검색한 결과는 재사용합니다.</p>}
+      {sp.auto && <AutoSearchStatus requestId={sp.auto}/>}
       {result.expansion && (
         <div className="mb-4 rounded-2xl border border-line bg-surface p-3 text-sm">
           <p><span className="text-muted">원문</span> <strong>{result.expansion.original}</strong> → <span className="text-muted">중국어 후보(편집 시드 사전)</span></p>

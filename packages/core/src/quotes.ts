@@ -1,3 +1,4 @@
+import { priceReferenceAi } from './ai-reference.ts';
 import { AppError, CollectionTarget, enrichmentIds, canonicalJson, loadEnv, sha256Hex, type AppEnv, type JobKind } from '@xhs/domain';
 import { pgCode, type Ctx, type ServiceRunner } from './context.ts';
 import { APIFY_ACTOR } from '@xhs/providers';
@@ -70,12 +71,12 @@ export async function createQuote(ctx: Ctx, service: ServiceRunner, operation: O
   if (ctx.mode === 'live') {
     // Unknown price, blocked gate, zero budget or a provider without a contract refuse here (spec 6.3, 9.2).
     const env = opts.env ?? loadEnv(process.env);
-    const priced = operation === 'note_enrichment' ? await priceEnrichment(ctx, service, env, enrichmentIds(scope).length) : await priceLiveOperation(ctx, service, operation, env, scope);
+    const priced = operation === 'reference_analysis' ? await priceReferenceAi(ctx, service, env) : operation === 'note_enrichment' ? await priceEnrichment(ctx, service, env, enrichmentIds(scope).length) : await priceLiveOperation(ctx, service, operation, env, scope);
     const row = await service(async (db) => (await db.query<{ id: string; expires_at: Date }>(
       `insert into cost_quotes (org_id, owner_user_id, operation, request_hash, data_mode, scope_json, max_billable_units, max_amount, currency, price_version_ids, permission_versions)
        values ($1, $2, $3, $4, 'live', $5, $6, $7, $8, $9, $10) returning id, expires_at`,
       [ctx.orgId, ctx.uid, operation, hash,
-       { ...scope, ...(operation === 'note_enrichment' ? { actor: APIFY_ACTOR, actorBuild: env.APIFY_ACTOR_BUILD, runCapUsd: priced.prices[0]!.unitCost } : {}), provider: operation === 'note_enrichment' ? 'apify' : 'redfox', endpoint: priced.prices[0]!.endpoint, prices: priced.prices.map((p) => ({ endpoint: p.endpoint, units: p.units, unitCost: p.unitCost, unit: p.unit })) },
+       { ...scope, ...(operation === 'reference_analysis' ? {model:env.LLM_MODEL} : {}), ...(operation === 'note_enrichment' ? { actor: APIFY_ACTOR, actorBuild: env.APIFY_ACTOR_BUILD, runCapUsd: priced.prices[0]!.unitCost } : {}), provider: operation === 'reference_analysis' ? 'openai' : operation === 'note_enrichment' ? 'apify' : 'redfox', endpoint: priced.prices[0]!.endpoint, prices: priced.prices.map((p) => ({ endpoint: p.endpoint, units: p.units, unitCost: p.unitCost, unit: p.unit })) },
        priced.maxUnits, priced.maxAmount, priced.currency, priced.prices.map((p) => p.priceVersionId), {}],
     )).rows[0]!);
     return {
@@ -118,9 +119,12 @@ export async function reserveJob(ctx: Ctx, args: {
   if (args.operation === 'provider_search' && args.scope.targetCount !== undefined && (args.jobKind !== 'provider_search' || canonicalJson(args.inputRef) !== canonicalJson(args.scope))) throw new AppError('VALIDATION_FAILED', '조회 견적과 작업 범위가 다릅니다.');
   const live = (await ctx.db.query(`select data_mode from cost_quotes where id = $1 and owner_user_id = $2`, [args.quoteId, ctx.uid])).rows[0]?.data_mode === 'live';
   if (live) {
-    if (args.operation !== 'note_enrichment' && !(args.operation in OPERATION_ENDPOINTS)) throw new AppError('LIVE_BLOCKED', '이 기능은 아직 실제 연결이 없습니다.');
+    if (args.operation !== 'reference_analysis' && args.operation !== 'note_enrichment' && !(args.operation in OPERATION_ENDPOINTS)) throw new AppError('LIVE_BLOCKED', '이 기능은 아직 실제 연결이 없습니다.');
     if (!args.consent) throw new AppError('VALIDATION_FAILED', '외부 공급자에 요청을 보내는 것에 동의해야 실행할 수 있습니다.');
-    if (args.operation === 'note_enrichment') {
+    if (args.operation === 'reference_analysis') {
+      if(args.jobKind!=='reference_analysis' || canonicalJson(args.inputRef)!==canonicalJson(args.scope)) throw new AppError('VALIDATION_FAILED','분석 요청이 견적과 다릅니다.');
+      await ctx.db.query(`insert into consent_records(org_id,user_id,purpose,policy_version,scope) values($1,$2,'external_ai_processing','openai-reference-v1',$3)`,[ctx.orgId,ctx.uid,{quoteId:args.quoteId}]);
+    } else if (args.operation === 'note_enrichment') {
       await ctx.db.query(`insert into consent_records(org_id,user_id,purpose,policy_version,scope) select $1,$2,'external_provider_query','apify-zen-detail-v1',$3 where not exists (select 1 from consent_records where org_id=$1 and user_id=$2 and policy_version='apify-zen-detail-v1' and scope=$3::jsonb and withdrawn_at is null)`, [ctx.orgId,ctx.uid,{operation:args.operation,quoteId:args.quoteId}]);
     } else await recordLiveConsent(ctx, args.operation as LiveOperation);
   }

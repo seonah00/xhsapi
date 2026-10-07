@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { parseMetricValue } from '@xhs/domain';
-import { safeCoverUrl, coverExpired } from '@xhs/security';
+import { safeCoverUrl, coverExpired, safeXhsAccessUrl } from '@xhs/security';
 import { evaluateLiveGate, LiveCallBlockedError, type LiveGateContext } from '../gate.ts';
 import type { EndpointCapability } from '../capabilities.ts';
 import type { ProviderNote } from '../types.ts';
@@ -17,6 +17,7 @@ export const ApifyBuild = z.string().regex(/^\d+\.\d+\.\d+$/);
 const NoteId = z.string().regex(/^[a-f0-9]{24}$/);
 const metric = z.number().finite().nonnegative().nullable().optional();
 const Row = z.object({
+  url: z.string().max(4000).nullable().optional(), xsec_token: z.string().max(2048).nullable().optional(),
   id: NoteId, type: z.enum(['video', 'normal', 'image']),
   title: z.string().max(10000).nullable().optional(), desc: z.string().max(100000).nullable().optional(),
   timestamp: z.number().finite().nonnegative().nullable().optional(),
@@ -26,7 +27,7 @@ const Row = z.object({
   tags: z.array(z.object({ name: z.string().max(200) })).max(100).optional(),
 });
 
-/** Parse note metadata and preview URLs only; never retain tokens, original media or location. */
+/** Parse note metadata and preview URLs only; never retain API credentials, original media or location. */
 export function parseZenStudioNote(data: unknown, expectedId: string, now = new Date()): ProviderNote {
   const parsed = z.array(Row).length(1).safeParse(data);
   if (!parsed.success || parsed.data[0]!.id !== expectedId) throw new Error('APIFY_CONTRACT');
@@ -39,6 +40,7 @@ export function parseZenStudioNote(data: unknown, expectedId: string, now = new 
   if (published && Number.isNaN(published.getTime())) throw new Error('APIFY_CONTRACT');
   return {
     platformNoteId: n.id, canonicalUrl: `https://www.xiaohongshu.com/explore/${n.id}`,
+    accessUrl: safeXhsAccessUrl(n.url, n.id, n.xsec_token),
     title: n.title?.trim().slice(0, 500) || null, bodyExcerpt: n.desc?.slice(0, 200) || null,
     noteType: n.type === 'video' ? 'video' : 'image',
     author: { ref: n.author?.userid ?? null, displayName: n.author?.nickname || '작성자 미확인', followers: parseMetricValue(null) },

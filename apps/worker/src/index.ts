@@ -1,3 +1,4 @@
+// Live reference analysis uses a reserved, consented OpenAI request (ADR 0020).
 // Search ingestion validates post identity and refreshes canonical URLs (ADR 0019).
 // Category collection counts matching taxonomy results toward its bounded target (ADR 0017).
 import pg from 'pg';
@@ -59,7 +60,7 @@ async function main() {
   // Mock: only loopback and the database (spec 12.2). Live: additionally the provider host, nothing else.
   const live = env.APP_DATA_MODE === 'live';
   installMockNetworkGuard({
-    allowHosts: [...hostsFromUrl(env.DATABASE_URL), ...hostsFromUrl(env.STORAGE_BACKEND === 'supabase' ? env.NEXT_PUBLIC_SUPABASE_URL : undefined), ...(live ? ['redfox.hk', ...(env.APIFY_ENABLED ? ['api.apify.com'] : [])] : [])],
+    allowHosts: [...hostsFromUrl(env.DATABASE_URL), ...hostsFromUrl(env.STORAGE_BACKEND === 'supabase' ? env.NEXT_PUBLIC_SUPABASE_URL : undefined), ...(live ? ['redfox.hk', ...(env.APIFY_ENABLED ? ['api.apify.com'] : []), ...(env.LIVE_LLM_CALLS_ENABLED ? ['api.openai.com'] : [])] : [])],
     onBlock: (c) => console.error(`[network-guard] blocked outbound connection to ${c.host}:${c.port ?? '?'} (${env.APP_DATA_MODE} mode)`),
   });
   console.info(`${env.APP_DATA_MODE} mode: outbound network guard active (worker)`);

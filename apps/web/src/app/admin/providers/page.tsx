@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { effectiveSwitches, GATE_REASON_KO, liveReadiness, orgOps, providerOverview, setFeatureSwitches, setProviderSwitches } from '@xhs/core';
+import { autoSearchPolicy, setAutoSearchPolicy, effectiveSwitches, GATE_REASON_KO, liveReadiness, orgOps, providerOverview, setFeatureSwitches, setProviderSwitches } from '@xhs/core';
 import { publicCapabilities } from '@xhs/domain';
 import { withAdmin } from '../forbidden-guard';
 import { orRedirectWithError } from '@/server/actions-util';
@@ -20,11 +20,19 @@ async function saveProvider(f: FormData) {
   await orRedirectWithError(back, () => withAdmin((ctx) => setProviderSwitches(ctx, { live: f.get('live') === 'on', kill: f.get('kill') === 'on' }, Number(f.get('revision')))));
   redirect(`${back}?saved=1`);
 }
+async function saveAutoSearch(f:FormData) {
+  'use server';
+  await orRedirectWithError(back,()=>withAdmin(ctx=>setAutoSearchPolicy(ctx,{
+    enabled:f.get('enabled')==='on',cacheHours:Number(f.get('cacheHours')),perStudent:Number(f.get('perStudent')),perDay:Number(f.get('perDay')),maxCny:String(f.get('maxCny')),
+    ...(f.get('expiresAt')?{expiresAt:new Date(String(f.get('expiresAt'))+'T23:59:59+09:00').toISOString()}:{})
+  })));
+  redirect(`${back}?saved=1`);
+}
 export default async function Providers({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string }> }) {
   const sp = await searchParams;
   const d = await withAdmin(async (ctx) => {
     const ops = await orgOps(ctx.db, ctx.orgId);
-    return { overview: await providerOverview(ctx), readiness: await liveReadiness(ctx, env()), ops, effective: effectiveSwitches(env(), ops) };
+    return { auto:await autoSearchPolicy(ctx), overview: await providerOverview(ctx), readiness: await liveReadiness(ctx, env()), ops, effective: effectiveSwitches(env(), ops) };
   });
   const caps = publicCapabilities(env());
   return (
@@ -63,6 +71,20 @@ export default async function Providers({ searchParams }: { searchParams: Promis
         </Card>
       </div>
 
+      <Card className="mt-4">
+        <h2 className="font-semibold">학생 자동 검색</h2>
+        <p className="mt-2 text-sm text-muted">학생 검색을 조직 예산으로 실행합니다. 동일 검색은 재사용하며 50건 목표로 최대 5페이지를 조회합니다. 실제 결과 수는 공급자에 따라 달라집니다. 표지 추가 조회는 포함하지 않습니다. 서버 AUTO_REFRESH_ENABLED도 켜야 합니다.</p>
+        <form action={saveAutoSearch} className="mt-3 grid gap-2 text-sm">
+          <label><input type="checkbox" name="enabled" defaultChecked={d.auto.enabled}/> 아래 범위의 학생 자동 검색 비용을 승인합니다</label>
+          <label>승인 종료일(최대 31일) <input type="date" name="expiresAt" defaultValue={d.auto.expiresAt?.slice(0,10)}/></label>
+          <label>검색 1회 최대 CNY <input name="maxCny" defaultValue={d.auto.maxCny} required/></label>
+          <label>학생 1명 일일 새 검색 <input type="number" name="perStudent" min="1" max="20" defaultValue={d.auto.perStudent}/></label>
+          <label>조직 일일 새 검색 <input type="number" name="perDay" min="1" max="100" defaultValue={d.auto.perDay}/></label>
+          <label>동일 검색 재사용 시간 <input type="number" name="cacheHours" min="1" max="168" defaultValue={d.auto.cacheHours}/></label>
+          <p>월간 CNY 예산도 함께 적용됩니다. 승인 만료·관리자 권한 해제·전체 중지 시 추가 호출을 중단합니다.</p>
+          <button className={btn.secondary}>자동 검색 설정 저장</button>
+        </form>
+      </Card>
       <Card className="mt-4">
         <h2 className="font-semibold">공급자 엔드포인트 상태</h2>
         <div className="mt-2 overflow-x-auto">

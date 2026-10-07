@@ -19,7 +19,7 @@ export type AnalysisOutput = {
   suggestions: EvidenceClaim[];
   missingFacts: string[];
   limitations: string[];
-  generator: 'mock-rules-v1';
+  generator: 'mock-rules-v1' | 'openai-reference-v1';
 };
 
 const CTA = /(收藏|关注|评论|点赞|私信|下期)/;

@@ -2237,3 +2237,53 @@ where j.kind='provider_search' and length(trim(j.input_ref->>'query')) between 1
 on conflict do nothing;
 
 insert into app.applied_migrations (version, name) values ('20261007000019', '20261007000019_note_search_matches.sql');
+
+-- ==== 20261007000020_note_access_links.sql ====
+
+-- Public post sharing credentials are separate from canonical identity and provenance.
+create table public.note_access_links (
+  note_id uuid primary key references public.notes(id) on delete cascade,
+  org_id uuid not null,
+  access_url text not null check(length(access_url) <= 4000),
+  expires_at timestamptz not null,
+  foreign key(org_id,note_id) references public.notes(org_id,id) on delete cascade
+);
+alter table public.note_access_links enable row level security;
+revoke all on public.note_access_links from public, anon, authenticated;
+grant all on public.note_access_links to service_role;
+create function app.has_note_access_link(p_id uuid) returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select exists(select 1 from note_access_links l join notes n on n.id=l.note_id
+    where l.note_id=p_id and l.expires_at>now() and app.is_member(l.org_id)
+      and (n.expires_at is null or n.expires_at>now()));
+$$;
+revoke all on function app.has_note_access_link(uuid) from public;
+grant execute on function app.has_note_access_link(uuid) to authenticated, service_role;
+
+insert into app.applied_migrations (version, name) values ('20261007000020', '20261007000020_note_access_links.sql');
+
+-- ==== 20261007000021_sponsored_search.sql ====
+
+create table public.search_requests (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references public.organizations(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  query_hash text not null,
+  job_id uuid not null references public.app_jobs(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+alter table public.search_requests enable row level security;
+revoke all on public.search_requests from public,anon,authenticated;
+grant all on public.search_requests to service_role;
+create index search_requests_cache on public.search_requests(org_id,query_hash,created_at desc);
+create unique index search_requests_user_job on public.search_requests(org_id,user_id,job_id);
+
+insert into app.applied_migrations (version, name) values ('20261007000021', '20261007000021_sponsored_search.sql');
+
+-- ==== 20261007000022_reference_ai.sql ====
+
+alter table public.provider_price_versions add column model text;
+insert into public.provider_capabilities(provider,endpoint,path,params_status,verification_status,price_status,phase,note)
+values('openai','AI01','/v1/chat/completions','documented','documented','unknown','P1','Text-only reference analysis. Verified run cap must cover 20,000 input tokens and 2,000 completion tokens for the configured model.');
+
+insert into app.applied_migrations (version, name) values ('20261007000022', '20261007000022_reference_ai.sql');

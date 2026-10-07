@@ -43,7 +43,7 @@ export async function confirmAnalysis(f: FormData) {
   const quoteId = uuid.parse(f.get('quoteId'));
   const { jobId } = await orRedirectWithError(refPath(id), () => withPageCtx((ctx) => reserveJob(ctx, {
     quoteId, route: 'POST /references/:id/analyses', idempotencyKey: uuid.parse(f.get('idem')), operation: 'reference_analysis', scope,
-    jobKind: 'reference_analysis', dedupeKey: `reference_analysis:${quoteId}`, inputRef: scope,
+    consent: f.get('consent') === 'on', jobKind: 'reference_analysis', dedupeKey: `reference_analysis:${quoteId}`, inputRef: scope,
   })));
   redirect(`${refPath(id)}?job=${jobId}`);
 }

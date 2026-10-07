@@ -33,7 +33,7 @@ export function AnalysisView({ a }: { a: StoredAnalysis }) {
       <div className="flex flex-wrap items-center gap-1 text-xs text-muted">
         <DemoBadge mode={a.dataMode} />
         <span>분석 범위:</span>{o.analysisScope.map((s) => <Badge key={s} tone="info">{SCOPE[s] ?? s}</Badge>)}
-        <span>· {fmtDate(a.createdAt, true)} · {o.generator === 'mock-rules-v1' ? '규칙 기반 데모 분석(AI 아님)' : o.generator}</span>
+        <span>· {fmtDate(a.createdAt, true)} · {o.generator === 'mock-rules-v1' ? '규칙 기반 데모 분석(AI 아님)' : 'AI 텍스트 분석'}</span>
       </div>
       <Block title="관찰 사실" tone="ok" items={o.observations} />
       <Block title="해석·가설" tone="info" items={o.inferences} />

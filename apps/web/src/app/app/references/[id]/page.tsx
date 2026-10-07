@@ -93,14 +93,14 @@ export default async function ReferenceDetail({ params, searchParams }: { params
           <Card>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-semibold">레퍼런스 분석</h2>
-              {d.mode === 'mock' && !ref.deletedAt && !d.quote && <form action={quoteAnalysis}><input type="hidden" name="id" value={ref.id} /><button className={btn.secondary}>{d.analysis ? '다시 분석' : '분석하기'}</button></form>}
+              {!ref.deletedAt && !d.quote && <form action={quoteAnalysis}><input type="hidden" name="id" value={ref.id} /><button className={btn.secondary}>{d.analysis ? '다시 분석' : '분석하기'}</button></form>}
             </div>
-            {d.mode === 'live' && <p className="mt-2 text-sm text-muted">분석 기능 준비 중 · 현재는 레퍼런스 저장과 메모를 사용할 수 있습니다.</p>}
+            {d.mode === 'live' && <p className="mt-2 text-sm text-muted">제목·본문·태그·메모를 AI로 분석합니다. 실행 전에 전송 범위와 비용을 확인합니다.</p>}
             <p className="mb-3 mt-1 text-xs text-muted">관찰 사실과 해석·제안을 구분합니다. 성공 원인을 확정하지 않습니다.</p>
-            {d.mode === 'mock' && d.quote && (
+            {d.quote && (
               <div className="mb-3">
                 <QuoteConfirm quote={d.quote} title="분석 실행 확인" action={confirmAnalysis} hidden={{ id: ref.id }} cancelHref={`/app/references/${id}`}
-                  scopeLines={['대상: 이 레퍼런스 1건 (제목·본문·태그·내 메모·음성 문안이 있으면 포함)', '데모 모드: 규칙 기반 분석, 외부 AI 호출 없음']} />
+                  scopeLines={[d.mode === 'mock' ? '대상: 이 레퍼런스 1건 (제목·본문·태그·내 메모·음성 문안이 있으면 포함)' : '대상: 이 레퍼런스 1건 (제목·본문 발췌·태그·직접 입력한 텍스트·메모)', d.mode === 'mock' ? '데모 모드: 규칙 기반 분석, 외부 AI 호출 없음' : 'OpenAI 텍스트 분석: 영상·이미지·음성 문안은 전송하지 않습니다.']} />
               </div>
             )}
             {d.pending && <div className="mb-3"><JobStatus jobId={d.pending} label="분석 작업" /></div>}

@@ -162,6 +162,13 @@ export async function recordLiveConsent(ctx: Ctx, operation: LiveOperation): Pro
  */
 export async function liveGateForJob(db: Db, job: { id: string; org_id: string; owner_user_id: string | null; kind: string; reserved_usage_id: string | null; input_ref: Record<string, unknown> },
   env: AppEnv): Promise<{ gateFor: GateContextFor; capabilities: Record<EndpointId, EndpointCapability>; searchEndpoint: 'RF01' | 'RF02' }> {
+  const automatic=(await db.query(`select 1 from search_requests where job_id=$1 limit 1`,[job.id])).rowCount;
+  if(automatic) {
+    const p=(await db.query(`select settings->'auto_search' as p from organizations where id=$1`,[job.org_id])).rows[0]?.p;
+    const sponsor=(await db.query(`select 1 from memberships where org_id=$1 and user_id=$2 and role='org_admin' and status='active'`,[job.org_id,job.owner_user_id])).rowCount;
+    if(!env.AUTO_REFRESH_ENABLED || !p?.enabled || p.approvedBy!==job.owner_user_id || !sponsor || !p.expiresAt || Date.parse(p.expiresAt)<=Date.now())
+      throw new LiveCallBlockedError(['not_user_approved']);
+  }
   const st = await loadLiveState(db, job.org_id);
   let ledgerId = job.reserved_usage_id;
   if (!ledgerId && job.kind === 'transcript_result') {

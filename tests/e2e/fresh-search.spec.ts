@@ -21,8 +21,9 @@ test('a thumbnail opens local detail with explicit original and title-search lin
   const original='https://www.xiaohongshu.com/explore/aaaaaaaaaaaaaaaaaaaaaaaa?xsec_token=synthetic';
   const cover='https://sns-i10.rednotecdn.com/synthetic-thumbnail.svg';
   const row=(await db.query(`insert into notes(org_id,provider,platform_note_id,data_mode,canonical_url,title,cover_url,provenance)
-    values ('00000000-0000-4000-b000-000000000001','mock','thumbnail-link-fixture','mock',$1,'thumbnaillinkfixture',$2,'{}') returning id`,[original,cover])).rows[0];
+    values ('00000000-0000-4000-b000-000000000001','mock','aaaaaaaaaaaaaaaaaaaaaaaa','mock',$1,'thumbnaillinkfixture',$2,'{}') returning id`,[original.split('?')[0],cover])).rows[0];
   try {
+    await db.query(`insert into note_access_links(note_id,org_id,access_url,expires_at) values($1,'00000000-0000-4000-b000-000000000001',$2,now()+interval '1 hour')`,[row.id,original]);
     await context.route(original, route=>route.fulfill({contentType:'text/html',body:'<p>synthetic original</p>'}));
     await context.route(cover, route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="red"/></svg>'}));
     await page.goto('/login');
@@ -85,4 +86,24 @@ test('an unavailable preferred cover falls back to the stored original cover', a
     await expect(page.getByText('표지를 불러오지 못함')).toHaveCount(0);
     await expect(page.getByRole('link',{name:/이미지 업데이트/})).toHaveCount(0);
   } finally { await db.query('delete from notes where id=$1',[note.id]);await db.query('delete from app_jobs where id=$1',[job.id]);await db.end(); }
+});
+
+test('student automatic search runs without cost controls and reuses the same search',async({page})=>{
+  const {default:pg}=await import('pg');
+  const db=new pg.Pool({connectionString:process.env.DATABASE_URL});
+  const org='00000000-0000-4000-b000-000000000001';
+  const previous=(await db.query('select settings from organizations where id=$1',[org])).rows[0].settings;
+  try {
+    await db.query(`update organizations set settings=jsonb_set(settings,'{auto_search}',$2::jsonb) where id=$1`,[org,{enabled:true,approvedBy:'00000000-0000-4000-a000-000000000005',expiresAt:new Date(Date.now()+86400_000).toISOString(),cacheHours:24,perStudent:3,perDay:20,maxCny:'0.30'}]);
+    await page.goto('/login');await page.getByRole('button',{name:/student-b@demo\.invalid/}).click();await page.waitForURL(/\/app/);
+    await page.goto('/app/discover');
+    await page.getByRole('textbox',{name:'검색어',exact:true}).fill('自动测试');
+    await page.getByRole('button',{name:'검색',exact:true}).click();
+    await expect(page).toHaveURL(/auto=/);
+    await expect(page.getByRole('status')).toContainText('최신 검색 결과',{timeout:20000});
+    await expect(page.getByRole('button',{name:'확인하고 실행'})).toHaveCount(0);
+    const first=new URL(page.url()).searchParams.get('auto');
+    await page.getByRole('button',{name:'검색',exact:true}).click();
+    await expect(page).toHaveURL(new RegExp(`auto=${first}`));
+  } finally {await db.query('update organizations set settings=$2 where id=$1',[org,previous]);await db.end();}
 });

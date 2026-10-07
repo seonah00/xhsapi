@@ -5,9 +5,11 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { createQuote, createReference, reserveJob, toggleSave } from '@xhs/core';
+import { requestAutoSearch, createQuote, createReference, reserveJob, toggleSave } from '@xhs/core';
 import { service, withPageCtx } from '@/server/ctx';
 import { orRedirectWithError, safeLocalPath } from '@/server/actions-util';
+
+import { env } from '@/server/env';
 
 const COMPARE = 'xhs_compare';
 const id = z.string().uuid();
@@ -71,5 +73,15 @@ export async function confirmRefresh(f: FormData) {
     jobKind: 'provider_search', dedupeKey: `provider_search:${quoteId}`, consent: f.get('consent') === 'on', inputRef: scope,
   })));
   const qs = new URLSearchParams({ q: scope.query, ...(scope.topic ? { topic: scope.topic } : {}), ...(scope.days ? { days: String(scope.days) } : {}), ...presentation(f), targetCount:String(scope.targetCount), job: jobId });
+  redirect(`/app/discover?${qs}`);
+}
+
+export async function searchAutomatically(f: FormData) {
+  const q=categorySearch(String(f.get('q')??''),String(f.get('topic')??''));
+  const qs=new URLSearchParams({q,...presentation(f),...(f.get('topic')?{topic:String(f.get('topic'))}:{})});
+  if(q) {
+    const requestId=await orRedirectWithError(`/app/discover?${qs}`,()=>withPageCtx(ctx=>requestAutoSearch(ctx,service,q,env())));
+    if(requestId) qs.set('auto',requestId);
+  }
   redirect(`/app/discover?${qs}`);
 }

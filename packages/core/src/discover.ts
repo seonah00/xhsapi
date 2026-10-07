@@ -10,6 +10,7 @@ export type NoteCard = {
   title: string | null;
   bodyExcerpt: string | null;
   canonicalUrl: string;
+  hasOriginalLink?: boolean;
   /** Provider preview image; organization membership and data expiry still apply. */
   coverUrl: string | null;
   fallbackCoverUrl?: string | null;
@@ -47,7 +48,7 @@ const metricOrder = (key: 'likes' | 'saves') => `(select coalesce((m.metrics_jso
 const ORDER: Record<'popular' | 'saves' | 'recent', string> = { popular: metricOrder('likes'), saves: metricOrder('saves'), recent: '' };
 
 const NOTE_SELECT = `
-  select n.id, n.platform_note_id, coalesce(e.title,n.title) as title, coalesce(e.body_excerpt,n.body_excerpt) as body_excerpt, n.canonical_url, coalesce(e.note_type,n.note_type) as note_type,
+  select app.has_note_access_link(n.id) as has_original_link, n.id, n.platform_note_id, coalesce(e.title,n.title) as title, coalesce(e.body_excerpt,n.body_excerpt) as body_excerpt, n.canonical_url, coalesce(e.note_type,n.note_type) as note_type,
          coalesce(e.cover_url, case when n.cover_url is not null and app.org_allows_media_display(n.org_id) then n.cover_url end) as cover_url, case when app.org_allows_media_display(n.org_id) then n.cover_url end as source_cover_url, n.author_display_name, n.author_ref,
          n.author_followers, n.published_at, n.observed_at, n.data_mode, coalesce(nullif(e.provider_tags,'{}'::text[]),n.provider_tags) as provider_tags, n.is_fallback,
          coalesce((select array_agg(t.slug order by t.slug) from note_taxonomy nt join taxonomy_terms t on t.id = nt.taxonomy_id where nt.note_id = n.id and t.kind = 'topic'), '{}') as topics,
@@ -58,7 +59,7 @@ const NOTE_SELECT = `
     and app.can_read_note_enrichment(e.org_id,e.permission_id,e.expires_at)`;
 
 type NoteRow = {
-  id: string; platform_note_id: string; title: string | null; body_excerpt: string | null; canonical_url: string; cover_url: string | null; source_cover_url: string | null;
+  has_original_link: boolean; id: string; platform_note_id: string; title: string | null; body_excerpt: string | null; canonical_url: string; cover_url: string | null; source_cover_url: string | null;
   note_type: 'video' | 'image' | null; author_display_name: string | null; author_ref: string | null; author_followers: MetricValue | null;
   published_at: Date | null; observed_at: Date | null; data_mode: 'mock' | 'live'; provider_tags: string[]; is_fallback: boolean;
   topics: string[]; formats: string[]; metrics: NoteCard['metrics'] | null; saved: boolean;
@@ -66,7 +67,7 @@ type NoteRow = {
 
 function toCard(r: NoteRow): NoteCard {
   return {
-    id: r.id, platformNoteId: r.platform_note_id, title: r.title, bodyExcerpt: r.body_excerpt, canonicalUrl: r.canonical_url, coverUrl: r.cover_url && !coverExpired(r.cover_url) ? r.cover_url : null,
+    hasOriginalLink: r.has_original_link, id: r.id, platformNoteId: r.platform_note_id, title: r.title, bodyExcerpt: r.body_excerpt, canonicalUrl: r.canonical_url, coverUrl: r.cover_url && !coverExpired(r.cover_url) ? r.cover_url : null,
     fallbackCoverUrl: r.source_cover_url && r.source_cover_url !== r.cover_url && !coverExpired(r.source_cover_url) ? r.source_cover_url : null,
     noteType: r.note_type, authorName: r.author_display_name, authorRef: r.author_ref, authorFollowers: r.author_followers,
     publishedAt: r.published_at?.toISOString() ?? null, observedAt: r.observed_at?.toISOString() ?? null, dataMode: r.data_mode,

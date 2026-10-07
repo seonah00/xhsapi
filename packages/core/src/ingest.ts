@@ -1,3 +1,4 @@
+import { storeNoteAccessLink } from './note-links.ts';
 import { canonicalTerm, classifyNote, CLASSIFIER_VERSION, extractHashtags, sha256Hex, canonicalJson } from '@xhs/domain';
 import type { ProviderNote, SearchResult } from '@xhs/providers';
 import type { Db } from './context.ts';
@@ -70,6 +71,8 @@ async function upsertNote(db: Db, meta: IngestMeta, result: SearchResult, runId:
     [meta.orgId, meta.provider, n.platformNoteId, result.mode, n.canonicalUrl, n.noteType, n.title, n.bodyExcerpt, n.author.ref,
      n.author.displayName, n.author.followers, n.publishedAt, provenance, n.providerTags, isFallback, runId, result.fetchedAt, n.coverUrl ?? null],
   )).rows[0]!.id;
+
+  await storeNoteAccessLink(db, meta.orgId, id, n.platformNoteId, n.accessUrl);
 
   await db.query(
     `insert into metric_snapshots (note_id, observed_at, provider_snapshot_at, metrics_json, ingestion_run_id) values ($1, $2, $3, $4, $5)`,

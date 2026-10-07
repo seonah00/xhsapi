@@ -1,6 +1,6 @@
 import { sha256Hex } from '@xhs/domain';
 import { extractHashtags, parseMetricValue, type TopicSlug } from '@xhs/domain';
-import { assertFetchableUrl, coverExpired, normalizeXhsNoteUrl, safeCoverUrl } from '@xhs/security';
+import { assertFetchableUrl, coverExpired, normalizeXhsNoteUrl, safeXhsAccessUrl, safeCoverUrl } from '@xhs/security';
 import { REDFOX_BASE_URL, REDFOX_CAPABILITIES, type EndpointCapability, type EndpointId } from '../capabilities.ts';
 import { evaluateLiveGate, LiveCallBlockedError, type LiveGateContext } from '../gate.ts';
 import type { ProviderNote, SearchResult, TranscriptResult, TranscriptSubmit, XhsDataProvider } from '../types.ts';
@@ -196,6 +196,7 @@ function toNote(a: z.infer<typeof Rf01Article>): ProviderNote | null {
   return {
     platformNoteId: a.id,
     canonicalUrl,
+    accessUrl: safeXhsAccessUrl(a.shareInfoLink, a.id),
     title: a.title?.trim() || null,
     bodyExcerpt: a.desc ? a.desc.slice(0, 200) : null,
     noteType: null,
@@ -228,6 +229,7 @@ function toNoteRf02(w: Rf02Work): ProviderNote | null {
   return {
     platformNoteId: w.workId,
     canonicalUrl,
+    accessUrl: safeXhsAccessUrl(w.workUrl, w.workId),
     title: w.workTitle?.trim() || null,
     bodyExcerpt: w.workDesc ? w.workDesc.slice(0, 200) : null,
     noteType: workType(w.workType),

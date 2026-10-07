@@ -1,3 +1,4 @@
+import { storeNoteAccessLink } from './note-links.ts';
 import { AppError, canonicalJson, enrichmentIds, type AppEnv } from '@xhs/domain';
 import { APIFY_ACTOR, APIFY_DETAIL_CAPABILITY, ApifyBuild, evaluateLiveGate, ProviderNotReadyError,
   type ApifyDetailOptions, type ApifyNoteDetailProvider, type ProviderNote } from '@xhs/providers';
@@ -62,6 +63,7 @@ export async function storeEnrichment(db: Db, orgId: string, noteId: string, n: 
   // Re-check the operational stop switch after a request completes.
   const ops = await orgOps(db, orgId);
   if (!ops.provider.live || ops.provider.kill || !ops.features.provider_search) throw new Error('APIFY_STOPPED');
+  await storeNoteAccessLink(db, orgId, noteId, n.platformNoteId, n.accessUrl);
   await db.query(`insert into note_enrichments(note_id,org_id,permission_id,title,body_excerpt,cover_url,note_type,provider_tags,metrics_json,actor_build,job_id,expires_at)
     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now()+make_interval(secs=>$12))
     on conflict(note_id) do update set permission_id=excluded.permission_id,title=excluded.title,body_excerpt=excluded.body_excerpt,cover_url=excluded.cover_url,

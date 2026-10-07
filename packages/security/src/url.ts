@@ -123,3 +123,21 @@ export function safeLocalPath(value: unknown, prefix: string): string {
   if (u.origin !== 'http://local.invalid' || !(u.pathname === prefix || u.pathname.startsWith(`${prefix}/`) || u.pathname.startsWith(`${prefix}?`))) return prefix;
   return u.pathname + u.search + u.hash;
 }
+
+/** Keep only provider-supplied public sharing credentials, bound to the expected note. */
+export function safeXhsAccessUrl(input: unknown, expectedId: string, token?: unknown): string | null {
+  if (typeof input !== 'string' || input.length > 4000) return null;
+  try {
+    const url = new URL(input);
+    if (url.protocol !== 'https:' || url.username || url.password || url.port
+      || !['www.xiaohongshu.com', 'xiaohongshu.com'].includes(url.hostname)
+      || NOTE_PATH.exec(url.pathname)?.[1]?.toLowerCase() !== expectedId.toLowerCase()) return null;
+    const supplied = url.searchParams.get('xsec_token') || (typeof token === 'string' ? token : '');
+    if (!supplied || supplied.length > 2048 || /[\s\x00-\x1f]/.test(supplied)) return null;
+    const out = new URL(`https://www.xiaohongshu.com/explore/${expectedId.toLowerCase()}`);
+    out.searchParams.set('xsec_token', supplied);
+    const source = url.searchParams.get('xsec_source');
+    if (source && /^[a-zA-Z0-9_]{1,50}$/.test(source)) out.searchParams.set('xsec_source', source);
+    return out.toString();
+  } catch { return null; }
+}

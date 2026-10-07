@@ -77,6 +77,7 @@ export async function processDeletion(db: Db, storage: ObjectStorage | null, req
   const summary: Record<string, number> = {};
   const del = async (label: string, sql: string) => { summary[label] = (await db.query(sql, [org, uid])).rowCount ?? 0; };
 
+  await del('search_requests', `delete from search_requests where org_id=$1 and user_id=$2`);
   await del('submissions', `delete from submissions where org_id = $1 and owner_user_id = $2`);
   await del('check_runs', `delete from check_runs where org_id = $1 and owner_user_id = $2`);
   await del('publications_results', `delete from publication_records where org_id = $1 and owner_user_id = $2`);
@@ -112,6 +113,7 @@ export async function purgeExpired(db: Db): Promise<Record<string, number>> {
   await db.query(`select set_config('app.allow_purge', 'on', true)`);
   const n = async (sql: string) => (await db.query(sql)).rowCount ?? 0;
   return {
+    noteAccessLinks: await n(`delete from note_access_links where expires_at<=now()`),
     noteEnrichments: await n(`delete from note_enrichments where expires_at <= now()`),
     notes: await n(`delete from notes where expires_at is not null and expires_at < now() and not exists (select 1 from reference_items r where r.note_id = notes.id)`),
     transcripts: await n(`delete from transcript_runs where expires_at is not null and expires_at < now()`),

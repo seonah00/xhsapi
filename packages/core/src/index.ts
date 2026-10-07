@@ -31,3 +31,7 @@ export * from './reports.ts';
 export * from './taxonomy.ts';
 
 export * from './note-enrichment.ts';
+
+export * from './note-links.ts';
+export * from './auto-search.ts';
+export * from './ai-reference.ts';
