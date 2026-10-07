@@ -93,7 +93,18 @@ export class RedfoxXhsProvider implements XhsDataProvider {
     const fetchedAt = this.now().toISOString();
     const parsed = Rf02Data.safeParse(await this.post('RF02', { keyword, offset: 0, sortType: '_4' }));
     if (!parsed.success) throw new ProviderContractError('RF02 response failed schema');
-    let notes = (parsed.data.list ?? []).map(toNoteRf02).filter((x): x is ProviderNote => !!x);
+    const list = parsed.data.list ?? [];
+    const covers = { kept: 0, missing: 0, refusedHosts: {} as Record<string, number> };
+    for (const w of list) {
+      if (!w.coverUrl?.trim()) covers.missing += 1;
+      else if (safeCoverUrl(w.coverUrl)) covers.kept += 1;
+      else {
+        let host = 'invalid';
+        try { host = new URL(w.coverUrl.trim().startsWith('//') ? `https:${w.coverUrl.trim()}` : w.coverUrl.trim()).hostname.slice(0, 80); } catch { /* invalid */ }
+        covers.refusedHosts[host] = (covers.refusedHosts[host] ?? 0) + 1;
+      }
+    }
+    let notes = list.map(toNoteRf02).filter((x): x is ProviderNote => !!x);
     const postFilters: string[] = input.topic ? ['topic_not_supported_by_provider'] : [];
     if (input.days) {
       const since = this.now().getTime() - input.days * 86_400_000;
@@ -102,7 +113,7 @@ export class RedfoxXhsProvider implements XhsDataProvider {
     }
     return {
       mode: 'live', endpoint: 'RF02', fetchedAt, notes, latestHotArticles: [], relatedTerms: [],
-      coverage: { requestedPages: 1, fetchedPages: 1, postFilters, providerTotal: parsed.data.total ?? null, providerTip: null },
+      coverage: { requestedPages: 1, fetchedPages: 1, postFilters, providerTotal: parsed.data.total ?? null, providerTip: null, covers },
     };
   }
 

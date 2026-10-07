@@ -60,12 +60,17 @@ export function safeExternalHref(input: string): string | null {
 /** Image CDNs Xiaohongshu serves note covers from. The CSP img-src must list the same domains. */
 export const XHS_IMAGE_DOMAINS = ['rednotecdn.com', 'xhscdn.com', 'xhscdn.net'] as const;
 
-/** A provider cover URL the browser may load directly (never fetched or stored by the server): https on an XHS image CDN. */
+/**
+ * A provider cover URL the browser may load directly (never fetched or stored by the server): an XHS image CDN,
+ * always as https (protocol-relative and http CDN links are upgraded; the CDNs serve both).
+ */
 export function safeCoverUrl(input: string | null | undefined): string | null {
-  if (!input || input.length > 2000) return null;
+  const raw = input?.trim();
+  if (!raw || raw.length > 2000) return null;
   try {
-    const url = new URL(input);
+    const url = new URL(raw.startsWith('//') ? `https:${raw}` : raw);
     const host = url.hostname.toLowerCase();
+    if (url.protocol === 'http:') url.protocol = 'https:';
     if (url.protocol !== 'https:' || url.username || url.password || url.port) return null;
     return XHS_IMAGE_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`)) ? url.toString() : null;
   } catch {

@@ -28,7 +28,7 @@ describe('RF02 keyword search contract (documented shape)', () => {
     const [url, init] = f.mock.calls[0] as unknown as [URL, RequestInit];
     expect(url.toString()).toBe('https://redfox.hk/story/api/xhsUser/searchArticle');
     expect(JSON.parse(String(init.body))).toEqual({ keyword: '净水器', offset: 0, sortType: '_4' });
-    expect(r).toMatchObject({ endpoint: 'RF02', relatedTerms: [], latestHotArticles: [], coverage: { providerTotal: 100 } });
+    expect(r).toMatchObject({ endpoint: 'RF02', relatedTerms: [], latestHotArticles: [], coverage: { providerTotal: 100, covers: { kept: 2, missing: 0, refusedHosts: {} } } });
     expect(r.notes.map((n) => n.noteType)).toEqual(['image', 'video']);
     const n = r.notes[0]!;
     expect(n).toMatchObject({ coverUrl: COVER, publishedAt: '2026-10-01T09:09:42.000Z', providerTags: ['净水器'], author: { ref: '565b17dc0bf90c754d6615b4' } });
@@ -49,7 +49,9 @@ describe('RF02 keyword search contract (documented shape)', () => {
   it('cover URLs must be https on a Xiaohongshu image CDN', () => {
     expect(safeCoverUrl(COVER)).toBe(COVER);
     expect(safeCoverUrl('https://ci.xiaohongshu.com.evil.com/x.jpg')).toBeNull();
-    expect(safeCoverUrl('http://sns-i10.rednotecdn.com/x.jpg')).toBeNull();
+    expect(safeCoverUrl('http://sns-i10.rednotecdn.com/x.jpg')).toBe('https://sns-i10.rednotecdn.com/x.jpg');
+    expect(safeCoverUrl('//sns-webpic-qc.xhscdn.com/x.jpg')).toBe('https://sns-webpic-qc.xhscdn.com/x.jpg');
+    expect(safeCoverUrl('http://evil.example.com/x.jpg')).toBeNull();
     expect(safeCoverUrl('https://user:pw@sns-i10.rednotecdn.com/x.jpg')).toBeNull();
     expect(safeCoverUrl('javascript:alert(1)')).toBeNull();
     expect(safeCoverUrl('https://sns-webpic-qc.xhscdn.com/a.jpg')).toBe('https://sns-webpic-qc.xhscdn.com/a.jpg');

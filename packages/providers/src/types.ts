@@ -29,7 +29,11 @@ export type SearchResult = {
   /** Spec F04: shown separately, excluded from recommendations and aggregates. */
   latestHotArticles: ProviderNote[];
   /** providerTotal/providerTip: what the provider says it matched (RF01 `total`/`tips`), which can exceed what it returned. */
-  coverage: { requestedPages: number; fetchedPages: number; postFilters: string[]; providerTotal?: number | null; providerTip?: string | null };
+  coverage: {
+    requestedPages: number; fetchedPages: number; postFilters: string[]; providerTotal?: number | null; providerTip?: string | null;
+    /** Cover diagnostics (hosts only, never full URLs): kept, absent, or refused because the host is not an XHS image CDN. */
+    covers?: { kept: number; missing: number; refusedHosts: Record<string, number> };
+  };
 };
 
 export type TranscriptSubmit = { taskId: string };
