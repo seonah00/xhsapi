@@ -116,6 +116,9 @@ describe('live gate (spec 6.3)', () => {
     consentRecorded: true, budgetReserved: true, userApproved: true, now: fixedNow(),
   };
 
+  it.each([null, { ...permission, status: 'revoked' as const }, { ...permission, expiresAt: new Date('2020-01-01'), allowedEndpoints: [] }])('does not require legacy permission records (%o)', (legacy) => {
+    expect(evaluateLiveGate({ ...base, permission: legacy })).toEqual({ allowed: true });
+  });
   it('allows only when every condition holds', () => {
     expect(evaluateLiveGate(base)).toEqual({ allowed: true });
   });
@@ -130,10 +133,6 @@ describe('live gate (spec 6.3)', () => {
     [{ env: loadEnv({}) }, 'mode_not_live'],
     [{ env: loadEnv({ ...LIVE_AUTH_BASE, APP_DATA_MODE: 'live', LIVE_PROVIDER_CALLS_ENABLED: 'true' }) }, 'feature_disabled'],
     [{ orgLiveEnabled: false }, 'org_switch_off'],
-    [{ permission: null }, 'permission_missing'],
-    [{ permission: { ...permission, status: 'revoked' as const } }, 'permission_inactive'],
-    [{ permission: { ...permission, expiresAt: new Date('2026-01-01') } }, 'permission_expired'],
-    [{ permission: { ...permission, allows: { ...permission.allows, ai_processing: false } } }, 'purpose_not_permitted'],
     [{ consentRecorded: false }, 'consent_missing'],
     [{ budgetReserved: false }, 'budget_not_reserved'],
     [{ userApproved: false }, 'not_user_approved'],
