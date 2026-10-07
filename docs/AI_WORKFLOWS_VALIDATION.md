@@ -13,5 +13,6 @@
 - 단위 테스트: 152개 통과.
 - Next.js 프로덕션 빌드: 통과. 기존 pg-config.ts의 동적 인증서 경로 tracing 경고 2개 유지.
 - 로컬 PostgreSQL: macOS sandbox shmget Operation not permitted로 시작 실패. DB/브라우저 검증은 GitHub Linux CI에서 수행한다.
-- CI: 진행 예정. 최종 결과는 후속 기록에서 갱신한다.
+- CI: 코드 커밋 `9ff59e8`에서 타입·lint·단위 152개·DB 146개·브라우저 23개 모두 통과. https://github.com/seonah00/xhsapi/actions/runs/37599857531
+- 운영 배포: 검증된 코드와 이 기록을 운영 브랜치에 반영한다. 실제 배포 성공은 Railway 상태로 별도 확인한다.
 - 실제 AI v2 품질·단가 활성화·학생 반복 예산: 미검증/미승인. 이전 v1 실연결 테스트와 구분한다.
