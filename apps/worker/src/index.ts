@@ -1,3 +1,4 @@
+// Observed hashtag upserts target the legacy partial unique index, separate from imported shared dictionary rows.
 // Live reference analysis uses a reserved, consented OpenAI request (ADR 0020).
 // Search ingestion validates post identity and refreshes canonical URLs (ADR 0019).
 // Category collection counts matching taxonomy results toward its bounded target (ADR 0017).

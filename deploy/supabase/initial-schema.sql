@@ -2298,3 +2298,417 @@ update public.provider_capabilities set price_status='unknown',
 where provider='openai' and endpoint='AI01';
 
 insert into app.applied_migrations (version, name) values ('20261007000023', '20261007000023_detailed_ai_contract.sql');
+
+-- ==== 20261007000024_shared_dictionary.sql ====
+
+-- Admin-managed shared dictionary imports. Raw source data stays in an admin-only
+-- batch table; published entries continue to live in keywords / expressions.
+
+alter table public.keywords
+  add column shared_dictionary_key text,
+  add column shared_dictionary_meta jsonb;
+alter table public.expressions
+  add column shared_dictionary_key text,
+  add column shared_dictionary_meta jsonb;
+
+alter table public.keywords add constraint keywords_shared_dictionary_meta_object
+  check (shared_dictionary_meta is null or jsonb_typeof(shared_dictionary_meta) = 'object');
+alter table public.expressions add constraint expressions_shared_dictionary_meta_object
+  check (shared_dictionary_meta is null or jsonb_typeof(shared_dictionary_meta) = 'object');
+alter table public.keywords
+  drop constraint keywords_org_id_canonical_text_kind_provenance_data_mode_key;
+create unique index keywords_legacy_identity_unique
+  on public.keywords (org_id, canonical_text, kind, provenance, data_mode)
+  where shared_dictionary_key is null;
+create unique index keywords_shared_dictionary_key_unique
+  on public.keywords (org_id, data_mode, shared_dictionary_key) where shared_dictionary_key is not null;
+create unique index expressions_shared_dictionary_key_unique
+  on public.expressions (org_id, data_mode, shared_dictionary_key) where shared_dictionary_key is not null;
+
+create table public.dictionary_import_batches (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references public.organizations(id) on delete cascade,
+  label text not null check (length(label) between 1 and 120),
+  status text not null default 'staged' check (status in ('staged', 'reviewed', 'published')),
+  raw_payload jsonb not null check (jsonb_typeof(raw_payload) = 'object'),
+  normalized_payload jsonb not null check (jsonb_typeof(normalized_payload) = 'object'),
+  tag_count integer not null check (tag_count >= 0),
+  expression_count integer not null check (expression_count >= 0),
+  entry_count integer not null check (entry_count = tag_count + expression_count and entry_count <= 10000),
+  data_mode text not null check (data_mode in ('mock', 'live')),
+  staged_by uuid not null,
+  reviewed_by uuid,
+  published_by uuid,
+  revision integer not null default 1 check (revision > 0),
+  catalog_revision text check (catalog_revision is null or catalog_revision ~ '^[0-9a-f]{64}$'),
+  publish_result jsonb,
+  created_at timestamptz not null default now(),
+  reviewed_at timestamptz,
+  published_at timestamptz,
+  -- Actor UUIDs are immutable audit history, not references to active membership.
+  -- Authorization is checked by RLS/core at each transition.
+  unique (org_id, id),
+  check (octet_length(raw_payload::text) <= 2097152),
+  check ((status = 'staged' and catalog_revision is null and reviewed_by is null and reviewed_at is null and published_by is null and published_at is null)
+      or (status = 'reviewed' and catalog_revision is not null and reviewed_by is not null and reviewed_at is not null and published_by is null and published_at is null)
+      or (status = 'published' and catalog_revision is not null and reviewed_by is not null and reviewed_at is not null and published_by is not null and published_at is not null))
+);
+create index dictionary_import_batches_org_created on public.dictionary_import_batches (org_id, created_at desc);
+
+-- A stable, server-computed revision covers only the published catalog's
+-- allowlisted metadata and current status. Raw import sources never enter it.
+create or replace function app.dictionary_catalog_revision(p_org uuid, p_mode text) returns text
+language sql volatile set search_path = '' as $$
+  select encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(c) order by c.entry_type, c.dictionary_key), '[]'::jsonb)::text, 'UTF8')), 'hex')
+    from (
+      select 'tag'::text as entry_type, shared_dictionary_key as dictionary_key,
+             shared_dictionary_meta as metadata, review_status as current_status
+        from public.keywords
+       where org_id = p_org and data_mode = p_mode and shared_dictionary_key is not null
+      union all
+      select 'expression'::text as entry_type, shared_dictionary_key as dictionary_key,
+             shared_dictionary_meta as metadata, review_status as current_status
+        from public.expressions
+       where org_id = p_org and data_mode = p_mode and owner_user_id is null and shared_dictionary_key is not null
+    ) c
+$$;
+
+-- Payloads and previews are immutable after staging. Review captures the exact
+-- org/mode catalog revision while holding the same lock used by publication.
+create or replace function app.guard_dictionary_import_batch() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  if tg_op = 'DELETE' then
+    -- RLS decides who may erase private import sources; cascades must also work.
+    return old;
+  end if;
+  if new.org_id is distinct from old.org_id
+     or new.label is distinct from old.label
+     or new.raw_payload is distinct from old.raw_payload
+     or new.normalized_payload is distinct from old.normalized_payload
+     or new.tag_count is distinct from old.tag_count
+     or new.expression_count is distinct from old.expression_count
+     or new.entry_count is distinct from old.entry_count
+     or new.data_mode is distinct from old.data_mode
+     or new.staged_by is distinct from old.staged_by
+     or new.created_at is distinct from old.created_at then
+    raise exception 'DICTIONARY_IMPORT_IMMUTABLE' using errcode = 'P0001';
+  end if;
+  if new.revision <> old.revision + 1 then
+    raise exception 'DICTIONARY_IMPORT_STALE' using errcode = 'P0001';
+  end if;
+  if not ((old.status = 'staged' and new.status = 'reviewed')
+       or (old.status = 'reviewed' and new.status = 'published')) then
+    raise exception 'DICTIONARY_IMPORT_FLOW' using errcode = 'P0001';
+  end if;
+  if old.status = 'staged' then
+    perform pg_advisory_xact_lock(hashtextextended('shared-dictionary:' || old.org_id::text || ':' || old.data_mode, 0));
+    new.catalog_revision := app.dictionary_catalog_revision(old.org_id, old.data_mode);
+  elsif new.catalog_revision is distinct from old.catalog_revision then
+    raise exception 'DICTIONARY_IMPORT_IMMUTABLE' using errcode = 'P0001';
+  end if;
+  return new;
+end $$;
+create trigger dictionary_import_batches_guard
+  before update or delete on public.dictionary_import_batches
+  for each row execute function app.guard_dictionary_import_batch();
+
+alter table public.dictionary_import_batches enable row level security;
+create policy dictionary_import_admin_all on public.dictionary_import_batches for all to authenticated
+  using (app.has_role(org_id, array['org_admin']))
+  with check (app.has_role(org_id, array['org_admin']));
+grant select, insert, update, delete on public.dictionary_import_batches to authenticated;
+
+-- Students see published keywords only. Reviewers/admins retain the existing
+-- curation visibility, while only org admins receive keyword mutation rights.
+drop policy member_read on public.keywords;
+create policy keywords_member_read on public.keywords for select to authenticated
+  using (app.is_member(org_id) and (review_status = 'published' or app.has_role(org_id, array['reviewer', 'org_admin'])));
+create policy keywords_admin_write on public.keywords for all to authenticated
+  using (app.has_role(org_id, array['org_admin']))
+  with check (app.has_role(org_id, array['org_admin']));
+grant insert, update, delete on public.keywords to authenticated;
+
+-- Imported shared expressions are admin-managed. Existing personal expression
+-- writes and staff curation remain governed by the earlier policies.
+create policy expressions_import_admin_write on public.expressions for all to authenticated
+  using (owner_user_id is null and shared_dictionary_key is not null and app.has_role(org_id, array['org_admin']))
+  with check (owner_user_id is null and shared_dictionary_key is not null and app.has_role(org_id, array['org_admin']));
+create policy expressions_import_insert_restrictive on public.expressions as restrictive for insert to authenticated
+  with check (shared_dictionary_key is null or app.has_role(org_id, array['org_admin']));
+create policy expressions_import_update_restrictive on public.expressions as restrictive for update to authenticated
+  using (shared_dictionary_key is null or app.has_role(org_id, array['org_admin']))
+  with check (shared_dictionary_key is null or app.has_role(org_id, array['org_admin']));
+create policy expressions_import_delete_restrictive on public.expressions as restrictive for delete to authenticated
+  using (shared_dictionary_key is null or app.has_role(org_id, array['org_admin']));
+
+-- A single statement locks the reviewed batch, upserts only rows carrying the
+-- matching private dictionary key, and advances the batch to published.
+create or replace function app.publish_dictionary_import(p_batch uuid, p_org uuid, p_actor uuid)
+returns table (
+  batch_id uuid,
+  tags integer,
+  expressions integer,
+  total integer,
+  created_count integer,
+  updated_count integer,
+  unchanged_count integer
+)
+language plpgsql set search_path = '' as $$
+declare
+  v_batch public.dictionary_import_batches;
+  v_entry jsonb;
+  v_meta jsonb;
+  v_key text;
+  v_type text;
+  v_id uuid;
+  v_existing_meta jsonb;
+  v_existing_status text;
+  v_existing_provenance text;
+  v_current_revision text;
+  v_created integer := 0;
+  v_updated integer := 0;
+  v_unchanged integer := 0;
+begin
+  if auth.uid() is distinct from p_actor or not app.has_role(p_org, array['org_admin']) then
+    raise exception 'FORBIDDEN' using errcode = 'P0001';
+  end if;
+  select * into v_batch from public.dictionary_import_batches
+   where id = p_batch and org_id = p_org for update;
+  if not found then raise exception 'DICTIONARY_IMPORT_NOT_FOUND' using errcode = 'P0001'; end if;
+  if v_batch.status <> 'reviewed' then raise exception 'DICTIONARY_IMPORT_NOT_REVIEWED' using errcode = 'P0001'; end if;
+
+  perform pg_advisory_xact_lock(hashtextextended('shared-dictionary:' || p_org::text || ':' || v_batch.data_mode, 0));
+  v_current_revision := app.dictionary_catalog_revision(p_org, v_batch.data_mode);
+  if v_current_revision is distinct from v_batch.catalog_revision then
+    raise exception 'DICTIONARY_IMPORT_CATALOG_STALE' using errcode = 'P0001';
+  end if;
+
+  for v_entry in select value from jsonb_array_elements(v_batch.normalized_payload->'entries') loop
+    v_key := v_entry->>'canonicalKey';
+    v_type := v_entry->>'entryType';
+    v_meta := v_entry - 'canonicalKey' - 'entryType';
+    if v_type = 'tag' then
+      select id, shared_dictionary_meta, review_status, provenance
+        into v_id, v_existing_meta, v_existing_status, v_existing_provenance
+        from public.keywords
+       where org_id = p_org and data_mode = v_batch.data_mode and shared_dictionary_key = v_key for update;
+      if found then
+        if v_existing_meta = v_meta and v_existing_status = 'published' and v_existing_provenance = 'editorial_seed' then
+          v_unchanged := v_unchanged + 1;
+        else
+          update public.keywords set
+            canonical_text = lower(trim(both '#' from v_entry->>'term')),
+            raw_text = v_entry->>'term', meaning_ko = v_entry->>'meaning',
+            topics = array(select jsonb_array_elements_text(v_entry->'categories')),
+            provenance = 'editorial_seed', data_mode = v_batch.data_mode,
+            review_status = 'published', shared_dictionary_meta = v_meta
+          where id = v_id;
+          v_updated := v_updated + 1;
+        end if;
+      else
+        insert into public.keywords
+          (org_id, canonical_text, raw_text, kind, provenance, meaning_ko, topics, review_status, data_mode, shared_dictionary_key, shared_dictionary_meta)
+        values
+          (p_org, lower(trim(both '#' from v_entry->>'term')), v_entry->>'term', 'hashtag', 'editorial_seed',
+           v_entry->>'meaning', array(select jsonb_array_elements_text(v_entry->'categories')), 'published', v_batch.data_mode,
+           v_key, v_meta);
+        v_created := v_created + 1;
+      end if;
+    elsif v_type = 'expression' then
+      select id, shared_dictionary_meta, review_status, provenance
+        into v_id, v_existing_meta, v_existing_status, v_existing_provenance
+        from public.expressions
+       where org_id = p_org and data_mode = v_batch.data_mode and shared_dictionary_key = v_key for update;
+      if found then
+        if v_existing_meta = v_meta and v_existing_status = 'published' and v_existing_provenance = 'editorial' then
+          v_unchanged := v_unchanged + 1;
+        else
+          update public.expressions set
+            expression = v_entry->>'term', explanations_json = jsonb_build_object('meaning', v_entry->>'meaning'),
+            topics = array(select jsonb_array_elements_text(v_entry->'categories')),
+            expression_type = case when nullif(v_entry->>'unknownTrendNote','') is null then 'basic' else 'trend_unverified' end,
+            provenance = 'editorial', data_mode = v_batch.data_mode,
+            review_status = 'published', version = version + 1, shared_dictionary_meta = v_meta
+          where id = v_id;
+          v_updated := v_updated + 1;
+        end if;
+      else
+        insert into public.expressions
+          (org_id, owner_user_id, expression, explanations_json, topics, expression_type, provenance, review_status,
+           data_mode, shared_dictionary_key, shared_dictionary_meta)
+        values
+          (p_org, null, v_entry->>'term', jsonb_build_object('meaning', v_entry->>'meaning'),
+           array(select jsonb_array_elements_text(v_entry->'categories')),
+           case when nullif(v_entry->>'unknownTrendNote','') is null then 'basic' else 'trend_unverified' end,
+           'editorial', 'published', v_batch.data_mode, v_key, v_meta);
+        v_created := v_created + 1;
+      end if;
+    else
+      raise exception 'DICTIONARY_ENTRY_TYPE' using errcode = 'P0001';
+    end if;
+  end loop;
+
+  update public.dictionary_import_batches set
+    status = 'published', published_by = p_actor, published_at = now(), revision = revision + 1,
+    publish_result = jsonb_build_object('created', v_created, 'updated', v_updated, 'unchanged', v_unchanged)
+  where id = p_batch;
+
+  return query select p_batch, v_batch.tag_count, v_batch.expression_count, v_batch.entry_count,
+                      v_created, v_updated, v_unchanged;
+end $$;
+revoke all on function app.publish_dictionary_import(uuid, uuid, uuid) from public;
+grant execute on function app.publish_dictionary_import(uuid, uuid, uuid) to authenticated;
+
+-- Import audit contains only counts/status, never raw or preview content.
+create or replace function app.audit_dictionary_import_batch() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  insert into public.audit_events (org_id, actor_id, action, target_type, target_id, redacted_metadata)
+  values (new.org_id, auth.uid(), 'dictionary_import.' || new.status, 'dictionary_import_batch', new.id,
+          jsonb_build_object('tags', new.tag_count, 'expressions', new.expression_count, 'revision', new.revision));
+  return new;
+end $$;
+create trigger dictionary_import_batches_audit
+  after insert or update on public.dictionary_import_batches
+  for each row execute function app.audit_dictionary_import_batch();
+
+insert into app.applied_migrations (version, name) values ('20261007000024', '20261007000024_shared_dictionary.sql');
+
+-- ==== 20261007000025_dictionary_ai.sql ====
+
+-- Bounded, authenticated Gemini composer usage. Preview contexts and generated
+-- content are never stored here: this table contains reservation/usage metadata only.
+
+create table public.dictionary_ai_usage (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null,
+  user_id uuid not null,
+  nonce_hash text not null unique check (nonce_hash ~ '^[0-9a-f]{64}$'),
+  model text not null default 'gemini-3.8-flash' check (model = 'gemini-3.8-flash'),
+  reserved_max_cost_usd numeric(8, 6) not null default 0.060000
+    check (reserved_max_cost_usd > 0 and reserved_max_cost_usd <= 0.060000),
+  outcome text not null default 'reserved' check (outcome in ('reserved', 'succeeded', 'failed')),
+  prompt_token_count integer check (prompt_token_count is null or prompt_token_count between 0 and 100000),
+  candidates_token_count integer check (candidates_token_count is null or candidates_token_count between 0 and 100000),
+  total_token_count integer check (total_token_count is null or total_token_count between 0 and 200000),
+  created_at timestamptz not null default now(),
+  completed_at timestamptz
+  -- Deliberately no cascading membership FK: leaving/deleting a membership must
+  -- not erase already-reserved costs and reopen the deployment-wide monthly cap.
+  -- The reservation function validates active membership before every insert.
+);
+create index dictionary_ai_usage_user_day on public.dictionary_ai_usage (user_id, created_at desc);
+create index dictionary_ai_usage_month on public.dictionary_ai_usage (created_at, reserved_max_cost_usd);
+
+alter table public.dictionary_ai_usage enable row level security;
+create policy own_metadata on public.dictionary_ai_usage for select to authenticated
+  using (user_id = auth.uid() and app.is_member(org_id));
+grant select on public.dictionary_ai_usage to authenticated;
+
+-- Status exposes only the caller's count and a global capacity boolean, never
+-- another user's rows or prompts/results (which are not stored at all).
+create or replace function app.dictionary_ai_capacity(p_org uuid)
+returns table (user_daily_used integer, global_cap_available boolean)
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  v_uid uuid := auth.uid();
+  v_day_start timestamp := date_trunc('day', now() at time zone 'Asia/Seoul');
+  v_month_start timestamp := date_trunc('month', now() at time zone 'Asia/Seoul');
+begin
+  if v_uid is null then raise exception 'UNAUTHENTICATED' using errcode = 'P0001'; end if;
+  if not app.is_member(p_org) then raise exception 'FORBIDDEN' using errcode = 'P0001'; end if;
+  return query
+    select
+      (select count(*)::integer from public.dictionary_ai_usage u
+        where u.user_id = v_uid and (u.created_at at time zone 'Asia/Seoul') >= v_day_start),
+      (select coalesce(sum(u.reserved_max_cost_usd), 0) + 0.060000 <= 5.000000
+         from public.dictionary_ai_usage u
+        where (u.created_at at time zone 'Asia/Seoul') >= v_month_start);
+end $$;
+
+-- Limits are constants here, not caller parameters: authenticated clients cannot
+-- raise a limit, choose a user, lower the reservation, or change the model.
+create or replace function app.reserve_dictionary_ai_usage(p_org uuid, p_nonce_hash text)
+returns table (usage_id uuid, reserved_max_cost_usd numeric, user_daily_used integer)
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_uid uuid := auth.uid();
+  v_day_start timestamp := date_trunc('day', now() at time zone 'Asia/Seoul');
+  v_month_start timestamp := date_trunc('month', now() at time zone 'Asia/Seoul');
+  v_daily integer;
+  v_monthly numeric(12, 6);
+  v_id uuid;
+begin
+  if v_uid is null then raise exception 'UNAUTHENTICATED' using errcode = 'P0001'; end if;
+  if not app.is_member(p_org) then raise exception 'FORBIDDEN' using errcode = 'P0001'; end if;
+  if p_nonce_hash is null or p_nonce_hash !~ '^[0-9a-f]{64}$' then
+    raise exception 'VALIDATION_FAILED' using errcode = 'P0001';
+  end if;
+
+  -- One deployment-wide lock makes the monthly cap and nonce replay check atomic.
+  perform pg_advisory_xact_lock(hashtextextended('dictionary-ai:' || to_char(v_month_start, 'YYYY-MM'), 0));
+
+  if exists (select 1 from public.dictionary_ai_usage where nonce_hash = p_nonce_hash) then
+    raise exception 'DICTIONARY_AI_REPLAY' using errcode = 'P0001';
+  end if;
+
+  select count(*)::integer into v_daily
+    from public.dictionary_ai_usage u
+   where u.user_id = v_uid and (u.created_at at time zone 'Asia/Seoul') >= v_day_start;
+  if v_daily >= 3 then raise exception 'DICTIONARY_AI_DAILY_LIMIT' using errcode = 'P0001'; end if;
+
+  select coalesce(sum(u.reserved_max_cost_usd), 0) into v_monthly
+    from public.dictionary_ai_usage u
+   where (u.created_at at time zone 'Asia/Seoul') >= v_month_start;
+  if v_monthly + 0.060000 > 5.000000 then
+    raise exception 'DICTIONARY_AI_GLOBAL_CAP' using errcode = 'P0001';
+  end if;
+
+  insert into public.dictionary_ai_usage (org_id, user_id, nonce_hash)
+  values (p_org, v_uid, p_nonce_hash)
+  returning id into v_id;
+
+  return query select v_id, 0.060000::numeric, v_daily + 1;
+end $$;
+
+create or replace function app.finish_dictionary_ai_usage(
+  p_usage uuid,
+  p_outcome text,
+  p_prompt_tokens integer default null,
+  p_candidate_tokens integer default null,
+  p_total_tokens integer default null
+) returns boolean
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_uid uuid := auth.uid();
+  v_row public.dictionary_ai_usage;
+begin
+  if v_uid is null then raise exception 'UNAUTHENTICATED' using errcode = 'P0001'; end if;
+  if p_outcome not in ('succeeded', 'failed') then raise exception 'VALIDATION_FAILED' using errcode = 'P0001'; end if;
+  if p_prompt_tokens is not null and (p_prompt_tokens < 0 or p_prompt_tokens > 100000) then raise exception 'VALIDATION_FAILED' using errcode = 'P0001'; end if;
+  if p_candidate_tokens is not null and (p_candidate_tokens < 0 or p_candidate_tokens > 100000) then raise exception 'VALIDATION_FAILED' using errcode = 'P0001'; end if;
+  if p_total_tokens is not null and (p_total_tokens < 0 or p_total_tokens > 200000) then raise exception 'VALIDATION_FAILED' using errcode = 'P0001'; end if;
+
+  select * into v_row from public.dictionary_ai_usage where id = p_usage for update;
+  if not found or v_row.user_id <> v_uid or not app.is_member(v_row.org_id) then
+    raise exception 'NOT_FOUND' using errcode = 'P0001';
+  end if;
+  if v_row.outcome <> 'reserved' then return false; end if;
+
+  update public.dictionary_ai_usage
+     set outcome = p_outcome,
+         prompt_token_count = p_prompt_tokens,
+         candidates_token_count = p_candidate_tokens,
+         total_token_count = p_total_tokens,
+         completed_at = now()
+   where id = p_usage;
+  return true;
+end $$;
+
+revoke all on function app.dictionary_ai_capacity(uuid), app.reserve_dictionary_ai_usage(uuid, text),
+  app.finish_dictionary_ai_usage(uuid, text, integer, integer, integer) from public;
+grant execute on function app.dictionary_ai_capacity(uuid), app.reserve_dictionary_ai_usage(uuid, text),
+  app.finish_dictionary_ai_usage(uuid, text, integer, integer, integer) to authenticated;
+
+insert into app.applied_migrations (version, name) values ('20261007000025', '20261007000025_dictionary_ai.sql');

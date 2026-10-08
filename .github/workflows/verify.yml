@@ -1,7 +1,9 @@
 name: Verify
 on:
   push:
-    branches: ['codex/zen-deploy-validation']
+    branches: ['codex/zen-deploy-validation', 'claude/vigilant-planck-61yogr', 'aside/shared-dictionary-validation']
+  pull_request:
+    branches: ['claude/vigilant-planck-61yogr']
   workflow_dispatch:
 permissions:
   contents: read
