@@ -7,10 +7,14 @@ import { withAdmin } from '../../forbidden-guard';
 
 const MAX_JSON_BYTES = 2 * 1024 * 1024;
 
-function backWithError(req: Request, message: string) {
-  const url = new URL('/admin/dictionary', req.url);
-  url.searchParams.set('error', message);
-  return NextResponse.redirect(url, 303);
+// Relative Location: behind Railway's proxy req.url carries the internal host,
+// which made the browser follow a cross-origin redirect and fail.
+function seeOther(path: string) {
+  return new NextResponse(null, { status: 303, headers: { Location: path } });
+}
+
+function backWithError(_req: Request, message: string) {
+  return seeOther(`/admin/dictionary?${new URLSearchParams({ error: message })}`);
 }
 
 export async function POST(req: Request) {
@@ -33,7 +37,7 @@ export async function POST(req: Request) {
       const label = String(form.get('label') ?? '').trim() || file.name.replace(/\.json$/i, '');
       return stageDictionaryImport(ctx, { label, payload });
     });
-    return NextResponse.redirect(new URL(`/admin/dictionary/${id}?staged=1`, req.url), 303);
+    return seeOther(`/admin/dictionary/${id}?staged=1`);
   } catch (error) {
     if ((error as { digest?: string })?.digest) throw error;
     if (error instanceof AppError) return backWithError(req, error.messageKo);
