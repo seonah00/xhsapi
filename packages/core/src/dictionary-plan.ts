@@ -10,6 +10,7 @@ export const DictionaryPlanInput = z.object({
   entryIds: z.array(z.string().uuid()).min(1).max(11),
   notes: z.string().max(2000), mode: z.enum(['record', 'plan']),
   disclosure: z.enum(['none', 'gifted', 'paid']),
+  reviewNotes: z.array(z.string().max(1000)).max(30).default([]),
   content: PlanContent,
 }).strict();
 
@@ -38,6 +39,7 @@ export async function importDictionaryPlan(ctx: Ctx, raw: unknown): Promise<stri
   } }, created.revision);
   await saveVersion(ctx, id, saved.revision);
   const dictionarySource = {
+    reviewNotes: input.reviewNotes,
     requestId: input.requestId, mode: input.mode, notes: input.notes,
     entries: entries.map(e => ({ term: e.term, meaning: e.meaning, cautions: e.cautions, entryType: e.entryType })),
   };

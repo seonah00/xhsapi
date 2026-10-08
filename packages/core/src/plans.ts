@@ -48,6 +48,7 @@ export type PlanVersion = {
   contentHash: string; checkInputHash: string; createdAt: string; profileVersionId: string | null;
 };
 const DictionarySource = z.object({
+  reviewNotes: z.array(z.string().max(1000)).max(30).default([]),
   requestId: z.string().uuid(), mode: z.enum(['record', 'plan']), notes: z.string().max(2000),
   entries: z.array(z.object({ term: z.string(), meaning: z.string(), cautions: z.array(z.string()), entryType: z.enum(['tag', 'expression']) })).max(11),
 });

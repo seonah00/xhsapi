@@ -16,6 +16,7 @@ export function DictionaryPlanImport({ entries, source, result, accounts }: {
   const [state, action, pending] = useActionState(dictionaryPlanAction, {});
   const [title, setTitle] = useState(result?.titles[0]?.zh ?? '');
   const payload = JSON.stringify({
+    reviewNotes: result ? [...result.blockers, ...result.warnings] : [],
     requestId, entryIds: entries.map(e => e.id), notes: source.notes,
     mode: source.mode, disclosure: source.disclosure,
     content: {

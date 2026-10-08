@@ -61,6 +61,7 @@ export default async function PlanPage({ params, searchParams }: { params: Promi
         <h2 className="font-semibold">공용사전에서 가져온 작업 메모</h2>
         <p className="mt-1 text-xs text-muted">{plan.dictionarySource.mode === 'plan' ? '촬영·방문 계획' : '경험 기록'} · 저장 당시 사전의 뜻과 주의점입니다. 본인의 사실로 자동 확정하지 않습니다.</p>
         <p className="my-2 whitespace-pre-wrap text-sm">{plan.dictionarySource.notes}</p>
+        {plan.dictionarySource.reviewNotes.length > 0 && <ul className="my-2 list-disc pl-5 text-sm text-warn">{plan.dictionarySource.reviewNotes.map((note, i) => <li key={i}>{note}</li>)}</ul>}
         <ul className="space-y-2 text-sm">{plan.dictionarySource.entries.map((e, i) => <li key={i}><strong lang="zh-CN">{e.term}</strong> · {e.meaning}{e.cautions.length > 0 && <p className="text-xs text-muted">주의: {e.cautions.join(' · ')}</p>}</li>)}</ul>
         <p className="mt-3 text-sm">다음: 제목·표지 문구 확인 → 직접 촬영할 장면 입력 → 장면별 촬영표 작성</p>
       </Card>}

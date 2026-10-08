@@ -14,7 +14,7 @@ describe('dictionary private plan import', () => {
       await publishDictionaryImport(ctx, batch, true);
     });
     const entries = await run(U.studentA, ctx => listSharedDictionary(ctx, {query:'测试散步'}));
-    const accountId = await run(U.studentA, async ctx => (await listAccounts(ctx))[0]?.id ?? createAccount(ctx, {displayName:'사전 기획 테스트',topics:['daily'],mainTopic:'daily',audience:'산책',goals:['record_life'],tone:'plain',formats:['vlog'],chineseLevel:'beginner',showFace:false,useVoice:false}));
+    const accountId = await run(U.studentA, async ctx => (await listAccounts(ctx))[0]?.id ?? createAccount(ctx, {displayName:'사전 기획 테스트',topics:['daily-life'],mainTopic:'daily-life',audience:'산책',goals:['record_life'],tone:'plain',formats:['vlog'],chineseLevel:'beginner',showFace:false,useVoice:false}));
     const input = {requestId:randomUUID(),accountId,name:'사전 산책 기획',entryIds:[entries.items[0]!.id],notes:'방문 예정이며 아직 경험하지 않음',mode:'plan',disclosure:'none',content:{title:'周末散步计划',cover:'周末去散步',body:'计划去公园散步',meaningKo:'공원 산책 계획',tags:['测试散步']}};
     const id = await run(U.studentA, ctx => importDictionaryPlan(ctx,input));
     expect(await run(U.studentA, ctx => importDictionaryPlan(ctx,input))).toBe(id);
