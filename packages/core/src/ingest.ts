@@ -105,7 +105,7 @@ async function upsertNote(db: Db, meta: IngestMeta, result: SearchResult, runId:
     const kw = (await db.query<{ id: string }>(
       `insert into keywords (org_id, canonical_text, raw_text, kind, provenance, data_mode, topics)
        values ($1, $2, $3, 'hashtag', 'observed_tag', $4, $5)
-       on conflict (org_id, canonical_text, kind, provenance, data_mode) do update set topics = (
+       on conflict (org_id, canonical_text, kind, provenance, data_mode) where shared_dictionary_key is null do update set topics = (
          select array(select distinct unnest(keywords.topics || excluded.topics)))
        returning id`,
       [meta.orgId, canonical, raw, result.mode, n.topics],
