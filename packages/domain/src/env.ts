@@ -6,6 +6,8 @@ export const EnvSchema = z.object({
   APP_DATA_MODE: z.enum(['mock', 'live']).default('mock'),
   LIVE_PROVIDER_CALLS_ENABLED: flag,
   LIVE_LLM_CALLS_ENABLED: flag,
+  DICTIONARY_AI_ENABLED: flag,
+  GEMINI_API_KEY: z.string().optional(),
   AUTO_REFRESH_ENABLED: flag,
   COMMENTS_ENABLED: flag,
   OCR_ENABLED: flag,
@@ -35,7 +37,7 @@ export type AppEnv = z.infer<typeof EnvSchema>;
 
 const LIVE_ONLY_FLAGS = [
   'LIVE_PROVIDER_CALLS_ENABLED', 'LIVE_LLM_CALLS_ENABLED', 'AUTO_REFRESH_ENABLED',
-  'COMMENTS_ENABLED', 'OCR_ENABLED', 'TRANSCRIPT_ENABLED', 'APIFY_ENABLED',
+  'COMMENTS_ENABLED', 'OCR_ENABLED', 'TRANSCRIPT_ENABLED', 'APIFY_ENABLED', 'DICTIONARY_AI_ENABLED',
 ] as const;
 
 export class EnvConfigError extends Error {
@@ -56,6 +58,9 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
   if (env.APP_DATA_MODE === 'mock') {
     const on = LIVE_ONLY_FLAGS.filter((k) => env[k]);
     if (on.length > 0) throw new EnvConfigError(`Live-only flags enabled in mock mode: ${on.join(', ')}`);
+  }
+  if (env.DICTIONARY_AI_ENABLED && (!env.LIVE_LLM_CALLS_ENABLED || !env.GEMINI_API_KEY?.trim())) {
+    throw new EnvConfigError('Dictionary AI requires LIVE_LLM_CALLS_ENABLED and a server-side GEMINI_API_KEY');
   }
   if (env.APP_DATA_MODE === 'live' && env.AUTH_PROVIDER !== 'supabase') {
     throw new EnvConfigError('live mode requires AUTH_PROVIDER=supabase (demo login is mock-only)');
