@@ -19,7 +19,7 @@ describe('dictionary private plan import', () => {
   it('saves selected content and public meanings, is idempotent, preserves source on autosave and isolates owners', async () => {
     const key = randomUUID();
     await run(U.admin, async ctx => {
-      const batch = await stageDictionaryImport(ctx, { label:'plan test', payload:{tags:[{id:key,term:'测试散步',meaning:'테스트 산책',categories:['일상'],cautions:['실제 촬영 전 확인']}],expressions:[]} });
+      const batch = await stageDictionaryImport(ctx, { label:'plan test', payload:{tags:[{id:key,term:'测试散步',kind:'주제',meaning:'테스트 산책',categories:['일상'],cautions:['실제 촬영 전 확인']}],expressions:[]} });
       batchId = batch;
       await reviewDictionaryImport(ctx, batch, true);
       await publishDictionaryImport(ctx, batch, true);
