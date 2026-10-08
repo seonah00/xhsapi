@@ -230,9 +230,11 @@ describe('shared dictionary import permissions and workflow', () => {
       .rejects.toMatchObject({ code: 'CONFLICT', messageKo: expect.stringMatching(/다시 가져와 검토/) });
     expect((await pool.query(`select status from dictionary_import_batches where id=$1`, [older])).rows[0])
       .toEqual({ status: 'reviewed' });
-    const current = await as(U.studentA, ORG1, 'student', (ctx) => listSharedDictionary(ctx, { query: 'synthetic-tag-3' }));
-    expect(current.items).toHaveLength(1);
-    expect(current.items[0]!.meaning).toBe('최신 검토 뜻');
+    // Search is substring-based, so synthetic-tag-30..39 and 300+ also match.
+    const current = await as(U.studentA, ORG1, 'student', (ctx) => listSharedDictionary(ctx, { query: 'synthetic-tag-3', pageSize: 100 }));
+    const exact = current.items.filter((entry) => entry.term === 'synthetic-tag-3');
+    expect(exact).toHaveLength(1);
+    expect(exact[0]!.meaning).toBe('최신 검토 뜻');
   });
 
   it('keeps mock and live imports isolated without changing provenance to avoid collisions', async () => {
