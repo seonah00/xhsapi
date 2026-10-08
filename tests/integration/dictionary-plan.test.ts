@@ -5,13 +5,11 @@ import { listAccounts, createAccount, getPlan, saveDraft, stageDictionaryImport,
 import { asUser, pool, ORG1, ORG2, U } from './db.ts';
 const run = <T>(uid: string, fn: (ctx: Ctx) => Promise<T>, orgId = ORG1) => asUser(uid, db => fn({db,uid,orgId,role:uid===U.admin?'org_admin':'student',mode:'mock'}));
 
-let batchId: string | undefined;
 let entryId: string | undefined;
 let planId: string | undefined;
 afterAll(async () => {
-  if (planId) await pool.query('delete from plans where id=$1', [planId]);
-  if (entryId) await pool.query('delete from keywords where id=$1', [entryId]);
-  if (batchId) await pool.query('delete from dictionary_import_batches where id=$1', [batchId]);
+  if (planId) await pool.query('update plans set deleted_at=now() where id=$1', [planId]);
+  if (entryId) await pool.query("update keywords set review_status='draft' where id=$1", [entryId]);
   await pool.end();
 });
 
@@ -20,7 +18,6 @@ describe('dictionary private plan import', () => {
     const key = randomUUID();
     await run(U.admin, async ctx => {
       const batch = await stageDictionaryImport(ctx, { label:'plan test', payload:{tags:[{id:key,term:'测试散步',kind:'주제',meaning:'테스트 산책',categories:['일상'],cautions:['실제 촬영 전 확인']}],expressions:[]} });
-      batchId = batch;
       await reviewDictionaryImport(ctx, batch, true);
       await publishDictionaryImport(ctx, batch, true);
     });
