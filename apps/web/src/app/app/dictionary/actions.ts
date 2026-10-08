@@ -1,7 +1,7 @@
 'use server';
 
 import { AppError } from '@xhs/domain';
-import { generateDictionaryAi, previewDictionaryAi, type DictionaryAiInput } from '@xhs/core';
+import { generateDictionaryAi, previewDictionaryAi, importDictionaryPlan, type DictionaryAiInput } from '@xhs/core';
 import { revalidatePath } from 'next/cache';
 import { ZodError } from 'zod';
 import { withPageCtx } from '@/server/ctx';
@@ -62,6 +62,25 @@ export async function dictionaryAiAction(previous: DictionaryAiState, form: Form
     if (intent === 'generate') revalidatePath('/app/dictionary');
     const message = knownError(error);
     if (message) return { ...previous, error: message };
+    throw error;
+  }
+}
+
+export async function dictionaryPlanAction(_previous: { error?: string; planId?: string }, form: FormData): Promise<{ error?: string; planId?: string }> {
+  try {
+    const payload = String(form.get('payload') ?? '');
+    if (payload.length > 30000) return { error: '초안이 너무 깁니다.' };
+    const input = JSON.parse(payload);
+    const planId = await withPageCtx(ctx => importDictionaryPlan(ctx, {
+      ...input, accountId: String(form.get('accountId') ?? ''), name: String(form.get('name') ?? ''),
+      content: { ...input.content, title: String(form.get('title') ?? ''), cover: String(form.get('cover') ?? '') },
+    }));
+    revalidatePath('/app/plans');
+    return { planId };
+  } catch (error) {
+    if (error instanceof SyntaxError) return { error: '초안 형식을 확인해 주세요.' };
+    const message = knownError(error);
+    if (message) return { error: message };
     throw error;
   }
 }

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Form from 'next/form';
-import { getDictionaryAiStatus, listSharedDictionary, type DictionaryEntryType } from '@xhs/core';
+import { getDictionaryAiStatus, listSharedDictionary, listAccounts, type DictionaryEntryType } from '@xhs/core';
 import { withPageCtx } from '@/server/ctx';
 import { Badge, btn, Empty, ErrorNotice, input, PageHeader } from '@/components/ui';
 import { DictionaryWorkspace } from './workspace';
@@ -27,7 +27,8 @@ export default async function SharedDictionary({ searchParams }: { searchParams:
   const entryType: DictionaryEntryType | undefined = sp.entryType === 'tag' || sp.entryType === 'expression' ? sp.entryType : undefined;
   const parsedPage = Number.parseInt(sp.page ?? '1', 10);
   const requestedPage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
-  const { result, aiStatus } = await withPageCtx(async (ctx) => ({
+  const { result, aiStatus, accounts } = await withPageCtx(async (ctx) => ({
+    accounts: (await listAccounts(ctx)).map(a => ({ id: a.id, name: a.display_name })),
     result: await listSharedDictionary(ctx, {
       ...(sp.q?.trim() ? { query: sp.q.trim() } : {}),
       ...(entryType ? { entryType } : {}),
@@ -70,7 +71,7 @@ export default async function SharedDictionary({ searchParams }: { searchParams:
       </div>
 
       {result.items.length === 0 && <Empty title="조건에 맞는 항목이 없습니다">검색어나 카테고리 필터를 바꿔 보세요.</Empty>}
-      <DictionaryWorkspace items={result.items} aiStatus={aiStatus} />
+      <DictionaryWorkspace items={result.items} aiStatus={aiStatus} accounts={accounts} />
 
       {totalPages > 1 && (
         <nav aria-label="사전 페이지" className="mt-5 flex items-center justify-center gap-2">

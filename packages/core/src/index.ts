@@ -41,3 +41,5 @@ export * from './dictionary-upload.ts';
 
 export * from './reference-detail.ts';
 export * from './ai-workflows.ts';
+
+export * from './dictionary-plan.ts';

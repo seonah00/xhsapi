@@ -47,7 +47,11 @@ export type PlanVersion = {
   id: string; version: number; kind: 'edit' | 'ai_proposal'; content: PlanContent; facts: FactSheet; sourceRefs: string[];
   contentHash: string; checkInputHash: string; createdAt: string; profileVersionId: string | null;
 };
-export type PlanDetail = PlanSummary & { revision: number; draft: PlanDraft; draftUpdatedAt: string | null; currentVersionId: string | null; versions: PlanVersion[]; draftHash: string };
+const DictionarySource = z.object({
+  requestId: z.string().uuid(), mode: z.enum(['record', 'plan']), notes: z.string().max(2000),
+  entries: z.array(z.object({ term: z.string(), meaning: z.string(), cautions: z.array(z.string()), entryType: z.enum(['tag', 'expression']) })).max(11),
+});
+export type PlanDetail = PlanSummary & { dictionarySource?: z.infer<typeof DictionarySource> | undefined; revision: number; draft: PlanDraft; draftUpdatedAt: string | null; currentVersionId: string | null; versions: PlanVersion[]; draftHash: string };
 
 export const PlanCreate = z.object({
   accountId: z.string().uuid(),
@@ -112,6 +116,7 @@ export async function getPlan(ctx: Ctx, id: string): Promise<PlanDetail> {
   const draft = PlanDraft.parse(p.draft_json);
   const current = versions.find((v) => v.id === p.current_version_id);
   return {
+    dictionarySource: p.draft_json.dictionarySource ? DictionarySource.parse(p.draft_json.dictionarySource) : undefined,
     id: p.id, title: p.title, status: p.status, accountId: p.account_id, accountName: p.display_name, updatedAt: p.updated_at.toISOString(),
     currentVersion: current?.version ?? null, revision: p.revision, draft, draftUpdatedAt: p.draft_updated_at?.toISOString() ?? null,
     currentVersionId: p.current_version_id, versions, draftHash: versionCheckHash(draft.content, draft.facts),
@@ -124,7 +129,7 @@ const STALE = () => new AppError('STALE_REVISION', '다른 창이나 기기에�
 export async function saveDraft(ctx: Ctx, id: string, input: unknown, revision: number): Promise<{ revision: number; draftHash: string }> {
   const draft = PlanDraft.parse(input);
   const r = await ctx.db.query<{ revision: number }>(
-    `update plans set draft_json = $3::jsonb || jsonb_build_object('sourceRefs', coalesce(draft_json->'sourceRefs', '[]'::jsonb)), draft_updated_at = now(), revision = revision + 1
+    `update plans set draft_json = (draft_json - 'content' - 'facts') || $3::jsonb || jsonb_build_object('sourceRefs', coalesce(draft_json->'sourceRefs', '[]'::jsonb)), draft_updated_at = now(), revision = revision + 1
      where id = $1 and owner_user_id = $2 and revision = $4 and deleted_at is null returning revision`,
     [id, ctx.uid, draft, revision],
   );

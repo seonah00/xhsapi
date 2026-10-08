@@ -128,6 +128,19 @@ test('admin stages, reviews and publishes a private JSON import; students browse
   await page.getByLabel('水光肌 선택 해제').click();
   await expect(page.getByText('태그 0/8 · 표현 1/3')).toBeVisible();
 
+  const importer = page.getByRole('region', { name: '기획실 가져오기', exact: true });
+  await expect(importer.getByRole('heading', { name: '기획실로 가져오기' })).toBeVisible();
+  await importer.getByLabel('기획 이름', { exact: true }).fill('사전 촬영 작업지 테스트');
+  await importer.getByLabel('가져올 중국어 제목', { exact: true }).fill('周末拍摄计划');
+  await importer.getByLabel('썸네일 문구 (선택)', { exact: true }).fill('清透感');
+  await importer.getByRole('button', { name: '비공개 기획으로 저장', exact: true }).click();
+  await expect(importer.getByText('비공개 기획으로 저장했습니다.')).toBeVisible();
+  await importer.getByRole('link', { name: '저장한 기획 열기' }).click();
+  await expect(page.getByRole('heading', { name: '사전 촬영 작업지 테스트' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '공용사전에서 가져온 작업 메모' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: '공용사전에서 가져온 작업 메모' })).toBeVisible();
+
   expect(errors).toEqual([]);
   expect(external, 'dictionary flow must not contact external services').toEqual([]);
 });

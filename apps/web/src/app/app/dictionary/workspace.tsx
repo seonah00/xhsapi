@@ -6,6 +6,8 @@ import { Badge, btn, Card } from '@/components/ui';
 import { dictionaryAiAction, type DictionaryAiState } from './actions';
 import { dictionaryAiFormFingerprint } from './dictionary-ai-form-fingerprint';
 
+import { DictionaryPlanImport, type PlanAccount } from './plan-import';
+
 const ENTRY_TYPE = { tag: '태그', expression: '표현' };
 const MAX = { tag: 8, expression: 3 } as const;
 
@@ -22,11 +24,13 @@ const DISABLED_REASON: Record<Exclude<DictionaryAiStatus['disabledReason'], null
 
 function AiComposer({
   chosen,
+  accounts,
   status,
   selectionVersion,
   onRemove,
 }: {
   chosen: SharedDictionaryEntry[];
+  accounts: PlanAccount[];
   status: DictionaryAiStatus;
   selectionVersion: number;
   onRemove: (item: SharedDictionaryEntry) => void;
@@ -164,11 +168,15 @@ function AiComposer({
           <p className="text-xs text-muted">모델 {state.generation?.model} · 예약 최대 비용 {state.generation?.usage.reservedMaxCostUsd} USD. 표시 비용은 실제 청구서가 아닌 상한 추정치입니다. 이 결과는 내 비공개 초안이며 공용 사전에 추가되지 않습니다.</p>
         </section>
       )}
+      {chosen.length > 0 && (!output || previewIsCurrent) && <DictionaryPlanImport
+        key={`${state.preview?.token ?? 'selection'}:${selectionVersion}:${formVersion}:${output ? 'generated' : 'manual'}`}
+        entries={chosen} source={currentInput} result={output} accounts={accounts} />}
+      {output && !previewIsCurrent && <p role="status" className="mt-3 text-sm text-warn">생성 후 입력이 변경되었습니다. 현재 선택으로 새 미리보기를 만들거나 원래 결과를 복사해 보관하세요.</p>}
     </Card>
   );
 }
 
-export function DictionaryWorkspace({ items, aiStatus }: { items: SharedDictionaryEntry[]; aiStatus: DictionaryAiStatus }) {
+export function DictionaryWorkspace({ items, aiStatus, accounts }: { items: SharedDictionaryEntry[]; aiStatus: DictionaryAiStatus; accounts: PlanAccount[] }) {
   const [selectedItems, setSelectedItems] = useState<Map<string, SharedDictionaryEntry>>(() => new Map());
   const [selectionVersion, setSelectionVersion] = useState(0);
   const [limitMessage, setLimitMessage] = useState<string>();
@@ -221,7 +229,7 @@ export function DictionaryWorkspace({ items, aiStatus }: { items: SharedDictiona
         </ul>
       </div>
       <aside aria-label="선택한 사전 항목" className="lg:sticky lg:top-4 lg:self-start">
-        <AiComposer chosen={chosen} status={aiStatus} selectionVersion={selectionVersion} onRemove={(item) => toggle(item, false)} />
+        <AiComposer accounts={accounts} chosen={chosen} status={aiStatus} selectionVersion={selectionVersion} onRemove={(item) => toggle(item, false)} />
       </aside>
     </div>
   );
