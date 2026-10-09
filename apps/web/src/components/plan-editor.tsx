@@ -126,8 +126,8 @@ export function PlanEditor({ planId, initial, initialRevision, hasUnversionedCha
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label>장면 {i + 1}<input value={s.scene} maxLength={200} onChange={e => patchShot({ scene: e.target.value })} className={box} /></label>
                     <label>장면 {i + 1} 구도<input value={s.framing ?? ''} maxLength={200} placeholder="예: 손과 제품을 가까이, 고정 촬영" onChange={e => patchShot({ framing: e.target.value })} className={box} /></label>
-                    <label>장면 {i + 1} 자막<textarea value={s.caption ?? ''} maxLength={500} rows={2} onChange={e => patchShot({ caption: e.target.value })} className={`${box} zh`} /></label>
-                    <label>장면 {i + 1} 준비물<textarea value={s.supplies ?? ''} maxLength={500} rows={2} onChange={e => patchShot({ supplies: e.target.value })} className={box} /></label>
+                    <label>장면 {i + 1} 자막<textarea aria-label={`장면 ${i + 1} 자막`} value={s.caption ?? ''} maxLength={500} rows={2} onChange={e => patchShot({ caption: e.target.value })} className={`${box} zh`} /></label>
+                    <label>장면 {i + 1} 준비물<textarea aria-label={`장면 ${i + 1} 준비물`} value={s.supplies ?? ''} maxLength={500} rows={2} onChange={e => patchShot({ supplies: e.target.value })} className={box} /></label>
                     <label className="sm:col-span-2">장면 {i + 1} 메모<input value={s.note} maxLength={200} onChange={e => patchShot({ note: e.target.value })} className={box} /></label>
                   </div>
                 </li>;
