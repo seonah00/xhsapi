@@ -101,19 +101,40 @@ export function PlanEditor({ planId, initial, initialRevision, hasUnversionedCha
             <label className="text-sm">해시태그 (쉼표 구분)<input value={c.tags.join(', ')} onChange={(e) => setC({ tags: e.target.value.split(/[,，]/).map((t) => t.trim()).filter(Boolean) })} className={`${box} zh mt-1`} /></label>
             <label className="text-sm">자막<textarea value={c.subtitles} onChange={(e) => setC({ subtitles: e.target.value })} rows={2} className={`${box} zh mt-1`} /></label>
           </div>
-          <div className="text-sm">
-            <p>장면별 촬영표</p>
-            <ol className="mt-1 space-y-1">
-              {c.shots.map((s, i) => (
-                <li key={i} className="flex gap-2">
-                  <input aria-label={`장면 ${i + 1}`} value={s.scene} onChange={(e) => setC({ shots: c.shots.map((x, j) => (j === i ? { ...x, scene: e.target.value } : x)) })} className={box} />
-                  <input aria-label={`장면 ${i + 1} 메모`} value={s.note} onChange={(e) => setC({ shots: c.shots.map((x, j) => (j === i ? { ...x, note: e.target.value } : x)) })} className={box} />
-                  <button type="button" onClick={() => setC({ shots: c.shots.filter((_, j) => j !== i) })} className="text-xs text-muted" aria-label={`장면 ${i + 1} 삭제`}>삭제</button>
-                </li>
-              ))}
+          <section aria-label="장면별 촬영표" className="text-sm">
+            <h3 className="font-semibold">장면별 촬영표</h3>
+            <p className="mt-1 text-xs text-muted">촬영 완료 {c.shots.filter(s => s.completed).length}/{c.shots.length} · 장면은 최대 30개입니다. 촬영 준비와 문구는 직접 확인해 주세요.</p>
+            <ol className="mt-3 space-y-3">
+              {c.shots.map((s, i) => {
+                const patchShot = (patch: Partial<typeof s>) => setC({ shots: c.shots.map((x, j) => j === i ? { ...x, ...patch } : x) });
+                const move = (offset: number) => {
+                  const shots = [...c.shots];
+                  const target = i + offset;
+                  if (target < 0 || target >= shots.length) return;
+                  [shots[i], shots[target]] = [shots[target]!, shots[i]!];
+                  setC({ shots });
+                };
+                return <li key={i} className="rounded-xl border border-line p-3">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <label className="flex items-center gap-2"><input type="checkbox" checked={s.completed ?? false} onChange={e => patchShot({ completed: e.target.checked })} />장면 {i + 1} 촬영 완료</label>
+                    <div className="flex gap-3">
+                      <button type="button" disabled={i === 0} onClick={() => move(-1)} aria-label={`장면 ${i + 1} 위로`} className="disabled:opacity-40">위로</button>
+                      <button type="button" disabled={i === c.shots.length - 1} onClick={() => move(1)} aria-label={`장면 ${i + 1} 아래로`} className="disabled:opacity-40">아래로</button>
+                      <button type="button" onClick={() => setC({ shots: c.shots.filter((_, j) => j !== i) })} aria-label={`장면 ${i + 1} 삭제`} className="text-muted">삭제</button>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label>장면 {i + 1}<input value={s.scene} maxLength={200} onChange={e => patchShot({ scene: e.target.value })} className={box} /></label>
+                    <label>장면 {i + 1} 구도<input value={s.framing ?? ''} maxLength={200} placeholder="예: 손과 제품을 가까이, 고정 촬영" onChange={e => patchShot({ framing: e.target.value })} className={box} /></label>
+                    <label>장면 {i + 1} 자막<textarea value={s.caption ?? ''} maxLength={500} rows={2} onChange={e => patchShot({ caption: e.target.value })} className={`${box} zh`} /></label>
+                    <label>장면 {i + 1} 준비물<textarea value={s.supplies ?? ''} maxLength={500} rows={2} onChange={e => patchShot({ supplies: e.target.value })} className={box} /></label>
+                    <label className="sm:col-span-2">장면 {i + 1} 메모<input value={s.note} maxLength={200} onChange={e => patchShot({ note: e.target.value })} className={box} /></label>
+                  </div>
+                </li>;
+              })}
             </ol>
-            <button type="button" onClick={() => setC({ shots: [...c.shots, { scene: '', note: '' }] })} className="mt-1 text-xs text-accent">+ 장면 추가</button>
-          </div>
+            <button type="button" disabled={c.shots.length >= 30} onClick={() => setC({ shots: [...c.shots, { scene: '', note: '' }] })} className="mt-3 rounded-lg border border-line px-3 py-2 disabled:opacity-40">+ 장면 추가</button>
+          </section>
         </div>
       </section>
     </div>

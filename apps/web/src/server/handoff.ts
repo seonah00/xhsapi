@@ -1,3 +1,4 @@
+import { formatShot } from '@xhs/core';
 import 'server-only';
 import { checksForVersion, getPlan, type Ctx, type PlanVersion, type CheckRunView } from '@xhs/core';
 import { notFound } from 'next/navigation';
@@ -25,7 +26,7 @@ export function toMarkdown(h: Handoff): string {
     `- 기획 버전: v${h.version.version}`,
     `- 점검: ${h.checkState === 'none' ? '미점검' : h.checkState === 'partial' ? '부분 점검' : '점검 완료'} (게시 승인·법적 안전 보장 아님)`,
     '', '## 표지 문구', c.cover, '', '## 본문', c.body, '', '## 해시태그', c.tags.map((t) => `#${t}`).join(' '),
-    '', '## 자막', c.subtitles, '', '## 촬영표', ...c.shots.map((s, i) => `${i + 1}. ${s.scene}${s.note ? ` — ${s.note}` : ''}`),
+    '', '## 자막', c.subtitles, '', '## 촬영표', ...c.shots.map(formatShot),
     '', '## 한국어 의미', c.meaningKo,
   ].filter((l) => l !== null).join('\n');
 }

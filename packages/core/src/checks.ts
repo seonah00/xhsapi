@@ -12,7 +12,7 @@ export const CheckInput = z.object({
     cover: z.string().max(100).default(''),
     body: z.string().max(MAX_CHECK_CHARS).default(''),
     tags: z.array(z.string().max(40)).max(30).default([]),
-    subtitles: z.string().max(5_000).default(''),
+    subtitles: z.string().max(20_030).default(''),
   }).default({}),
   facts: FactSheet.default({}),
 });

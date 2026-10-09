@@ -1,4 +1,4 @@
-import { CHECK_DISCLAIMER, fieldText, sectionsOf, type ReviewDetail } from '@xhs/core';
+import { CHECK_DISCLAIMER, formatShot, fieldText, sectionsOf, type ReviewDetail } from '@xhs/core';
 import { FindingItem } from './findings';
 import { Badge, Card, Notice } from './ui';
 import { fmtDate } from './labels';
@@ -25,7 +25,7 @@ export function SubmissionView({ s }: { s: ReviewDetail }) {
           <p className="zh mt-3 whitespace-pre-wrap text-sm" lang="zh-CN">{c.body}</p>
           {c.tags.length > 0 && <p className="zh mt-2 text-sm text-info">{c.tags.map((t) => `#${t}`).join(' ')}</p>}
           {c.meaningKo && <details className="mt-3 text-sm"><summary className="cursor-pointer text-muted">한국어 의미</summary><p className="mt-1 whitespace-pre-wrap">{c.meaningKo}</p></details>}
-          {c.shots.length > 0 && <div className="mt-3 text-sm"><p className="font-medium">촬영표</p><ol className="list-decimal pl-5">{c.shots.map((x, i) => <li key={i}>{x.scene}{x.note && <span className="text-muted"> — {x.note}</span>}</li>)}</ol></div>}
+          {c.shots.length > 0 && <div className="mt-3 text-sm"><p className="font-medium">촬영표</p><ol className="space-y-2">{c.shots.map((x, i) => <li key={i} className="whitespace-pre-wrap">{formatShot(x, i)}</li>)}</ol></div>}
         </Card>
         {s.attachments.length > 0 && (
           <Card>

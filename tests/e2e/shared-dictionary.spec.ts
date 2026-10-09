@@ -141,6 +141,28 @@ test('admin stages, reviews and publishes a private JSON import; students browse
   await page.reload();
   await expect(page.getByRole('heading', { name: '공용사전에서 가져온 작업 메모' })).toBeVisible();
 
+  // Shooting preparation stays attached to the correct scene after reorder and reload.
+  await page.getByRole('button', { name: '+ 장면 추가', exact: true }).click();
+  await page.getByLabel('장면 1', { exact: true }).fill('공원 입구');
+  await page.getByLabel('장면 1 구도', { exact: true }).fill('넓게 고정');
+  await page.getByLabel('장면 1 자막', { exact: true }).fill('周末散步');
+  await page.getByLabel('장면 1 준비물', { exact: true }).fill('삼각대');
+  await page.getByLabel('장면 1 촬영 완료', { exact: true }).check();
+  await page.getByRole('button', { name: '+ 장면 추가', exact: true }).click();
+  await page.getByLabel('장면 2', { exact: true }).fill('산책길');
+  await page.getByRole('button', { name: '장면 2 위로', exact: true }).click();
+  await expect(page.getByLabel('장면 2 자막', { exact: true })).toHaveValue('周末散步');
+  await expect(page.getByTestId('autosave-status')).toHaveText('저장됨');
+  await page.reload();
+  await expect(page.getByLabel('장면 1', { exact: true })).toHaveValue('산책길');
+  await expect(page.getByLabel('장면 2 준비물', { exact: true })).toHaveValue('삼각대');
+  await expect(page.getByLabel('장면 2 촬영 완료', { exact: true })).toBeChecked();
+  await page.getByRole('button', { name: '버전 저장', exact: true }).click();
+  await expect(page.getByText('버전으로 저장되지 않은 변경이 있습니다')).toHaveCount(0);
+  await page.goto(page.url() + '/handoff');
+  await expect(page.getByText('구도: 넓게 고정', { exact: false })).toBeVisible();
+  await expect(page.getByText('준비물: 삼각대', { exact: false })).toBeVisible();
+
   expect(errors).toEqual([]);
   expect(external, 'dictionary flow must not contact external services').toEqual([]);
 });

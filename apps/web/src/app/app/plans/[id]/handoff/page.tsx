@@ -1,3 +1,4 @@
+import { formatShot } from '@xhs/core';
 import Link from 'next/link';
 import { withPageCtx } from '@/server/ctx';
 import { loadHandoff } from '@/server/handoff';
@@ -36,7 +37,7 @@ export default async function Handoff({ params, searchParams }: { params: Promis
         <div className="md:col-span-2">{block('본문', c.body)}</div>
         {block('해시태그', c.tags.map((t) => `#${t}`).join(' '))}
         {block('자막', c.subtitles)}
-        <div className="md:col-span-2">{block('촬영표', c.shots.map((s, i) => `${i + 1}. ${s.scene}${s.note ? ` — ${s.note}` : ''}`).join('\n'), false)}</div>
+        <div className="md:col-span-2">{block('촬영표', c.shots.map(formatShot).join('\n'), false)}</div>
         <div className="md:col-span-2">{block('한국어 의미', c.meaningKo, false)}</div>
       </div>
       <Card className="mt-6">

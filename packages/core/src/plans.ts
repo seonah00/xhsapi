@@ -18,7 +18,22 @@ export const FactSheet = z.object({
 });
 export type FactSheet = z.infer<typeof FactSheet>;
 
-export const Shot = z.object({ scene: z.string().trim().max(200), note: z.string().trim().max(200).default('') });
+export const Shot = z.object({
+  scene: z.string().trim().max(200), note: z.string().trim().max(200).default(''),
+  framing: z.string().trim().max(200).optional(),
+  caption: z.string().trim().max(500).optional(),
+  supplies: z.string().trim().max(500).optional(),
+  completed: z.boolean().optional(),
+});
+
+/** Optional fields keep old versions and existing AI proposals compatible. */
+export function formatShot(s: z.infer<typeof Shot>, index: number): string {
+  return [
+    `${index + 1}. [${s.completed ? '완료' : '미촬영'}] ${s.scene}`,
+    s.framing && `구도: ${s.framing}`, s.caption && `자막: ${s.caption}`,
+    s.supplies && `준비물: ${s.supplies}`, s.note && `메모: ${s.note}`,
+  ].filter(Boolean).join('\n');
+}
 
 export const PlanContent = z.object({
   intent: z.string().max(500).default(''),
@@ -36,7 +51,7 @@ export const PlanDraft = z.object({ content: PlanContent.default({}), facts: Fac
 export type PlanDraft = z.infer<typeof PlanDraft>;
 
 export function sectionsOf(c: PlanContent): CheckSections {
-  return { title: c.title, cover: c.cover, body: c.body, tags: c.tags, subtitles: c.subtitles };
+  return { title: c.title, cover: c.cover, body: c.body, tags: c.tags, subtitles: [c.subtitles, ...c.shots.map(s => s.caption).filter(Boolean)].filter(Boolean).join('\n') };
 }
 export function versionCheckHash(content: PlanContent, facts: FactSheet): string {
   return checkInputHash(sectionsOf(content), facts, facts.sponsorship);
