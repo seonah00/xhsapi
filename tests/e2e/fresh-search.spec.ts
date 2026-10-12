@@ -15,7 +15,7 @@ test('hashtag search quotes a fresh query and displays its completed results', a
   await expect(page).not.toHaveURL(/#refresh$/);
 });
 
-test('a thumbnail opens local detail with explicit original and title-search links', async ({ page, context }) => {
+test('a thumbnail directly opens a verified original and clearly distinguishes title search', async ({ page, context }) => {
   const { default: pg } = await import('pg');
   const db = new pg.Pool({connectionString:process.env.DATABASE_URL});
   const original='https://www.xiaohongshu.com/explore/aaaaaaaaaaaaaaaaaaaaaaaa?xsec_token=synthetic';
@@ -30,14 +30,15 @@ test('a thumbnail opens local detail with explicit original and title-search lin
     await page.getByRole('button',{name:/student-b@demo\.invalid/}).click();
     await page.waitForURL(/\/app/);
     await page.goto('/app/discover?q=thumbnaillinkfixture');
-    const link=page.getByRole('link',{name:'thumbnaillinkfixture 상세 보기'});
-    await expect(link).toHaveAttribute('href',`/app/notes/${row.id}`);
+    const link=page.getByRole('link',{name:'thumbnaillinkfixture 게시물 원문 보기'});
+    await expect(link).toHaveAttribute('href',`/app/notes/${row.id}/original`);
+    await expect(link).toHaveAttribute('target','_blank');
     await expect(link.locator('img')).toBeVisible();
-    await link.click();
+    await page.goto(`/app/notes/${row.id}`);
     await expect(page).toHaveURL(new RegExp(`/app/notes/${row.id}$`));
     await expect(page.getByRole('heading',{name:'thumbnaillinkfixture'})).toBeVisible();
-    await expect(page.getByRole('link',{name:'제목으로 찾기 ↗'})).toBeVisible();
-    const originalLink=page.getByRole('link',{name:'샤오홍슈 원문 ↗'});
+    await expect(page.getByRole('link',{name:'샤오홍슈에서 제목 검색 ↗'})).toBeVisible();
+    const originalLink=page.getByRole('link',{name:'게시물 원문 보기 ↗'});
     await expect(originalLink).toHaveAttribute('href',`/app/notes/${row.id}/original`);
     await expect(originalLink).toHaveAttribute('target','_blank');
     // Inspect the redirect without following it. Browser routing does not intercept every redirect hop.
@@ -47,9 +48,11 @@ test('a thumbnail opens local detail with explicit original and title-search lin
     expect(response.headers()['cache-control']).toContain('no-store');
     await db.query(`update note_access_links set expires_at=now()-interval '1 second' where note_id=$1`,[row.id]);
     await page.reload();
-    await expect(page.getByRole('link',{name:'샤오홍슈 원문 ↗'})).toHaveCount(0);
-    await expect(page.getByRole('link',{name:'제목으로 찾기 ↗'})).toBeVisible();
+    await expect(page.getByRole('link',{name:'게시물 원문 보기 ↗'})).toHaveCount(0);
+    await expect(page.getByRole('link',{name:'샤오홍슈에서 제목 검색 ↗'})).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`/app/notes/${row.id}$`));
+    await expect(page.getByRole('button',{name:'원문 링크 연결'})).toHaveCount(0);
+    await expect(page.getByText(/현재 이 게시물의 유효한 원문 공유 링크가 없습니다/)).toBeVisible();
     await page.context().clearCookies();
     await page.goto('/login');
     await page.getByRole('button',{name:/student-c@other-org\.demo\.invalid/}).click();

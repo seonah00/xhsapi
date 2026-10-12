@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { beforeAll, afterAll, it, expect } from 'vitest';
 import { loadEnv } from '@xhs/domain';
 import { MockXhsProvider } from '@xhs/providers';
-import { requestAutoCover, autoCoverStatus, setAutoCoverPolicy, runJob, type Ctx, type Runner } from '@xhs/core';
+import { connectOriginalNoteLink, originalNoteLink, requestAutoCover, autoCoverStatus, setAutoCoverPolicy, runJob, type Ctx, type Runner } from '@xhs/core';
 import { pool, asUser } from './db.ts';
 
 const org = randomUUID(), admin = randomUUID(), student = randomUUID(), outsider = randomUUID();
@@ -52,4 +52,14 @@ it('quarantines unknown results beyond cooldown and refuses expired sponsorship'
   expect(await user(student,ctx=>requestAutoCover(ctx,service,[ids[2]],env))).toBeNull();
   await pool.query(`update organizations set settings=jsonb_set(settings,'{auto_cover,expiresAt}',to_jsonb($2::text)) where id=$1`,[org,new Date(Date.now()-60000).toISOString()]);
   expect(await user(student,ctx=>requestAutoCover(ctx,service,ids,env))).toBeNull();
+});
+
+it('connects only administrator-supplied matching public original links without exposing them across organizations',async()=>{
+ const link=`https://www.xiaohongshu.com/explore/${'a'.repeat(24)}?xsec_token=synthetic`;
+ await expect(user(student,ctx=>connectOriginalNoteLink(ctx,service,ids[0]!,link))).rejects.toMatchObject({code:'FORBIDDEN'});
+ await expect(user(admin,ctx=>connectOriginalNoteLink(ctx,service,ids[1]!,link))).rejects.toMatchObject({code:'VALIDATION_FAILED'});
+ await expect(user(admin,ctx=>connectOriginalNoteLink(ctx,service,ids[0]!,link.split('?')[0]))).rejects.toMatchObject({code:'VALIDATION_FAILED'});
+ await user(admin,ctx=>connectOriginalNoteLink(ctx,service,ids[0]!,link));
+ expect(await user(student,ctx=>originalNoteLink(ctx,service,ids[0]!))).toBe(link);
+ expect(await user(outsider,ctx=>originalNoteLink(ctx,service,ids[0]!))).toBeNull();
 });

@@ -1,3 +1,6 @@
+import { AppError } from '@xhs/domain';
+import { z } from 'zod';
+import { requireAdmin } from './admin.ts';
 import { safeXhsAccessUrl } from '@xhs/security';
 import type { Ctx, Db, ServiceRunner } from './context.ts';
 
@@ -17,4 +20,15 @@ export async function originalNoteLink(ctx: Ctx, service: ServiceRunner, id: str
     const row=(await db.query(`select access_url from note_access_links where note_id=$1 and org_id=$2 and expires_at>now()`,[id,ctx.orgId])).rows[0];
     return safeXhsAccessUrl(row?.access_url,note.platform_note_id);
   });
+}
+
+/** An administrator can connect a verified public sharing URL, never a title-search URL. */
+export async function connectOriginalNoteLink(ctx: Ctx, service: ServiceRunner, id: string, supplied: unknown) {
+  requireAdmin(ctx);
+  z.string().uuid().parse(id);
+  const note=(await ctx.db.query(`select platform_note_id from notes where id=$1 and org_id=$2 and data_mode=$3`,[id,ctx.orgId,ctx.mode])).rows[0];
+  if(!note) throw new AppError('NOT_FOUND','게시물을 찾을 수 없습니다.');
+  const url=safeXhsAccessUrl(z.string().max(4000).parse(supplied).trim(),note.platform_note_id);
+  if(!url) throw new AppError('VALIDATION_FAILED','이 게시물의 전체 공유 주소(xsec_token 포함)를 입력하세요. 검색·계정·단축 주소는 연결할 수 없습니다.');
+  await service(db=>storeNoteAccessLink(db,ctx.orgId,id,note.platform_note_id,url));
 }
