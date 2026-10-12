@@ -52,7 +52,7 @@ export function JobStatus({ jobId, label }: { jobId: string; label: string }) {
     <div className="space-y-1">
       {progress?.notes !== undefined && <p className="text-sm">중복 제외 {progress.notes}건 확보 / 목표 {progress.targetCount ?? '—'}건 · {progress.pages}페이지 조회</p>}
       {progress?.stopReason && <p className="text-xs text-muted">{({target_reached:'수집 목표에 도달했습니다.',provider_exhausted:'공급자가 제공하는 결과가 끝났습니다.',repeated_page:'같은 페이지가 반복되어 추가 조회를 멈췄습니다.',page_limit:'승인한 페이지 한도에 도달했습니다.'} as Record<string,string>)[progress.stopReason]}</p>}
-      {progress?.completed !== undefined && <p className="text-sm">상세 보완 {progress.completed}/{progress.total}건 · 표지 주소 확보 {progress.covers ?? 0}건</p>}
+      {progress?.completed !== undefined && <p className="text-sm">조회 완료 {progress.completed}/{progress.total}건 · 표지 주소 확보 {progress.covers ?? 0}건{progress.missing ? ` · 공급자 결과 없음 ${progress.missing}건` : ''}</p>}
       <Box label={label} state={state} terminal={JOB_TERMINAL} />
       {(state === 'queued' || state === 'waiting_external') && <button type="button" onClick={() => void cancel()} className="text-xs text-muted underline">작업 취소</button>}
       {msg && <p className="text-xs text-muted">{msg}</p>}

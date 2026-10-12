@@ -2,7 +2,7 @@ import { isTextAiOperation, runTextWorkflow } from './ai-workflows.ts';
 import { runReferenceAi } from './ai-reference.ts';
 import { advanceCollection, CollectionTarget, collectionPages, enrichmentIds, contentHash, type AppEnv, type DataMode, type JobKind } from '@xhs/domain';
 import { redactString } from '@xhs/security';
-import { isUnchargedError, LiveCallBlockedError, ProviderContractError, ProviderHttpError, type EndpointCapability, type EndpointId, type GateContextFor, type XhsDataProvider } from '@xhs/providers';
+import { ApifyEmptyResultError, isUnchargedError, LiveCallBlockedError, ProviderContractError, ProviderHttpError, type EndpointCapability, type EndpointId, type GateContextFor, type XhsDataProvider } from '@xhs/providers';
 import { enrichmentOptions, storeEnrichment, type EnrichmentProviderFactory } from './note-enrichment.ts';
 import { liveGateForJob, MAX_TRANSCRIPT_POLLS } from './live.ts';
 import { analyzeReference } from './analysis.ts';
@@ -205,7 +205,7 @@ async function enrichNote(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
   await deps.service(db=>db.query(`update app_jobs set provider_task_id='apify-submission-started' where id=$1`,[job.id]));
   try {
     const note = await provider.noteDetail({platformNoteId:options.platformNoteId});
-    const result = {completed:completed+1,total:ids.length,provider:'apify',covers:Number(job.result_ref?.covers ?? 0)+(note.coverUrl?1:0)};
+    const result = {completed:completed+1,total:ids.length,provider:'apify',missing:Number(job.result_ref?.missing ?? 0),covers:Number(job.result_ref?.covers ?? 0)+(note.coverUrl?1:0)};
     await deps.service(async db => {
       let noteId=options.noteId;
       if(options.referenceId) {
@@ -220,7 +220,12 @@ async function enrichNote(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
       await db.query(`update app_jobs set provider_task_id=null,result_ref=$2 where id=$1`,[job.id,result]);
     });
     return result.completed === ids.length ? {state:'succeeded',result} : {state:'waiting_external',retryInMs:100};
-  } catch {
+  } catch (e) {
+    if(e instanceof ApifyEmptyResultError) {
+      const result={completed:completed+1,total:ids.length,provider:'apify',covers:Number(job.result_ref?.covers ?? 0),missing:Number(job.result_ref?.missing ?? 0)+1};
+      await deps.service(db=>db.query(`update app_jobs set provider_task_id=null,result_ref=$2 where id=$1`,[job.id,result]));
+      return result.completed===ids.length ? {state:'succeeded',result} : {state:'waiting_external',retryInMs:100};
+    }
     return {state:'unknown_outcome',errorCode:'APIFY_RESULT_NEEDS_REVIEW'};
   }
 }

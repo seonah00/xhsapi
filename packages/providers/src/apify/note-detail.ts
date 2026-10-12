@@ -64,6 +64,8 @@ export function apifyNoteTarget(value: string): { value: string; expectedId: str
 }
 
 export type ApifyDetailOptions = { token: string; build: string; maxChargeUsd: string; gate: LiveGateContext };
+/** A successful billable run can have no dataset rows; it is not an uncertain response. */
+export class ApifyEmptyResultError extends Error { constructor() { super('APIFY_NO_RESULT'); } }
 export class ApifyNoteDetailProvider {
   constructor(private readonly options: ApifyDetailOptions, private readonly fetchImpl: typeof fetch = fetch) {}
   assertReady(platformNoteId: string): void {
@@ -90,6 +92,7 @@ export class ApifyNoteDetailProvider {
     if (!res.ok) throw new Error(`APIFY_HTTP_${res.status}`);
     let data: unknown;
     try { data = await res.json(); } catch { throw new Error('APIFY_CONTRACT'); }
+    if (Array.isArray(data) && data.length === 0) throw new ApifyEmptyResultError();
     return parseZenStudioNote(data, apifyNoteTarget(input.platformNoteId).expectedId);
   }
 }

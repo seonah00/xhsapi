@@ -128,3 +128,12 @@ it('fetches one owned manual short link, attaches expiring metadata and keeps in
   await pool.query(`update notes set expires_at=now()-interval '1 second' where id=$1`,[ref.noteId]);
   await expect(asUser(ctx=>prepareReferenceAi(ctx,referenceId))).rejects.toMatchObject({code:'NOT_FOUND'});
 });
+
+it('settles a confirmed empty dataset without claiming a cover or resubmitting',async()=>{
+ await pool.query('update notes set expires_at=null where id=$1',[note]);
+ const jobId=await enqueue();let calls=0;
+ const empty:typeof fetch=async()=>{calls++;return Response.json([]);};
+ expect(await runJob({...deps,apifyDetailProvider:o=>new ApifyNoteDetailProvider(o,empty)},jobId,'empty-worker')).toMatchObject({state:'succeeded',result:{completed:1,covers:0,missing:1}});
+ expect(calls).toBe(1);
+ expect((await pool.query('select status from usage_ledger where job_id=$1',[jobId])).rows[0].status).toBe('settled');
+});

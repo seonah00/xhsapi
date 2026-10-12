@@ -149,13 +149,13 @@ export async function reserveJob(ctx: Ctx, args: {
   }
 }
 
-export type JobView = { id: string; kind: JobKind; state: string; errorCode: string | null; createdAt: string; updatedAt: string; dataMode: string; progress: { notes?: number; targetCount?: number; pages?: number; stopReason?: string; completed?: number; total?: number; covers?: number } | null };
+export type JobView = { id: string; kind: JobKind; state: string; errorCode: string | null; createdAt: string; updatedAt: string; dataMode: string; progress: { notes?: number; targetCount?: number; pages?: number; stopReason?: string; completed?: number; total?: number; covers?: number; missing?: number } | null };
 
 export async function getJob(ctx: Ctx, id: string): Promise<JobView | null> {
   const r = (await ctx.db.query(
     `select id, kind, state, error_code, created_at, updated_at, data_mode, result_ref from app_jobs where id = $1 and org_id = $2`, [id, ctx.orgId],
   )).rows[0];
-  return r ? { id: r.id, kind: r.kind, state: r.state, errorCode: r.error_code, createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString(), dataMode: r.data_mode, progress: r.result_ref ? Object.fromEntries(Object.entries(r.result_ref).filter(([k,v]) => ['notes','targetCount','pages','completed','total','covers'].includes(k) && typeof v === 'number' || k === 'stopReason' && typeof v === 'string')) : null } : null;
+  return r ? { id: r.id, kind: r.kind, state: r.state, errorCode: r.error_code, createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString(), dataMode: r.data_mode, progress: r.result_ref ? Object.fromEntries(Object.entries(r.result_ref).filter(([k,v]) => ['notes','targetCount','pages','completed','total','covers','missing'].includes(k) && typeof v === 'number' || k === 'stopReason' && typeof v === 'string')) : null } : null;
 }
 
 export async function getQuote(ctx: Ctx, id: string): Promise<(Quote & { consumed: boolean; expired: boolean }) | null> {
