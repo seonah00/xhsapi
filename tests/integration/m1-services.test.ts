@@ -236,9 +236,9 @@ describe('F15 transcript (mock end to end)', () => {
     expect(t).toMatchObject({ status: 'no_speech', failCode: 'no_speech_detected', segments: [] });
   });
 
-  it('enforces the daily limit of 5', async () => {
+  it('enforces the monthly limit of 150', async () => {
     await pool.query(
-      `insert into app_jobs (org_id, owner_user_id, kind, data_mode, dedupe_key) select $1, $2, 'transcript_submit', 'mock', 'filler-' || g from generate_series(1, 5) g`,
+      `insert into app_jobs (org_id, owner_user_id, kind, data_mode, dedupe_key) select $1, $2, 'transcript_submit', 'mock', 'filler-' || g from generate_series(1, 150) g`,
       [ORG1, U.studentB],
     );
     const refId = await as(U.studentB, ORG1, (ctx) => createReference(ctx, { sourceType: 'saved_note', noteId: noteIdByPlatform.get(video.platformNoteId)! }));
