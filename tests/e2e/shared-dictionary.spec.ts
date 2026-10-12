@@ -175,5 +175,12 @@ test('admin stages, reviews and publishes a private JSON import; students browse
   await expect(page.getByText('준비물: 삼각대', { exact: false })).toBeVisible();
 
   expect(errors).toEqual([]);
+  await page.goto('/app/dictionary/history');
+  await expect(page.getByRole('heading', { name: '내 사전 사용 이력', exact: true })).toBeVisible();
+  await page.getByLabel('가져온 표현·태그 검색', { exact: true }).fill('清透感');
+  await page.getByRole('button', { name: '검색', exact: true }).click();
+  await expect(page.getByRole('link', { name: '사전 촬영 작업지 테스트', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: '사전 촬영 작업지 테스트', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '공용사전에서 가져온 작업 메모' })).toBeVisible();
   expect(external, 'dictionary flow must not contact external services').toEqual([]);
 });

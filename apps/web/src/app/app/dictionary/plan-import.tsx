@@ -31,6 +31,7 @@ export function DictionaryPlanImport({ entries, source, result, accounts }: {
   });
   if (state.planId) return <section className="mt-4 rounded-xl border border-line p-3" aria-label="기획실 가져오기">
     <p role="status">비공개 기획으로 저장했습니다.</p>
+    <Link href="/app/dictionary/history" className={`${btn.secondary} mt-2 mr-2`}>내 사전 사용 이력</Link>
     <Link className={`${btn.primary} mt-2`} href={`/app/plans/${state.planId}`}>저장한 기획 열기</Link>
   </section>;
   return <section className="mt-4 space-y-3 rounded-xl border border-line p-3" aria-label="기획실 가져오기">

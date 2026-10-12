@@ -42,7 +42,7 @@ export default async function SharedDictionary({ searchParams }: { searchParams:
 
   return (
     <>
-      <PageHeader title="공용 사전" description="운영자가 검토해 공개한 태그와 표현을 검색하고, 작성에 참고할 항목을 선택할 수 있습니다." />
+      <PageHeader title="공용 사전" description="운영자가 검토해 공개한 태그와 표현을 검색하고, 작성에 참고할 항목을 선택할 수 있습니다." actions={<Link href="/app/dictionary/history" className={btn.secondary}>내 사전 사용 이력</Link>} />
       <ErrorNotice message={sp.error} />
       <div role="note" className="mb-4 rounded-xl bg-info-soft px-4 py-3 text-sm text-info">
         이 목록은 편집된 관찰 자료이며 인기 순위, 검색량, 성과 보장을 뜻하지 않습니다. 개인 초안이나 AI 생성 결과는 자동으로 공용 사전에 공유되지 않습니다.

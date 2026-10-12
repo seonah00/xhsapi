@@ -4,6 +4,27 @@ import type { Ctx } from './context.ts';
 import { createPlan, getPlan, PlanContent, saveDraft, saveVersion } from './plans.ts';
 import { getPublishedDictionaryEntries } from './shared-dictionary.ts';
 
+/** Saved selections, not proof that the words remained in the final published post. */
+export async function listDictionaryPlanHistory(ctx: Ctx, raw: unknown = {}) {
+  const input = z.object({ query: z.string().trim().max(120).default(''), page: z.number().int().positive().max(100000).default(1) }).parse(raw);
+  const where = `org_id=$1 and owner_user_id=$2 and deleted_at is null
+    and jsonb_typeof(draft_json->'dictionarySource'->'entries')='array'
+    and ($3='' or exists (select 1 from jsonb_array_elements(draft_json->'dictionarySource'->'entries') e
+      where strpos(lower(e->>'term'), lower($3)) > 0))`;
+  const args = [ctx.orgId, ctx.uid, input.query];
+  const total = Number((await ctx.db.query(`select count(*) as n from plans where ${where}`, args)).rows[0]!.n);
+  const pageSize = 20;
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(input.page, pages);
+  const rows = (await ctx.db.query(`select id, title, created_at, updated_at,
+      draft_json->'dictionarySource'->'entries' as entries from plans where ${where}
+      order by created_at desc, id desc limit $4 offset $5`, [...args, pageSize, (page - 1) * pageSize])).rows;
+  const entries = z.array(z.object({ term: z.string(), entryType: z.enum(['tag','expression']) }));
+  return { total, page, pages, items: rows.map(r => ({ id: r.id as string, title: r.title as string,
+    createdAt: r.created_at.toISOString() as string, updatedAt: r.updated_at.toISOString() as string,
+    entries: entries.parse(r.entries) })) };
+}
+
 export const DictionaryPlanInput = z.object({
   requestId: z.string().uuid(), accountId: z.string().uuid(),
   name: z.string().trim().min(1).max(200),

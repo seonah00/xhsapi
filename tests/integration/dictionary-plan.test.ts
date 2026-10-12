@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, describe, expect, it } from 'vitest';
-import { importDictionaryPlan } from '../../packages/core/src/dictionary-plan.ts';
+import { importDictionaryPlan, listDictionaryPlanHistory } from '../../packages/core/src/dictionary-plan.ts';
 import { listAccounts, createAccount, getPlan, saveDraft, stageDictionaryImport, reviewDictionaryImport, publishDictionaryImport, listSharedDictionary, type Ctx } from '@xhs/core';
 import { asUser, pool, ORG1, ORG2, U } from './db.ts';
 const run = <T>(uid: string, fn: (ctx: Ctx) => Promise<T>, orgId = ORG1) => asUser(uid, db => fn({db,uid,orgId,role:uid===U.admin?'org_admin':'student',mode:'mock'}));
@@ -36,9 +36,18 @@ describe('dictionary private plan import', () => {
     expect(plan.versions[0]?.content.title).toBe(input.content.title);
     await run(U.studentA, ctx => saveDraft(ctx,id,{...plan.draft,content:{...plan.draft.content,cover:'새 표지'}},plan.revision));
     expect((await run(U.studentA,ctx=>getPlan(ctx,id))).dictionarySource?.requestId).toBe(input.requestId);
+    const history = await run(U.studentA, ctx => listDictionaryPlanHistory(ctx,{query:'测试散步',page:100000}));
+    expect(history.items.some(item => item.id === id)).toBe(true);
+    expect(history.page).toBe(history.pages);
+    expect(history.items.find(item => item.id === id)?.entries).toEqual([{term:'测试散步',entryType:'tag'}]);
+    expect((await run(U.studentB, ctx => listDictionaryPlanHistory(ctx))).items.some(item => item.id === id)).toBe(false);
+    expect((await run(U.studentA, ctx => listDictionaryPlanHistory(ctx,{}),ORG2)).items.some(item => item.id === id)).toBe(false);
+    expect((await run(U.studentA, ctx => listDictionaryPlanHistory(ctx,{query:'%'}))).items.some(item => item.id === id)).toBe(false);
     await expect(run(U.studentB,ctx=>getPlan(ctx,id))).rejects.toThrow();
     await expect(run(U.studentB,ctx=>importDictionaryPlan(ctx,{...input,requestId:randomUUID()}))).rejects.toThrow();
     await expect(run(U.studentA,ctx=>importDictionaryPlan(ctx,{...input,requestId:randomUUID(),entryIds:[randomUUID()]}))).rejects.toThrow();
     await expect(run(U.studentC,ctx=>importDictionaryPlan(ctx,{...input,requestId:randomUUID()}),ORG2)).rejects.toThrow();
+    await pool.query('update plans set deleted_at=now() where id=$1',[id]);
+    expect((await run(U.studentA,ctx=>listDictionaryPlanHistory(ctx))).items.some(item=>item.id===id)).toBe(false);
   });
 });

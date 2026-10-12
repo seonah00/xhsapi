@@ -76,6 +76,7 @@ export async function dictionaryPlanAction(_previous: { error?: string; planId?:
       content: { ...input.content, title: String(form.get('title') ?? ''), cover: String(form.get('cover') ?? '') },
     }));
     revalidatePath('/app/plans');
+    revalidatePath('/app/dictionary/history');
     return { planId };
   } catch (error) {
     if (error instanceof SyntaxError) return { error: '초안 형식을 확인해 주세요.' };
