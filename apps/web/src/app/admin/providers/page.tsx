@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { autoSearchPolicy, setAutoSearchPolicy, effectiveSwitches, GATE_REASON_KO, liveReadiness, orgOps, providerOverview, setFeatureSwitches, setProviderSwitches } from '@xhs/core';
+import { autoCoverPolicy, setAutoCoverPolicy, autoSearchPolicy, setAutoSearchPolicy, effectiveSwitches, GATE_REASON_KO, liveReadiness, orgOps, providerOverview, setFeatureSwitches, setProviderSwitches } from '@xhs/core';
 import { publicCapabilities } from '@xhs/domain';
 import { withAdmin } from '../forbidden-guard';
 import { orRedirectWithError } from '@/server/actions-util';
@@ -28,11 +28,19 @@ async function saveAutoSearch(f:FormData) {
   })));
   redirect(`${back}?saved=1`);
 }
+async function saveAutoCover(f:FormData) {
+  'use server';
+  await orRedirectWithError(back,()=>withAdmin(ctx=>setAutoCoverPolicy(ctx,{
+    enabled:f.get('enabled')==='on',perMonth:Number(f.get('perMonth')),maxUsd:String(f.get('maxUsd')),
+    ...(f.get('expiresAt')?{expiresAt:new Date(String(f.get('expiresAt'))+'T23:59:59+09:00').toISOString()}:{})
+  })));
+  redirect(`${back}?saved=1`);
+}
 export default async function Providers({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string }> }) {
   const sp = await searchParams;
   const d = await withAdmin(async (ctx) => {
     const ops = await orgOps(ctx.db, ctx.orgId);
-    return { auto:await autoSearchPolicy(ctx), overview: await providerOverview(ctx), readiness: await liveReadiness(ctx, env()), ops, effective: effectiveSwitches(env(), ops) };
+    return { cover:await autoCoverPolicy(ctx), auto:await autoSearchPolicy(ctx), overview: await providerOverview(ctx), readiness: await liveReadiness(ctx, env()), ops, effective: effectiveSwitches(env(), ops) };
   });
   const caps = publicCapabilities(env());
   return (
@@ -83,6 +91,18 @@ export default async function Providers({ searchParams }: { searchParams: Promis
           <label>동일 검색 재사용 시간 <input type="number" name="cacheHours" min="1" max="168" defaultValue={d.auto.cacheHours}/></label>
           <p>월간 CNY 예산도 함께 적용됩니다. 승인 만료·관리자 권한 해제·전체 중지 시 추가 호출을 중단합니다.</p>
           <button className={btn.secondary}>자동 검색 설정 저장</button>
+        </form>
+      </Card>
+      <Card className="mt-4">
+        <h2 className="font-semibold">표지 자동 갱신</h2>
+        <p className="mt-2 text-sm text-muted">탐색에서 불러오지 못한 표지를 조직 예산으로 갱신합니다. 화면당 최대 5건, 같은 게시물은 24시간 동안 다시 요청하지 않습니다. 결과 불명인 호출은 확인 전 재요청하지 않습니다. 학생에게 비용 버튼은 표시하지 않습니다.</p>
+        <form action={saveAutoCover} className="mt-3 grid gap-2 text-sm">
+          <label><input type="checkbox" name="enabled" defaultChecked={d.cover.enabled}/> 아래 범위의 표지 자동 갱신 비용을 승인합니다</label>
+          <label>표지 갱신 종료일(최대 31일) <input type="date" name="expiresAt" defaultValue={d.cover.expiresAt?.slice(0,10)}/></label>
+          <label>표지 조회 1회 최대 USD <input name="maxUsd" defaultValue={d.cover.maxUsd} required/></label>
+          <label>조직 월간 표지 조회 건수 <input type="number" name="perMonth" min="1" max="1000" defaultValue={d.cover.perMonth}/></label>
+          <p>월간 조직 USD 예산을 함께 적용합니다. 결과가 없는 조회도 한도에 포함됩니다. 만료·중지·예산 소진 시 기존 화면을 유지합니다.</p>
+          <button className={btn.secondary}>표지 자동 갱신 설정 저장</button>
         </form>
       </Card>
       <Card className="mt-4">

@@ -34,6 +34,7 @@ export * from './note-enrichment.ts';
 
 export * from './note-links.ts';
 export * from './auto-search.ts';
+export * from './auto-cover.ts';
 export * from './ai-reference.ts';
 export * from './shared-dictionary.ts';
 export * from './dictionary-ai.ts';

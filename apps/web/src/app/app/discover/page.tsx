@@ -1,7 +1,7 @@
 import { AutoSearchStatus } from '@/components/auto-search-status';
 import Link from 'next/link';
 import { categorySearch } from '@/components/category-search';
-import { autoSearchPolicy, discover, DiscoverQuery, getQuote, requestHash } from '@xhs/core';
+import { autoCoverPolicy, autoSearchPolicy, discover, DiscoverQuery, getQuote, requestHash } from '@xhs/core';
 import { withPageCtx } from '@/server/ctx';
 import { searchAutomatically, confirmRefresh, getCompareIds, quoteRefresh } from './actions';
 import { JobStatus } from '@/components/job-status';
@@ -23,8 +23,8 @@ export default async function Discover({ searchParams }: { searchParams: Promise
     terms: sp.terms ? ([] as string[]).concat(sp.terms) : undefined, cursor: sp.cursor, job: sp.job,
   });
   const query = parsed.success ? parsed.data : DiscoverQuery.parse({});
-  const [[result, quote, mode, canManage, automatic], compare] = await Promise.all([
-    withPageCtx(async (ctx) => [await discover(ctx, query), ctx.role === 'org_admin' && sp.quote && /^[0-9a-f-]{36}$/.test(sp.quote) ? await getQuote(ctx, sp.quote) : null, ctx.mode, ctx.role === 'org_admin', await autoSearchPolicy(ctx)] as const),
+  const [[result, quote, mode, canManage, automatic, coverPolicy], compare] = await Promise.all([
+    withPageCtx(async (ctx) => [await discover(ctx, query), ctx.role === 'org_admin' && sp.quote && /^[0-9a-f-]{36}$/.test(sp.quote) ? await getQuote(ctx, sp.quote) : null, ctx.mode, ctx.role === 'org_admin', await autoSearchPolicy(ctx), await autoCoverPolicy(ctx)] as const),
     getCompareIds(),
   ]);
   const qs = new URLSearchParams(Object.entries({ q: sp.q ?? '', topic: sp.topic ?? '', format: sp.format ?? '', days: sp.days ?? '', sort: sp.sort ?? '', job: sp.job ?? '' }).filter(([, v]) => v));
@@ -46,7 +46,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
         <select name="sort" defaultValue={sp.sort ?? 'popular'} className={input} aria-label="정렬"><option value="popular">좋아요 많은 순</option><option value="saves">저장 많은 순</option><option value="recent">최신순</option></select>
         <select name="days" defaultValue={sp.days ?? ''} className={input} aria-label="기간"><option value="">전체 기간</option><option value="7">최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option></select>
         {canManage && <PendingButton formAction={quoteRefresh} className={btn.primary} pendingText="검색 준비 중…">새 게시물 검색</PendingButton>}
-        <button formAction={canManage ? undefined : searchAutomatically} className={canManage ? btn.secondary : btn.primary}>{canManage ? '저장된 게시물 검색' : '검색'}</button>
+        <button formAction={automatic.enabled || !canManage ? searchAutomatically : undefined} className={canManage ? btn.secondary : btn.primary}>{canManage && !automatic.enabled ? '저장된 게시물 검색' : '검색'}</button>
       </form>
 
       {!canManage && automatic.enabled && <p className="mb-3 text-xs text-muted">검색어로 외부 공개 게시물을 찾아옵니다. 최근에 검색한 결과는 재사용합니다.</p>}
@@ -79,7 +79,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
       {result.notes.length === 0 ? (
         <Empty title={sp.job ? "이번 조회 결과가 아직 없습니다" : "관련 근거가 부족합니다"}>{sp.job ? "조회 상태를 확인하세요. 완료되면 결과가 자동으로 갱신됩니다." : "조건에 맞는 게시물이 없습니다. 검색어나 카테고리·기간을 바꿔 보세요."}</Empty>
       ) : (
-        <CoverRepair canManage={canManage} key={back} notes={result.notes.map(n=>({id:n.id,coverUrl:n.coverUrl}))}><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <CoverRepair automatic={coverPolicy.enabled && !!coverPolicy.expiresAt && Date.parse(coverPolicy.expiresAt)>Date.now()} canManage={canManage} key={back} notes={result.notes.map(n=>({id:n.id,coverUrl:n.coverUrl}))}><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {result.notes.map((n) => <NoteCard canManage={canManage} key={n.id} note={n} back={back} inCompare={compare.includes(n.id)} />)}
         </div></CoverRepair>
       )}

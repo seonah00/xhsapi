@@ -193,6 +193,12 @@ async function providerSearch(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
 }
 
 async function enrichNote(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
+  const allowed = await deps.service(async db => (await db.query(`select 1 from app_jobs j join organizations o on o.id=j.org_id
+    where j.id=$1 and (coalesce(j.dedupe_key,'') not like 'auto-cover:%' or (
+      o.settings->'auto_cover'->>'enabled'='true' and (o.settings->'auto_cover'->>'expiresAt')::timestamptz>now()
+      and o.settings->'auto_cover'->>'approvedBy'=j.owner_user_id::text
+      and exists(select 1 from memberships m where m.org_id=j.org_id and m.user_id=j.owner_user_id and m.role='org_admin' and m.status='active')))` ,[job.id])).rowCount);
+  if (!allowed) return {state:'failed',errorCode:'AUTO_COVER_STOPPED',sent:false};
   const ids = enrichmentIds(job.input_ref);
   const completed = Number(job.result_ref?.completed ?? 0);
   if (completed === ids.length) return {state:'succeeded',result:job.result_ref ?? {completed}};
