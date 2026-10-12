@@ -120,6 +120,7 @@ export async function getReference(ctx: Ctx, id: string, opts: { includeDeleted?
 }
 
 export const ReferenceUpdate = z.object({
+  userText: z.string().max(20000).nullable().optional(),
   title: z.string().trim().max(200).nullable().optional(),
   memo: z.string().max(5000).nullable().optional(),
   tags: z.array(z.string().trim().min(1).max(30)).max(20).optional(),
@@ -134,6 +135,7 @@ export async function updateReference(ctx: Ctx, id: string, input: unknown): Pro
   const params: unknown[] = [id, ctx.uid, u.revision];
   const add = (col: string, v: unknown) => { params.push(v); sets.push(`${col} = $${params.length}`); };
   if (u.title !== undefined) add('title', u.title);
+  if (u.userText !== undefined) add('user_text', u.userText);
   if (u.memo !== undefined) add('user_memo', u.memo);
   if (u.tags !== undefined) add('tags', u.tags);
   if (u.favorite !== undefined) add('favorite', u.favorite);

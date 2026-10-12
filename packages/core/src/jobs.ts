@@ -204,7 +204,16 @@ async function enrichNote(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
     const note = await provider.noteDetail({platformNoteId:options.platformNoteId});
     const result = {completed:completed+1,total:ids.length,provider:'apify',covers:Number(job.result_ref?.covers ?? 0)+(note.coverUrl?1:0)};
     await deps.service(async db => {
-      await storeEnrichment(db,job.org_id,options.noteId,note,{permissionId:options.permissionId,ttl:options.ttl,build:options.build,jobId:job.id});
+      let noteId=options.noteId;
+      if(options.referenceId) {
+        const ref=await db.query(`select id from reference_items where id=$1 and org_id=$2 and owner_user_id=$3 and deleted_at is null for update`,[options.referenceId,job.org_id,job.owner_user_id]);
+        if(!ref.rowCount) throw new Error('REFERENCE_REMOVED');
+        const ingested=await ingestSearchResult(db,{orgId:job.org_id,provider:'apify',endpoint:'AP01',query:{}},{mode:'live',endpoint:'AP01',fetchedAt:new Date().toISOString(),notes:[note],relatedTerms:[],latestHotArticles:[],coverage:{requestedPages:1,fetchedPages:1,postFilters:[]}});
+        noteId=ingested.noteIds[0]!;
+        await db.query(`update notes set expires_at=now()+make_interval(secs=>$2) where id=$1`,[noteId,options.ttl]);
+        await db.query(`update reference_items set note_id=$2,revision=revision+1 where id=$1`,[options.referenceId,noteId]);
+      }
+      await storeEnrichment(db,job.org_id,noteId!,note,{permissionId:options.permissionId,ttl:options.ttl,build:options.build,jobId:job.id});
       await db.query(`update app_jobs set provider_task_id=null,result_ref=$2 where id=$1`,[job.id,result]);
     });
     return result.completed === ids.length ? {state:'succeeded',result} : {state:'waiting_external',retryInMs:100};

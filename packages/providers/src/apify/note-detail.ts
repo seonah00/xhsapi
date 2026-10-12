@@ -28,9 +28,9 @@ const Row = z.object({
 });
 
 /** Parse note metadata and preview URLs only; never retain API credentials, original media or location. */
-export function parseZenStudioNote(data: unknown, expectedId: string, now = new Date()): ProviderNote {
+export function parseZenStudioNote(data: unknown, expectedId: string | null, now = new Date()): ProviderNote {
   const parsed = z.array(Row).length(1).safeParse(data);
-  if (!parsed.success || parsed.data[0]!.id !== expectedId) throw new Error('APIFY_CONTRACT');
+  if (!parsed.success || (expectedId !== null && parsed.data[0]!.id !== expectedId)) throw new Error('APIFY_CONTRACT');
   const n = parsed.data[0]!;
   // Only the first image represents this note's cover; do not substitute unrelated gallery images.
   const first = n.images?.[0];
@@ -51,12 +51,25 @@ export function parseZenStudioNote(data: unknown, expectedId: string, now = new 
   };
 }
 
+/** Accept only public note paths or XHS short links; the app never follows redirects itself. */
+export function apifyNoteTarget(value: string): { value: string; expectedId: string | null } {
+  if (NoteId.safeParse(value).success) return {value, expectedId:value};
+  let url: URL;
+  try { url=new URL(value); } catch { throw new ProviderNotReadyError('APIFY_NOTE_URL'); }
+  if (!['http:','https:'].includes(url.protocol) || url.username || url.password || url.port || url.search || url.hash) throw new ProviderNotReadyError('APIFY_NOTE_URL');
+  if (['xhslink.com','xhslink.cn'].includes(url.hostname) && /^\/(?:o\/|m\/)?[a-zA-Z0-9]{5,80}\/?$/.test(url.pathname)) return {value:url.href,expectedId:null};
+  const match=/^\/(?:explore|discovery\/item)\/([a-f0-9]{24})\/?$/.exec(url.pathname);
+  if (['www.xiaohongshu.com','xiaohongshu.com'].includes(url.hostname) && match) return {value:match[1]!,expectedId:match[1]!};
+  throw new ProviderNotReadyError('APIFY_NOTE_URL');
+}
+
 export type ApifyDetailOptions = { token: string; build: string; maxChargeUsd: string; gate: LiveGateContext };
 export class ApifyNoteDetailProvider {
   constructor(private readonly options: ApifyDetailOptions, private readonly fetchImpl: typeof fetch = fetch) {}
   assertReady(platformNoteId: string): void {
     const o = this.options;
-    if (!NoteId.safeParse(platformNoteId).success || !o.token.trim() || !ApifyBuild.safeParse(o.build).success
+    apifyNoteTarget(platformNoteId);
+    if (!o.token.trim() || !ApifyBuild.safeParse(o.build).success
       || !/^\d{1,6}(\.\d{1,8})?$/.test(o.maxChargeUsd) || Number(o.maxChargeUsd) <= 0) throw new ProviderNotReadyError('APIFY_CONFIG');
     if (o.gate.endpoint.id !== 'AP01') throw new ProviderNotReadyError('APIFY_ENDPOINT');
     const checked = evaluateLiveGate({ ...o.gate, purposes: ['fetch', 'metadata_display', 'excerpt_display', 'media_display', 'cache'] });
@@ -71,12 +84,12 @@ export class ApifyNoteDetailProvider {
     let res: Response;
     try {
       res = await this.fetchImpl(url, { method: 'POST', headers: { Authorization: `Bearer ${o.token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ noteUrls: [input.platformNoteId], downloadVideos: false, downloadCovers: false, downloadImages: false, downloadSubtitles: false }),
+        body: JSON.stringify({ noteUrls: [apifyNoteTarget(input.platformNoteId).value], downloadVideos: false, downloadCovers: false, downloadImages: false, downloadSubtitles: false }),
         redirect: 'error', signal: AbortSignal.timeout(150_000) });
     } catch { throw new Error('APIFY_RESPONSE_UNKNOWN'); }
     if (!res.ok) throw new Error(`APIFY_HTTP_${res.status}`);
     let data: unknown;
     try { data = await res.json(); } catch { throw new Error('APIFY_CONTRACT'); }
-    return parseZenStudioNote(data, input.platformNoteId);
+    return parseZenStudioNote(data, apifyNoteTarget(input.platformNoteId).expectedId);
   }
 }

@@ -22,6 +22,8 @@ export const EnvSchema = z.object({
   REDFOX_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   LLM_MODEL: z.string().optional(),
+  REFERENCE_AI_PROVIDER: z.enum(['openai', 'gemini']).default('openai'),
+  REFERENCE_AI_MODEL: z.string().regex(/^[a-zA-Z0-9.-]{1,100}$/).optional(),
   /** demo = seeded demo accounts (mock data mode only); supabase = email+password via Supabase Auth. */
   AUTH_PROVIDER: z.enum(['demo', 'supabase']).default('demo'),
   /** local = private directory (development); supabase = private Supabase Storage bucket. */

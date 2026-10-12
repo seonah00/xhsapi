@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import { createQuote, reserveJob, runJob, getNotes, purgeExpired, cancelJob, type Ctx, type Runner, type JobDeps } from '@xhs/core';
+import { createReference, getReference, prepareReferenceAi, createQuote, reserveJob, runJob, getNotes, purgeExpired, cancelJob, type Ctx, type Runner, type JobDeps } from '@xhs/core';
 import { ApifyNoteDetailProvider, MockXhsProvider } from '@xhs/providers';
 import { loadEnv } from '@xhs/domain';
 import { pool, asUser as asOtherUser, U } from './db.ts';
@@ -110,4 +110,21 @@ describe('Apify enrichment alongside RedFox (fake fetch only)', () => {
     expect((await pool.query(`select result_ref from app_jobs where id=$1`,[job.jobId])).rows[0].result_ref.completed).toBe(1);
   });
 
+});
+
+
+it('fetches one owned manual short link, attaches expiring metadata and keeps input private',async()=>{
+  const referenceId=await asUser(ctx=>createReference(ctx,{sourceType:'manual_url',url:'https://xhslink.cn/m/fixture123',memo:'private memo'}));
+  const scope={referenceId};
+  const q=await asUser(ctx=>createQuote(ctx,service,'note_enrichment',scope,{env}));
+  const {jobId}=await asUser(ctx=>reserveJob(ctx,{quoteId:q.id,route:'test/ref-info',idempotencyKey:randomUUID(),operation:'note_enrichment',scope,jobKind:'note_enrichment',dedupeKey:q.id,inputRef:scope,consent:true}));
+  let sent='';
+  expect(await runJob({...deps,apifyDetailProvider:o=>new ApifyNoteDetailProvider(o,async(_url,init)=>{sent=String(init?.body);return Response.json(fixture);})},jobId,'test')).toMatchObject({state:'succeeded'});
+  expect(JSON.parse(sent).noteUrls).toEqual(['https://xhslink.cn/m/fixture123']);
+  expect(sent).not.toContain('private memo');
+  const ref=await asUser(ctx=>getReference(ctx,referenceId));
+  expect(ref.note?.title).toBe('美食 vlog');
+  expect(await asUser(ctx=>prepareReferenceAi(ctx,referenceId))).toMatchObject({title:'美食 vlog',userMemo:'private memo'});
+  await pool.query(`update notes set expires_at=now()-interval '1 second' where id=$1`,[ref.noteId]);
+  await expect(asUser(ctx=>prepareReferenceAi(ctx,referenceId))).rejects.toMatchObject({code:'NOT_FOUND'});
 });

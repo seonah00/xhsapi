@@ -1,6 +1,6 @@
 import { storeNoteAccessLink } from './note-links.ts';
-import { AppError, canonicalJson, enrichmentIds, type AppEnv } from '@xhs/domain';
-import { APIFY_ACTOR, APIFY_DETAIL_CAPABILITY, ApifyBuild, evaluateLiveGate, ProviderNotReadyError,
+import { AppError, EnrichmentScope, canonicalJson, enrichmentIds, type AppEnv } from '@xhs/domain';
+import { apifyNoteTarget, APIFY_ACTOR, APIFY_DETAIL_CAPABILITY, ApifyBuild, evaluateLiveGate, ProviderNotReadyError,
   type ApifyDetailOptions, type ApifyNoteDetailProvider, type ProviderNote } from '@xhs/providers';
 import type { Ctx, Db, ServiceRunner } from './context.ts';
 import { requireAdmin } from './admin.ts';
@@ -8,6 +8,13 @@ import { orgOps } from './ops.ts';
 
 export async function enrichmentTarget(ctx: Ctx, scope: unknown) {
   requireAdmin(ctx);
+  const parsed=EnrichmentScope.parse(scope);
+  if ('referenceId' in parsed) {
+    const ref=(await ctx.db.query(`select id,manual_url from reference_items where id=$1 and org_id=$2 and owner_user_id=$3 and source_type='manual_url' and deleted_at is null`,[parsed.referenceId,ctx.orgId,ctx.uid])).rows[0];
+    if(!ref) throw new AppError('NOT_FOUND','레퍼런스를 찾을 수 없습니다.');
+    try { apifyNoteTarget(ref.manual_url); } catch { throw new AppError('VALIDATION_FAILED','샤오홍슈 게시물 링크만 조회할 수 있습니다. 본문을 직접 입력해 주세요.'); }
+    return [ref];
+  }
   const ids = enrichmentIds(scope);
   const rows = (await ctx.db.query(`select id, platform_note_id, data_mode from notes where id=any($1::uuid[]) and org_id=$2 and data_mode=$3`, [ids, ctx.orgId, ctx.mode])).rows;
   if (rows.length !== ids.length) throw new AppError('NOT_FOUND', '노트를 찾을 수 없습니다.');
@@ -38,7 +45,7 @@ export async function priceEnrichment(ctx: Ctx, service: ServiceRunner, env: App
   return { prices:[{endpoint:'AP01',units:count,priceVersionId:p.id,unitCost:p.unit_cost,currency:'USD',unit:'run'}],maxAmount:total,currency:'USD',maxUnits:count };
 }
 
-export async function enrichmentOptions(db: Db, job: { id: string; org_id: string; owner_user_id: string | null; reserved_usage_id: string | null; input_ref: Record<string, unknown> }, env: AppEnv, index = 0): Promise<ApifyDetailOptions & { total: number; permissionId: string | null; ttl: number; noteId: string; platformNoteId: string }> {
+export async function enrichmentOptions(db: Db, job: { id: string; org_id: string; owner_user_id: string | null; reserved_usage_id: string | null; input_ref: Record<string, unknown> }, env: AppEnv, index = 0): Promise<ApifyDetailOptions & { total: number; permissionId: string | null; ttl: number; noteId: string | null; referenceId?: string; platformNoteId: string }> {
   const row = (await db.query(`select q.id as quote_id,q.scope_json,q.max_amount::text,q.currency,q.operation,q.consumed_at,l.status,l.reserved_amount::text
     from usage_ledger l join cost_quotes q on q.id=l.quote_id
     where l.id=$1 and l.job_id=$2 and l.org_id=$3 and l.user_id=$4 and l.provider='apify' and l.endpoint='AP01'
@@ -49,14 +56,23 @@ export async function enrichmentOptions(db: Db, job: { id: string; org_id: strin
   if (canonicalJson(quoted) !== canonicalJson(job.input_ref)) throw new ProviderNotReadyError('APIFY_SCOPE_INVALID');
   const ids = enrichmentIds(quoted);
   if (!Number.isInteger(index) || index < 0 || index >= ids.length) throw new ProviderNotReadyError('APIFY_PROGRESS_INVALID');
-  const target = (await db.query(`select id,platform_note_id from notes where id=$1 and org_id=$2 and data_mode='live'`,[ids[index],job.org_id])).rows[0];
-  if (!target) throw new ProviderNotReadyError('APIFY_TARGET_MISSING');
+  const parsed=EnrichmentScope.parse(quoted);
+  let target: {id:string|null;platform_note_id:string};
+  if ('referenceId' in parsed) {
+    const ref=(await db.query(`select r.manual_url from reference_items r join memberships m on m.org_id=r.org_id and m.user_id=r.owner_user_id
+      where r.id=$1 and r.org_id=$2 and r.owner_user_id=$3 and r.deleted_at is null and r.source_type='manual_url' and m.role='org_admin'`,[parsed.referenceId,job.org_id,job.owner_user_id])).rows[0];
+    if(!ref) throw new ProviderNotReadyError('APIFY_TARGET_MISSING');
+    target={id:null,platform_note_id:apifyNoteTarget(ref.manual_url).value};
+  } else {
+    target=(await db.query(`select id,platform_note_id from notes where id=$1 and org_id=$2 and data_mode='live'`,[ids[index],job.org_id])).rows[0];
+    if (!target) throw new ProviderNotReadyError('APIFY_TARGET_MISSING');
+  }
   const st=await state(db,job.org_id);
   const consent=(await db.query(`select 1 from consent_records where org_id=$1 and user_id=$2 and purpose='external_provider_query' and policy_version='apify-zen-detail-v1' and scope->>'quoteId'=$3 and withdrawn_at is null limit 1`,[job.org_id,job.owner_user_id,row.quote_id])).rowCount===1;
   return { token:env.APIFY_TOKEN ?? '', build:row.scope_json.actorBuild,maxChargeUsd:runCapUsd ?? (ids.length === 1 ? row.max_amount : ''),
     gate:{env,endpoint:st.capability,orgLiveEnabled:st.ops.provider.live && !st.ops.provider.kill && st.ops.features.provider_search,permission:st.permission,
       purposes:['fetch','metadata_display','excerpt_display','media_display','cache'],consentRecorded:consent,budgetReserved:true,userApproved:true},
-    total:ids.length,permissionId:null,ttl:st.ttl,noteId:target.id,platformNoteId:target.platform_note_id };
+    ...('referenceId' in parsed ? {referenceId:parsed.referenceId}:{}),total:ids.length,permissionId:null,ttl:st.ttl,noteId:target.id,platformNoteId:target.platform_note_id };
 }
 
 export async function storeEnrichment(db: Db, orgId: string, noteId: string, n: ProviderNote, meta: { permissionId: string | null; ttl: number; build: string; jobId: string }) {

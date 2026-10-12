@@ -169,3 +169,14 @@ pnpm price unverify --provider apify --endpoint AP01
 - 레퍼런스 분석, 기획 제안, 성과 회고는 같은 AI01 상한을 사용한다. 요청별 전송 동의와 예산 예약을 유지한다. 새로운 일회성/반복 예산 승인을 기존 Apify 승인으로 대신하지 않는다.
 - 합성 자료 1건씩 품질 점검할 때도 호출 예산을 먼저 정한다. unknown_outcome은 실제 발송 여부를 확정할 수 없어 자동 재시도하지 않는다.
 - 기획은 대상·확인 사실·촬영 가능 장면을 저장해야 요청 가능하다. 참고 자료의 경험은 사용자 사실이 아니며 생성문은 적용 전 확인한다. 성과는 게시물당 기록 1개, 최대 20개 선택한다.
+
+
+## 레퍼런스 Gemini 선택 (ADR 0026)
+
+1. 마이그레이션 `20261012000026_gemini_reference.sql` 적용.
+2. web/worker에 `REFERENCE_AI_PROVIDER=gemini`, `REFERENCE_AI_MODEL=<검증 모델>` 설정. worker의 `GEMINI_API_KEY`, `LIVE_LLM_CALLS_ENABLED=true` 확인. web과 worker의 모델 선택이 다르면 전송 전 차단된다. 기획·회고의 기존 `LLM_MODEL`/OpenAI 설정은 독립적이다.
+3. `pnpm price register --provider gemini --endpoint AI01 --model <검증 모델> --unit run --currency USD --unit-cost <검증 최대비용> --output-token-limit 6000 --evidence <근거> --verified-by <운영자 이메일>`로 등록. 입력 20,000 및 출력 6,000 토큰(생각 토큰 포함)을 모두 커버하는 USD/run 상한을 검증한다. 임의 가격이나 공용사전 4,096 출력 상한을 재사용하지 않는다.
+4. 조직 live/AI 스위치와 USD 조직 예산을 확인. 실제 실행은 학생 동의와 기존 견적 예약을 거친다. 키만 등록해도 자동 활성화되지는 않는다.
+5. 새 레퍼런스에 텍스트가 있는지 확인. 관리자 링크 조회는 고정 Apify 빌드와 AP01 검증 단가가 필요하며 1건 조회 후 분석을 별도로 요청한다. 수강생은 본문을 직접 입력하거나 탐색의 저장된 게시물을 가져온다.
+
+복구: `REFERENCE_AI_PROVIDER=openai`로 되돌리면 기존 모델/단가 체계를 사용한다. 이미 예약한 다른 제공자의 작업은 전송 전 거절하며 예약을 해제한다. 외부 응답이 불명확한 작업은 수동 검토하며 재전송하지 않는다.

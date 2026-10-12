@@ -2,7 +2,7 @@ import { detailedAiFixture } from '../fixtures/detailed-ai.ts';
 import { beforeAll,afterAll,it,expect } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { pool,asUser } from './db.ts';
-import { createAccount,createPlan,getPlan,saveDraft,applyProposal,createPublication,addSnapshot,listPublications,listReflections,PlanContent,requestAutoSearch,autoSearchStatus,setAutoSearchPolicy,originalNoteLink,storeNoteAccessLink,createReference,createQuote,reserveJob,runJob,type Ctx,type Runner } from '@xhs/core';
+import { updateReference,prepareReferenceAi,createAccount,createPlan,getPlan,saveDraft,applyProposal,createPublication,addSnapshot,listPublications,listReflections,PlanContent,requestAutoSearch,autoSearchStatus,setAutoSearchPolicy,originalNoteLink,storeNoteAccessLink,createReference,createQuote,reserveJob,runJob,type Ctx,type Runner } from '@xhs/core';
 import { MockXhsProvider } from '@xhs/providers';
 import { loadEnv } from '@xhs/domain';
 const org=randomUUID(),admin=randomUUID(),student=randomUUID(),other=randomUUID();
@@ -145,8 +145,9 @@ it('reflects only selected own publications with evidence and never resends an a
 });
 
 it('blocks an old 2000-token price both at quotation and before sending a queued job',async()=>{
+  const priceCheckRef=await user(student,ctx=>createReference(ctx,{sourceType:'pasted_text',text:'合成文本'}));
   await pool.query(`update provider_price_versions set output_token_limit=2000 where provider='openai' and verified_by=$1`,[admin]);
-  await expect(user(student,ctx=>createQuote(ctx,service,'reference_analysis',{referenceId:randomUUID()},{env:aiEnv}),'live')).rejects.toMatchObject({code:'LIVE_BLOCKED'});
+  await expect(user(student,ctx=>createQuote(ctx,service,'reference_analysis',{referenceId:priceCheckRef},{env:aiEnv}),'live')).rejects.toMatchObject({code:'LIVE_BLOCKED'});
   await pool.query(`update provider_price_versions set output_token_limit=6000 where provider='openai' and verified_by=$1`,[admin]);
   const ref=await user(student,ctx=>createReference(ctx,{sourceType:'pasted_text',text:'合成文本'}));
   const scope={referenceId:ref};
@@ -156,4 +157,39 @@ it('blocks an old 2000-token price both at quotation and before sending a queued
   let calls=0;
   expect(await runJob({service,provider:new MockXhsProvider(),env:aiEnv,aiFetch:async()=>{calls++;throw new Error('must not send');}},jobId,'test')).toMatchObject({state:'failed',sent:false});
   expect(calls).toBe(0);expect((await pool.query(`select status from usage_ledger where job_id=$1`,[jobId])).rows[0].status).toBe('released');
+});
+
+
+it('blocks link-only analysis before pricing, supports saved body text and isolates references',async()=>{
+  const id=await user(student,ctx=>createReference(ctx,{sourceType:'manual_url',url:'https://xhslink.cn/m/fixture123'}));
+  await expect(user(student,ctx=>createQuote(ctx,service,'reference_analysis',{referenceId:id},{env:aiEnv}),'live')).rejects.toMatchObject({code:'VALIDATION_FAILED'});
+  await user(student,ctx=>updateReference(ctx,id,{userText:'这是测试正文',revision:1}));
+  expect(await user(student,ctx=>prepareReferenceAi(ctx,id),'live')).toMatchObject({userText:'这是测试正文'});
+  await expect(user(other,ctx=>prepareReferenceAi(ctx,id),'live')).rejects.toMatchObject({code:'NOT_FOUND'});
+});
+
+it('routes reference jobs to Gemini while binding the reserved provider and model',async()=>{
+  const env={...aiEnv,REFERENCE_AI_PROVIDER:'gemini' as const,REFERENCE_AI_MODEL:'gemini-fixture',GEMINI_API_KEY:'fake'};
+  const refId=await user(student,ctx=>createReference(ctx,{sourceType:'pasted_text',text:'测试正文'}));
+  const scope={referenceId:refId};
+  await expect(user(student,ctx=>createQuote(ctx,service,'reference_analysis',scope,{env}),'live')).rejects.toMatchObject({code:'LIVE_BLOCKED'});
+  await pool.query(`insert into provider_price_versions(provider,endpoint,currency,unit,unit_cost,effective_at,verified_by,evidence,model,output_token_limit) values('gemini','AI01','USD','run',0.01,now(),$1,'synthetic only','gemini-fixture',6000)`,[admin]);
+  await pool.query(`update provider_capabilities set price_status='verified' where provider='gemini'`);
+  const enqueue=async()=>{
+    const q=await user(student,ctx=>createQuote(ctx,service,'reference_analysis',scope,{env}),'live');
+    expect(q.provider).toBe('gemini');
+    return (await user(student,ctx=>reserveJob(ctx,{quoteId:q.id,route:'test/gemini',idempotencyKey:randomUUID(),operation:'reference_analysis',scope,jobKind:'reference_analysis',dedupeKey:q.id,inputRef:scope,consent:true}),'live')).jobId;
+  };
+  let calls=0;
+  const aiFetch:typeof fetch=async()=>{calls++;return Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify(detailedAiFixture('userText','测试正文'))}]}}]});};
+  const deps={service,provider:new MockXhsProvider(),env,aiFetch};
+  const blocked=await enqueue();
+  expect(await runJob({...deps,env:{...env,REFERENCE_AI_MODEL:'changed'}},blocked,'test')).toMatchObject({state:'failed',sent:false});
+  expect(calls).toBe(0);
+  const job=await enqueue();
+  expect(await runJob(deps,job,'test')).toMatchObject({state:'succeeded'});
+  expect(calls).toBe(1);
+  expect((await pool.query(`select output_json from analyses where target_id=$1`,[refId])).rows[0].output_json.generator).toBe('gemini-reference-v2');
+  expect((await pool.query(`select provider,status from usage_ledger where job_id=$1`,[job])).rows[0]).toMatchObject({provider:'gemini',status:'settled'});
+  await pool.query(`update provider_capabilities set price_status='unknown' where provider='gemini'`);
 });

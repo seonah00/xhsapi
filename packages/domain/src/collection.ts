@@ -4,12 +4,13 @@ export const CollectionTarget = z.union([z.literal(50), z.literal(100)]);
 /** Two spare pages allow for duplicate or date-filtered results without unbounded spend. */
 export const collectionPages = (target: number): number => Math.ceil(CollectionTarget.parse(target) / 20) + 2;
 export const EnrichmentScope = z.union([
+  z.object({ referenceId: z.string().uuid() }).strict(),
   z.object({ noteId: z.string().uuid() }).strict(),
   z.object({ noteIds: z.array(z.string().uuid()).min(1).max(50).refine(ids => new Set(ids).size === ids.length, '중복 노트는 선택할 수 없습니다.') }).strict(),
 ]);
 export function enrichmentIds(scope: unknown): string[] {
   const s = EnrichmentScope.parse(scope);
-  return 'noteId' in s ? [s.noteId] : s.noteIds;
+  return 'referenceId' in s ? [s.referenceId] : 'noteId' in s ? [s.noteId] : s.noteIds;
 }
 export type CollectionProgress = { pages: number; noteIds: string[]; fingerprints: string[] };
 export type CollectionStop = 'target_reached' | 'provider_exhausted' | 'repeated_page' | 'page_limit';

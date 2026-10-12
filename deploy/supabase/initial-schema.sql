@@ -2712,3 +2712,12 @@ grant execute on function app.dictionary_ai_capacity(uuid), app.reserve_dictiona
   app.finish_dictionary_ai_usage(uuid, text, integer, integer, integer) to authenticated;
 
 insert into app.applied_migrations (version, name) values ('20261007000025', '20261007000025_dictionary_ai.sql');
+
+-- ==== 20261012000026_gemini_reference.sql ====
+
+-- No automatic activation or assumed model price. Operator must verify the full request bound.
+insert into public.provider_capabilities(provider,endpoint,path,params_status,verification_status,price_status,phase,note)
+values('gemini','AI01','/v1beta/models/{model}:generateContent','documented','documented','unknown','P1',
+'Text-only reference analysis. Verify configured model USD/run cap covering 20,000 input and 6,000 total output tokens (including thinking) before activation.');
+
+insert into app.applied_migrations (version, name) values ('20261012000026', '20261012000026_gemini_reference.sql');

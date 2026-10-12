@@ -25,10 +25,10 @@ export function parseArgs(argv: string[]): { cmd: string; opts: Record<string, s
 
 export function validateRegister(o: Record<string, string>) {
   const errors: string[] = [];
-  if (!o.endpoint || (o.provider === 'openai' ? o.endpoint !== 'AI01' : o.provider === 'apify' ? o.endpoint !== 'AP01' : !(o.endpoint in REDFOX_CAPABILITIES))) errors.push('--endpoint: RedFox RF01~RF14, Apify AP01, OpenAI AI01');
-  if (o.provider && !['redfox','apify','openai'].includes(o.provider)) errors.push('--provider: redfox, apify 또는 openai');
+  if (!o.endpoint || (['openai','gemini'].includes(o.provider ?? '') ? o.endpoint !== 'AI01' : o.provider === 'apify' ? o.endpoint !== 'AP01' : !(o.endpoint in REDFOX_CAPABILITIES))) errors.push('--endpoint: RedFox RF01~RF14, Apify AP01, OpenAI/Gemini AI01');
+  if (o.provider && !['redfox','apify','openai','gemini'].includes(o.provider)) errors.push('--provider: redfox, apify 또는 openai/gemini');
   if (o.provider === 'apify' && (o.unit !== 'run' || o.currency !== 'USD' || !(Number(o['unit-cost']) > 0))) errors.push('Apify는 검증된 양수 USD/run 최대 비용만 등록');
-  if (o.provider === 'openai' && (o.unit !== 'run' || o.currency !== 'USD' || !(Number(o['unit-cost']) > 0) || !o.model || !/^[a-zA-Z0-9.-]{1,100}$/.test(o.model) || !Number.isSafeInteger(Number(o['output-token-limit'])) || Number(o['output-token-limit']) < REFERENCE_OUTPUT_TOKENS)) errors.push('OpenAI: --model과 검증된 양수 USD/run 상한 필요 (입력 20,000 + 출력 6,000 토큰 포함, --output-token-limit 6000 이상)');
+  if (['openai','gemini'].includes(o.provider ?? '') && (o.unit !== 'run' || o.currency !== 'USD' || !(Number(o['unit-cost']) > 0) || !o.model || !/^[a-zA-Z0-9.-]{1,100}$/.test(o.model) || !Number.isSafeInteger(Number(o['output-token-limit'])) || Number(o['output-token-limit']) < REFERENCE_OUTPUT_TOKENS)) errors.push('AI: --model과 검증된 양수 USD/run 상한 필요 (입력 20,000 + 출력 6,000 토큰 포함, --output-token-limit 6000 이상)');
   if (!o.unit || !/^[a-z_]{2,20}$/.test(o.unit)) errors.push('--unit: 예) call, page, minute');
   if (!o['unit-cost'] || !/^\d{1,12}(\.\d{1,8})?$/.test(o['unit-cost'])) errors.push('--unit-cost: 0 이상 숫자(소수 8자리까지)');
   if (!o.currency || !/^[A-Z]{3}$/.test(o.currency)) errors.push('--currency: 예) CNY, USD');
@@ -41,7 +41,7 @@ export function validateRegister(o: Record<string, string>) {
 async function main() {
   const { cmd, opts } = parseArgs(process.argv.slice(2));
   const provider = opts.provider ?? 'redfox';
-  if (!['redfox','apify','openai'].includes(provider)) throw new Error('--provider: redfox, apify 또는 openai');
+  if (!['redfox','apify','openai','gemini'].includes(provider)) throw new Error('--provider: redfox, apify 또는 openai/gemini');
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is required');
   const db = new pg.Client(pgConfig());
@@ -65,13 +65,13 @@ async function main() {
       await db.query(
         `insert into provider_price_versions (provider, endpoint, currency, unit, unit_cost, effective_at, verified_by, evidence, model, output_token_limit)
          values ($8, $1, $2, $3, $4::numeric, coalesce($5::timestamptz, now()), $6, $7, $9, $10)`,
-        [opts.endpoint, opts.currency, opts.unit, opts['unit-cost'], opts['effective-at'] ?? null, user.id, (opts.evidence ?? '').trim(), provider, provider==='openai' ? opts.model : null, provider==='openai' ? Number(opts['output-token-limit']) : null],
+        [opts.endpoint, opts.currency, opts.unit, opts['unit-cost'], opts['effective-at'] ?? null, user.id, (opts.evidence ?? '').trim(), provider, ['openai','gemini'].includes(provider) ? opts.model : null, ['openai','gemini'].includes(provider) ? Number(opts['output-token-limit']) : null],
       );
       await db.query(`update provider_capabilities set price_status = 'verified' where provider = $2 and endpoint = $1`, [opts.endpoint,provider]);
       await db.query('commit');
       console.info(`등록: ${opts.endpoint} ${opts['unit-cost']} ${opts.currency}/${opts.unit}`);
     } else if (cmd === 'unverify') {
-      if (!opts.endpoint || (provider === 'openai' ? opts.endpoint !== 'AI01' : provider === 'apify' ? opts.endpoint !== 'AP01' : !(opts.endpoint in REDFOX_CAPABILITIES))) throw new Error('--endpoint 필요');
+      if (!opts.endpoint || (['openai','gemini'].includes(provider) ? opts.endpoint !== 'AI01' : provider === 'apify' ? opts.endpoint !== 'AP01' : !(opts.endpoint in REDFOX_CAPABILITIES))) throw new Error('--endpoint 필요');
       await db.query(`update provider_capabilities set price_status = 'unknown' where provider = $2 and endpoint = $1`, [opts.endpoint,provider]);
       console.info(`${opts.endpoint}: 단가 미확인으로 되돌림(새 견적 차단, 기록 유지)`);
     } else {

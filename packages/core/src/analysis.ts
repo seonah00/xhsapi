@@ -20,7 +20,7 @@ export type AnalysisOutput = {
   suggestions: EvidenceClaim[];
   missingFacts: string[];
   limitations: string[];
-  generator: 'mock-rules-v1' | 'openai-reference-v1' | 'openai-reference-v2';
+  generator: 'mock-rules-v1' | 'openai-reference-v1' | 'openai-reference-v2' | 'gemini-reference-v2';
   sections?: ReferenceSection[];
 };
 

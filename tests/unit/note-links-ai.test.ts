@@ -1,7 +1,7 @@
 import { detailedAiFixture } from '../fixtures/detailed-ai.ts';
 import { describe,it,expect,vi } from 'vitest';
 import { safeXhsAccessUrl } from '@xhs/security';
-import { parseZenStudioNote } from '@xhs/providers';
+import { apifyNoteTarget, parseZenStudioNote } from '@xhs/providers';
 import { callReferenceAi, type AnalysisInput } from '@xhs/core';
 const id='aaaaaaaaaaaaaaaaaaaaaaaa';
 const base=`https://www.xiaohongshu.com/explore/${id}`;
@@ -37,4 +37,13 @@ describe('actual AI adapter with fake fetch',()=>{
     await expect(callReferenceAi({...input,body:'x'.repeat(13000)},{key:'fake',model:'test'},fetch)).rejects.toThrow();expect(fetch).not.toHaveBeenCalled();
     await expect(callReferenceAi(input,{key:'fake',model:'test'},fetch)).rejects.toThrow('AI_RESPONSE_UNAVAILABLE');expect(fetch).toHaveBeenCalledTimes(1);
   });
+});
+
+
+it('allows public XHS short links only and retains identity checking for full links',()=>{
+  expect(apifyNoteTarget('https://xhslink.cn/m/fixture123')).toEqual({value:'https://xhslink.cn/m/fixture123',expectedId:null});
+  expect(apifyNoteTarget(base)).toEqual({value:id,expectedId:id});
+  for(const url of ['http://127.0.0.1/test','https://xhslink.cn.evil.invalid/m/fixture123','https://www.xiaohongshu.com/user/profile/'+id,'https://user:pass@xhslink.cn/m/fixture123','https://xhslink.cn/m/fixture123?token=secret']) expect(()=>apifyNoteTarget(url)).toThrow();
+  expect(()=>parseZenStudioNote([{id:'b'.repeat(24),type:'video'}],id)).toThrow('APIFY_CONTRACT');
+  expect(parseZenStudioNote([{id,type:'video'}],null).platformNoteId).toBe(id);
 });

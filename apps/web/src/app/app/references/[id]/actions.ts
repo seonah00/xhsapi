@@ -14,6 +14,7 @@ export async function saveMeta(f: FormData) {
   const id = uuid.parse(f.get('id'));
   await orRedirectWithError(refPath(id), () => withPageCtx((ctx) => updateReference(ctx, id, {
     title: String(f.get('title') ?? '').trim() || null,
+    userText: String(f.get('userText') ?? '').trim() || null,
     memo: String(f.get('memo') ?? '') || null,
     tags: String(f.get('tags') ?? '').split(/[,，]/).map((s) => s.trim()).filter(Boolean),
     favorite: f.get('favorite') === 'on',
@@ -78,4 +79,21 @@ export async function removeTranscript(f: FormData) {
   const back = `${refPath(id)}/transcript`;
   await orRedirectWithError(back, () => withPageCtx((ctx) => deleteTranscript(ctx, id)));
   redirect(`${back}?deleted=1`);
+}
+
+/** Administrator-only provider lookup; ordinary students can paste text instead. */
+export async function quoteReferenceInfo(f: FormData) {
+  const id=uuid.parse(f.get('id'));
+  const q=await orRedirectWithError(refPath(id),()=>withPageCtx(ctx=>createQuote(ctx,service,'note_enrichment',{referenceId:id})));
+  redirect(`${refPath(id)}?confirm=info&quote=${q.id}`);
+}
+export async function confirmReferenceInfo(f: FormData) {
+  const id=uuid.parse(f.get('id'));
+  const quoteId=uuid.parse(f.get('quoteId'));
+  const scope={referenceId:id};
+  const {jobId}=await orRedirectWithError(refPath(id),()=>withPageCtx(ctx=>reserveJob(ctx,{
+    quoteId,route:'POST /references/:id/info',idempotencyKey:uuid.parse(f.get('idem')),operation:'note_enrichment',scope,
+    consent:f.get('consent')==='on',jobKind:'note_enrichment',dedupeKey:`reference-info:${quoteId}`,inputRef:scope,
+  })));
+  redirect(`${refPath(id)}?infoJob=${jobId}`);
 }

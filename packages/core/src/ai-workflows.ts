@@ -1,4 +1,4 @@
-import { verifyAiJob } from './ai-reference.ts';
+import { verifyAiJob, prepareReferenceAi } from './ai-reference.ts';
 import { z } from 'zod';
 import { AppError, contentHash } from '@xhs/domain';
 import { redactString } from '@xhs/security';
@@ -89,6 +89,7 @@ export async function prepareReflectionAi(db:Db,orgId:string,uid:string,scope:Re
   return {input:boundedAiData(input),snapshotIds:rows.map(r=>r.id as string),accountId};
 }
 export async function validateAiTarget(ctx:Ctx,kind:string,scope:Record<string,unknown>) {
+  if(kind==='reference_analysis') await prepareReferenceAi(ctx,z.string().uuid().parse(scope.referenceId));
   if(kind==='plan_generation') await preparePlanAi(ctx.db,ctx.orgId,ctx.uid,z.string().uuid().parse(scope.planId));
   if(kind==='results_reflection') await prepareReflectionAi(ctx.db,ctx.orgId,ctx.uid,scope);
 }

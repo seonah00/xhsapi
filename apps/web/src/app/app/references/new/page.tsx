@@ -31,7 +31,7 @@ export default async function NewReference({ searchParams }: { searchParams: Pro
   const { error } = await searchParams;
   return (
     <div className="max-w-2xl space-y-4">
-      <PageHeader title="레퍼런스 직접 추가" description="링크만 저장하며 서버가 해당 페이지를 가져오지 않습니다. 이미지 첨부·분석은 다음 단계에서 지원합니다." />
+      <PageHeader title="레퍼런스 직접 추가" description="링크 저장만으로 본문을 가져오지는 않습니다. 저장 후 제목·본문·태그를 입력하면 텍스트 분석을 요청할 수 있습니다." />
       <ErrorNotice message={error} />
       <Card>
         <h2 className="font-semibold">링크 + 메모</h2>

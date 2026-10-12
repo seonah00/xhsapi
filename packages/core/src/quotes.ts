@@ -1,5 +1,5 @@
 import { isTextAiOperation, aiJobScope, validateAiTarget } from './ai-workflows.ts';
-import { priceReferenceAi } from './ai-reference.ts';
+import { priceReferenceAi, referenceAiConfig } from './ai-reference.ts';
 import { AppError, CollectionTarget, enrichmentIds, canonicalJson, loadEnv, sha256Hex, type AppEnv, type JobKind } from '@xhs/domain';
 import { pgCode, type Ctx, type ServiceRunner } from './context.ts';
 import { APIFY_ACTOR } from '@xhs/providers';
@@ -32,6 +32,7 @@ export type Quote = {
   id: string;
   operation: Operation;
   mode: 'mock' | 'live';
+  provider?: string;
   maxAmount: string;
   currency: string;
   maxBillableUnits: number;
@@ -73,16 +74,16 @@ export async function createQuote(ctx: Ctx, service: ServiceRunner, operation: O
     // Unknown price, blocked gate, zero budget or a provider without a contract refuse here (spec 6.3, 9.2).
     if(isTextAiOperation(operation)) await validateAiTarget(ctx,operation,scope);
     const env = opts.env ?? loadEnv(process.env);
-    const priced = isTextAiOperation(operation) ? await priceReferenceAi(ctx, service, env) : operation === 'note_enrichment' ? await priceEnrichment(ctx, service, env, enrichmentIds(scope).length) : await priceLiveOperation(ctx, service, operation, env, scope);
+    const priced = isTextAiOperation(operation) ? await priceReferenceAi(ctx, service, env, operation) : operation === 'note_enrichment' ? await priceEnrichment(ctx, service, env, enrichmentIds(scope).length) : await priceLiveOperation(ctx, service, operation, env, scope);
     const row = await service(async (db) => (await db.query<{ id: string; expires_at: Date }>(
       `insert into cost_quotes (org_id, owner_user_id, operation, request_hash, data_mode, scope_json, max_billable_units, max_amount, currency, price_version_ids, permission_versions)
        values ($1, $2, $3, $4, 'live', $5, $6, $7, $8, $9, $10) returning id, expires_at`,
       [ctx.orgId, ctx.uid, operation, hash,
-       { ...scope, ...(isTextAiOperation(operation) ? {model:env.LLM_MODEL} : {}), ...(operation === 'note_enrichment' ? { actor: APIFY_ACTOR, actorBuild: env.APIFY_ACTOR_BUILD, runCapUsd: priced.prices[0]!.unitCost } : {}), provider: isTextAiOperation(operation) ? 'openai' : operation === 'note_enrichment' ? 'apify' : 'redfox', endpoint: priced.prices[0]!.endpoint, prices: priced.prices.map((p) => ({ endpoint: p.endpoint, units: p.units, unitCost: p.unitCost, unit: p.unit })) },
+       { ...scope, ...(isTextAiOperation(operation) ? {model:referenceAiConfig(env,operation).model} : {}), ...(operation === 'note_enrichment' ? { actor: APIFY_ACTOR, actorBuild: env.APIFY_ACTOR_BUILD, runCapUsd: priced.prices[0]!.unitCost } : {}), provider: isTextAiOperation(operation) ? referenceAiConfig(env,operation).provider : operation === 'note_enrichment' ? 'apify' : 'redfox', endpoint: priced.prices[0]!.endpoint, prices: priced.prices.map((p) => ({ endpoint: p.endpoint, units: p.units, unitCost: p.unitCost, unit: p.unit })) },
        priced.maxUnits, priced.maxAmount, priced.currency, priced.prices.map((p) => p.priceVersionId), {}],
     )).rows[0]!);
     return {
-      id: row.id, operation, mode: 'live', maxAmount: priced.maxAmount, currency: priced.currency, maxBillableUnits: priced.maxUnits,
+      id: row.id, operation, provider:isTextAiOperation(operation) ? referenceAiConfig(env,operation).provider : operation==='note_enrichment' ? 'apify' : 'redfox', mode: 'live', maxAmount: priced.maxAmount, currency: priced.currency, maxBillableUnits: priced.maxUnits,
       expiresAt: row.expires_at.toISOString(), usedToday: used, dailyLimit: limit, requestHash: hash,
     };
   }
@@ -126,7 +127,7 @@ export async function reserveJob(ctx: Ctx, args: {
     if (isTextAiOperation(args.operation)) {
       if(args.jobKind!==args.operation || canonicalJson(aiJobScope(args.jobKind,args.inputRef))!==canonicalJson(args.scope)) throw new AppError('VALIDATION_FAILED','분석 요청이 견적과 다릅니다.');
       await validateAiTarget(ctx,args.operation,args.scope);
-      await ctx.db.query(`insert into consent_records(org_id,user_id,purpose,policy_version,scope) values($1,$2,'external_ai_processing','openai-text-v2',$3)`,[ctx.orgId,ctx.uid,{quoteId:args.quoteId}]);
+      await ctx.db.query(`insert into consent_records(org_id,user_id,purpose,policy_version,scope) values($1,$2,'external_ai_processing','external-text-v2',$3)`,[ctx.orgId,ctx.uid,{quoteId:args.quoteId}]);
     } else if (args.operation === 'note_enrichment') {
       await ctx.db.query(`insert into consent_records(org_id,user_id,purpose,policy_version,scope) select $1,$2,'external_provider_query','apify-zen-detail-v1',$3 where not exists (select 1 from consent_records where org_id=$1 and user_id=$2 and policy_version='apify-zen-detail-v1' and scope=$3::jsonb and withdrawn_at is null)`, [ctx.orgId,ctx.uid,{operation:args.operation,quoteId:args.quoteId}]);
     } else await recordLiveConsent(ctx, args.operation as LiveOperation);
@@ -158,13 +159,13 @@ export async function getJob(ctx: Ctx, id: string): Promise<JobView | null> {
 
 export async function getQuote(ctx: Ctx, id: string): Promise<(Quote & { consumed: boolean; expired: boolean }) | null> {
   const r = (await ctx.db.query(
-    `select id, operation, data_mode, max_amount, currency, max_billable_units, expires_at, request_hash, consumed_at from cost_quotes where id = $1 and org_id = $2 and owner_user_id = $3`,
+    `select id, scope_json, operation, data_mode, max_amount, currency, max_billable_units, expires_at, request_hash, consumed_at from cost_quotes where id = $1 and org_id = $2 and owner_user_id = $3`,
     [id, ctx.orgId, ctx.uid],
   )).rows[0];
   if (!r) return null;
   const op = r.operation as Operation;
   return {
-    id: r.id, operation: op, mode: r.data_mode, maxAmount: r.max_amount, currency: r.currency, maxBillableUnits: r.max_billable_units,
+    id: r.id, operation: op, provider:r.scope_json?.provider, mode: r.data_mode, maxAmount: r.max_amount, currency: r.currency, maxBillableUnits: r.max_billable_units,
     expiresAt: r.expires_at.toISOString(), usedToday: await usedToday(ctx, op), dailyLimit: await dailyLimit(ctx, op), requestHash: r.request_hash,
     consumed: r.consumed_at !== null, expired: r.expires_at <= new Date(),
   };

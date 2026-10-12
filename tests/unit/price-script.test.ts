@@ -24,3 +24,11 @@ describe('operator price registration input', () => {
     expect(() => parseArgs(['register', '--endpoint'])).toThrow();
   });
 });
+
+
+it('requires Gemini model and the full output bound instead of reusing dictionary pricing',()=>{
+  const valid={provider:'gemini',endpoint:'AI01',unit:'run',currency:'USD','unit-cost':'0.1',evidence:'synthetic test only','verified-by':'ops@example.com',model:'gemini-fixture','output-token-limit':'6000'};
+  expect(validateRegister(valid)).toEqual([]);
+  expect(validateRegister({...valid,'output-token-limit':'4096'})).not.toEqual([]);
+  expect(validateRegister({...valid,model:''})).not.toEqual([]);
+});

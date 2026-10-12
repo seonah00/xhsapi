@@ -37,3 +37,29 @@ describe('detailed text reference analysis',()=>{
     expect(result.sections?.find(s=>s.key==='wording')?.quotes[0]?.field).toBe('userText');
   });
 });
+
+
+describe('Gemini reference adapter (fake fetch only)',()=>{
+  it('uses Gemini authentication and bounded structured text, with the same evidence validator',async()=>{
+    const fetch=vi.fn(async()=>Response.json({candidates:[{finishReason:'STOP',content:{parts:[{thought:true,text:'private internal text'},{text:JSON.stringify(response())}]}}]}));
+    const result=await callReferenceAi(input,{key:'fake-gemini',model:'gemini-fixture',provider:'gemini'},fetch);
+    expect(result.generator).toBe('gemini-reference-v2');
+    const [url,init]=fetch.mock.calls[0] as unknown as [string,RequestInit];
+    expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-fixture:generateContent');
+    expect(init.headers).toMatchObject({'x-goog-api-key':'fake-gemini'});
+    expect(JSON.parse(String(init.body)).generationConfig.maxOutputTokens).toBe(6000);
+    expect(JSON.stringify(result)).not.toContain('private internal text');
+  });
+  it('rejects truncation and safety blocks without retries',async()=>{
+    for(const payload of [{candidates:[{finishReason:'MAX_TOKENS',content:{parts:[{text:JSON.stringify(response())}]}}]},{promptFeedback:{blockReason:'SAFETY'}}]) {
+      const fetch=vi.fn(async()=>Response.json(payload));
+      await expect(callReferenceAi(input,{key:'fake',model:'gemini-fixture',provider:'gemini'},fetch)).rejects.toThrow('AI_INCOMPLETE');
+      expect(fetch).toHaveBeenCalledTimes(1);
+    }
+  });
+  it('never calls a provider for an empty reference',async()=>{
+    const fetch=vi.fn();
+    await expect(callReferenceAi({...input,title:null,body:null,tags:[]},{key:'fake',model:'gemini-fixture',provider:'gemini'},fetch)).rejects.toMatchObject({code:'VALIDATION_FAILED'});
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});

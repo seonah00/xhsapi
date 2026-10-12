@@ -107,3 +107,21 @@ test('mobile home and discover render without horizontal overflow @mobile', asyn
     expect(overflow, `${path} horizontal overflow`).toBeLessThanOrEqual(1);
   }
 });
+
+
+test('link-only reference guides text entry and keeps provider controls hidden from students',async({page})=>{
+  await login(page,'student-a@demo.invalid');
+  await page.goto('/app/references/new');
+  await page.getByLabel('링크',{exact:true}).fill('https://xhslink.cn/m/fixture123');
+  await page.getByRole('button',{name:'저장',exact:true}).first().click();
+  await expect(page.getByRole('button',{name:'분석하기',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'게시물 정보 가져오기'})).toHaveCount(0);
+  await page.getByLabel('게시물 본문 (직접 입력)').fill('首尔散步路线，先去公园，再去咖啡店。收藏备用！');
+  await page.getByRole('button',{name:'저장',exact:true}).click();
+  await page.reload();
+  await expect(page.getByLabel('게시물 본문 (직접 입력)')).toHaveValue(/首尔散步路线/);
+  await expect(page.getByRole('button',{name:'분석하기',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'분석하기',exact:true}).click();
+  await page.getByRole('button',{name:'확인하고 실행'}).click();
+  await expect(page.getByRole('heading',{name:'주제와 핵심 메시지',exact:true})).toBeVisible({timeout:20000});
+});
