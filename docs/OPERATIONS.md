@@ -203,4 +203,4 @@ pnpm price unverify --provider apify --endpoint AP01
 
 ## 원문 링크 포함 자동 검색 (ADR 0031)
 
-web/worker APIFY_SEARCH_BUILD에 검증한 숫자 빌드를 설정한다. AP02 단가는 `pnpm price register --provider apify --endpoint AP02 --unit result --unit-cost <검증값> --currency USD --evidence <근거> --verified-by <관리자>`로 등록한다. 관리자 공급자 화면에서 자동 검색 공급자 Apify 및 건당 USD 상한을 선택한다. 기존 월간 조직 USD 예산과 승인 기간/횟수도 적용된다. AP01 표지 비용과 별도이며 API 키는 기존 worker APIFY_TOKEN을 쓴다. 공유 링크는 24시간 후 숨겨지며 이후 검색 재수집 시 갱신된다. 기존 카드의 수동 연결 폼은 예외 복구 수단이다.
+web/worker APIFY_SEARCH_BUILD에 검증한 숫자 빌드를 설정한다. AP02 USD/run 상한은 50건 결과 비용·dataset 비용·시작 비용을 모두 포함해야 한다. AP02 단가는 `pnpm price register --provider apify --endpoint AP02 --unit run --unit-cost <검증값> --currency USD --evidence <근거> --verified-by <관리자>`로 등록한다. 관리자 공급자 화면에서 자동 검색 공급자 Apify 및 건당 USD 상한을 선택한다. 기존 월간 조직 USD 예산과 승인 기간/횟수도 적용된다. AP01 표지 비용과 별도이며 API 키는 기존 worker APIFY_TOKEN을 쓴다. 공유 링크는 24시간 후 숨겨지며 이후 검색 재수집 시 갱신된다. 기존 카드의 수동 연결 폼은 예외 복구 수단이다.

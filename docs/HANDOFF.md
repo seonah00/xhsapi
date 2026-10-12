@@ -1,6 +1,6 @@
 ## 2026-10-12 자동 원문 검색 연결 (ADR 0031)
 
-AP02 검색 경로, 관리자 공급자/건당 USD 선택, 공유 경로 보존, 동일 플랫폼 ID 카드 재사용 및 TTL 링크 갱신을 구현했다. APIFY_SEARCH_BUILD와 AP02 검증 USD/result 단가, 관리자 자동 검색 정책의 provider=apify/maxUsd가 활성화 조건이다. 기존 RedFox/CNY 설정은 자동 변경하지 않는다. 배포·검증 결과는 아래 후속 기록을 확인한다.
+AP02 검색 경로, 관리자 공급자/건당 USD 선택, 공유 경로 보존, 동일 플랫폼 ID 카드 재사용 및 TTL 링크 갱신을 구현했다. APIFY_SEARCH_BUILD와 AP02 검증 USD/run 단가, 관리자 자동 검색 정책의 provider=apify/maxUsd가 활성화 조건이다. 기존 RedFox/CNY 설정은 자동 변경하지 않는다. 배포·검증 결과는 아래 후속 기록을 확인한다.
 
 ## 2026-10-12 원문 연결 수정 (ADR 0030)
 

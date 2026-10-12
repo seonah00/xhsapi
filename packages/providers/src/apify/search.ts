@@ -44,7 +44,7 @@ export class ApifySearchProvider {
   async search(input: ApifySearchInput): Promise<SearchResult> {
     this.assertReady(input);
     const o=this.options, url=new URL(APIFY_SEARCH_CAPABILITY.path,'https://api.apify.com');
-    url.search=new URLSearchParams({build:o.build,timeout:'120',maxTotalChargeUsd:o.maxChargeUsd,maxItems:String(input.targetCount),restartOnError:'false',format:'json'}).toString();
+    url.search=new URLSearchParams({build:o.build,memory:'256',timeout:'120',maxTotalChargeUsd:o.maxChargeUsd,maxItems:String(input.targetCount),restartOnError:'false',format:'json'}).toString();
     // Exactly one bounded submission. Never retry a billable request after uncertain delivery.
     let res: Response;
     try {res=await this.fetchImpl(url,{method:'POST',headers:{Authorization:`Bearer ${o.token}`,'Content-Type':'application/json'},body:JSON.stringify({keywords:[input.query],maxResults:input.targetCount,topUpFromOtherSorts:true,sortType:'general',noteType:'all',timeFilter:input.days===7?'1w':'all'}),redirect:'error',signal:AbortSignal.timeout(150_000)});} catch {throw new Error('APIFY_SEARCH_RESPONSE_UNKNOWN');}

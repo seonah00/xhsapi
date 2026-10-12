@@ -4,7 +4,7 @@
 
 기존 Zen 검색 Actor 실행 결과 20건 모두에 url/xsec_token이 있었다. 상세 ID 조회는 토큰을 얻지 못할 수 있다. AP02 (`zen-studio/rednote-search-scraper`)를 별도 검색 경로로 추가한다. RedFox 검색은 유지하고 관리자 자동 검색 정책에서 선택한다.
 
-검색당 50건(명시 견적은 100건도 가능), 단일 POST, 고정 APIFY_SEARCH_BUILD, 검증된 USD/result 단가, 최대 청구액과 maxItems를 함께 전달한다. 불명 결과는 자동 재전송하지 않는다. 성공은 기존 방침대로 예약 상한으로 보수 정산하므로 실제 Apify 청구보다 클 수 있다. 새 경로는 단가 unknown이며 기존 CNY 정책을 임의로 USD 정책으로 바꾸지 않는다.
+검색당 50건(명시 견적은 100건도 가능, 50건 상한 비용의 2배 예약), 단일 POST, 고정 APIFY_SEARCH_BUILD, 검증된 USD/run 단가, 최대 청구액과 maxItems를 함께 전달한다. 불명 결과는 자동 재전송하지 않는다. 성공은 기존 방침대로 예약 상한으로 보수 정산하므로 실제 Apify 청구보다 클 수 있다. 새 경로는 단가 unknown이며 기존 CNY 정책을 임의로 USD 정책으로 바꾸지 않는다.
 
 공유 URL은 공급자의 /discovery/item 또는 /explore 경로를 유지한다. 같은 조직/모드/플랫폼 ID의 기존 카드가 있으면 재사용하고 원문 링크를 갱신한다. 다른 ID의 제목 유사 결과를 연결하지 않는다. 토큰은 기존 service 전용 24시간 TTL 테이블에만 저장한다. 캐시 키에 검색 공급자를 포함한다.
 

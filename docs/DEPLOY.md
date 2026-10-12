@@ -133,4 +133,4 @@ pnpm bootstrap:org --org-name "<조직 이름>" --admin-email <관리자 이메�
 
 ### 원문 링크 검색
 
-마이그레이션 28은 AP02를 단가 unknown으로 등록한다. web/worker의 APIFY_SEARCH_BUILD와 검증된 USD/result 단가 등록 후 관리자 자동 검색 공급자를 선택한다. RedFox는 기존 기본값이다. APIFY_ENABLED/LIVE_PROVIDER_CALLS_ENABLED/AUTO_REFRESH_ENABLED와 승인 정책·USD 예산이 모두 필요하다.
+마이그레이션 28은 AP02를 단가 unknown으로 등록한다. web/worker의 APIFY_SEARCH_BUILD와 검증된 USD/run 단가 등록 후 관리자 자동 검색 공급자를 선택한다. RedFox는 기존 기본값이다. APIFY_ENABLED/LIVE_PROVIDER_CALLS_ENABLED/AUTO_REFRESH_ENABLED와 승인 정책·USD 예산이 모두 필요하다.

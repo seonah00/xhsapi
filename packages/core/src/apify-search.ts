@@ -14,9 +14,9 @@ export async function priceApifySearch(ctx:Ctx,service:ServiceRunner,env:AppEnv,
   const g=evaluateLiveGate(await service(db=>gate(db,ctx.orgId,env,true)));
   if(!g.allowed) throw new AppError('LIVE_BLOCKED','원문 링크 검색의 요금과 실행 설정을 확인하세요.');
   const p=(await ctx.db.query(`select id,unit,unit_cost::text,currency from provider_price_versions where provider='apify' and endpoint='AP02' and effective_at<=now() order by effective_at desc limit 1`)).rows[0];
-  if(!p || p.unit!=='result' || p.currency!=='USD' || Number(p.unit_cost)<=0) throw new AppError('LIVE_BLOCKED','검색 결과당 검증된 USD 단가가 필요합니다.');
-  const amount=(await ctx.db.query(`select ($1::numeric*$2::int)::numeric(20,8)::text as amount`,[p.unit_cost,input.targetCount])).rows[0].amount;
-  return {prices:[{endpoint:'AP02',units:input.targetCount,priceVersionId:p.id,unitCost:p.unit_cost,currency:'USD',unit:'result'}],maxAmount:amount as string,currency:'USD',maxUnits:input.targetCount};
+  if(!p || p.unit!=='run' || p.currency!=='USD' || Number(p.unit_cost)<=0) throw new AppError('LIVE_BLOCKED','50건 검색의 검증된 USD 상한 단가가 필요합니다.');
+  const amount=(await ctx.db.query(`select ($1::numeric*$2::int)::numeric(20,8)::text as amount`,[p.unit_cost,input.targetCount/50])).rows[0].amount;
+  return {prices:[{endpoint:'AP02',units:input.targetCount/50,priceVersionId:p.id,unitCost:p.unit_cost,currency:'USD',unit:'run'}],maxAmount:amount as string,currency:'USD',maxUnits:input.targetCount/50};
 }
 export async function apifySearchOptions(db:Db,job:{id:string;org_id:string;owner_user_id:string|null;reserved_usage_id:string|null;input_ref:Record<string,unknown>},env:AppEnv):Promise<ApifyDetailOptions> {
   ApifySearchScope.parse(job.input_ref);
