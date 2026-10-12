@@ -130,6 +130,16 @@ test('admin stages, reviews and publishes a private JSON import; students browse
 
   const importer = page.getByRole('region', { name: '기획실 가져오기', exact: true });
   await expect(importer.getByRole('heading', { name: '기획실로 가져오기' })).toBeVisible();
+  const guide = importer.getByRole('region', { name: '표현 활용 가이드', exact: true });
+  await guide.getByText('清透感 활용 보기', { exact: true }).click();
+  await expect(guide.getByText('사용 상황', { exact: true })).toBeVisible();
+  await guide.getByRole('button', { name: '이 예문으로 연습', exact: true }).click();
+  await expect(guide.getByLabel('내 소재로 바꾼 문장', { exact: true })).toHaveValue('今天想尝试清透感妆容。');
+  await guide.getByLabel('내 소재로 바꾼 문장', { exact: true }).fill('想拍一次清透感妆容。');
+  await guide.getByRole('button', { name: '제목에 적용 (교체)', exact: true }).click();
+  await expect(importer.getByLabel('가져올 중국어 제목', { exact: true })).toHaveValue('想拍一次清透感妆容。');
+  await guide.getByRole('button', { name: '본문 끝에 추가', exact: true }).click();
+  await expect(importer.getByLabel('가져올 중국어 본문', { exact: true })).toHaveValue('想拍一次清透感妆容。');
   await importer.getByLabel('기획 이름', { exact: true }).fill('사전 촬영 작업지 테스트');
   await importer.getByLabel('가져올 중국어 제목', { exact: true }).fill('周末拍摄计划');
   await importer.getByLabel('썸네일 문구 (선택)', { exact: true }).fill('清透感');
@@ -137,6 +147,7 @@ test('admin stages, reviews and publishes a private JSON import; students browse
   await expect(importer.getByText('비공개 기획으로 저장했습니다.')).toBeVisible();
   await importer.getByRole('link', { name: '저장한 기획 열기' }).click();
   await expect(page.getByRole('heading', { name: '사전 촬영 작업지 테스트' })).toBeVisible();
+  await expect(page.getByLabel(/본문 \(중국어\)/)).toHaveValue('想拍一次清透感妆容。');
   await expect(page.getByRole('heading', { name: '공용사전에서 가져온 작업 메모' })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('heading', { name: '공용사전에서 가져온 작업 메모' })).toBeVisible();
