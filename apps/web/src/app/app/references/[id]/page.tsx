@@ -21,7 +21,7 @@ export default async function ReferenceDetail({ params, searchParams }: { params
   const d = await withPageCtx(async (ctx) => {
     const ref = await getReference(ctx, id, { includeDeleted: true });
     let readinessError:string|null=null;
-    try { await prepareReferenceAi(ctx,id); } catch (error) { if(!(error instanceof AppError)) throw error; readinessError=error.code==='VALIDATION_FAILED' ? error.message : '분석할 자료가 없습니다. 제목·본문·태그 또는 메모를 입력하고 저장해 주세요. 링크와 표지만으로는 텍스트를 분석할 수 없습니다.'; }
+    try { await prepareReferenceAi(ctx,id); } catch (error) { if(!(error instanceof AppError)) throw error; readinessError=error.code==='VALIDATION_FAILED' ? error.messageKo : '분석할 자료가 없습니다. 제목·본문·태그 또는 메모를 입력하고 저장해 주세요. 링크와 표지만으로는 텍스트를 분석할 수 없습니다.'; }
     return {
       ref, readinessError,
       infoPending: sp.infoJob ?? await pendingJobFor(ctx,'note_enrichment',id),
