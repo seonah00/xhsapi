@@ -34,7 +34,7 @@ export function CoverRepair({ notes, children, canManage = false, automatic = fa
     timer = setTimeout(() => {
       if (!latestIds.current.length) return;
       void fetch('/api/covers/automatic', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({noteIds:latestIds.current}),signal:controller.signal})
-        .then(async r => { if (r.ok && !controller.signal.aborted) { const {data} = await r.json(); if(data?.jobId) await poll(data.jobId,40); } })
+        .then(async r => { if (r.ok && !controller.signal.aborted) { const {data} = await r.json(); if(data?.jobId) await poll(data.jobId,200); } })
         .catch(() => { /* Existing images remain usable if maintenance is unavailable. */ });
     },1500);
     return () => { controller.abort(); clearTimeout(timer); };
