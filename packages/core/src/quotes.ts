@@ -135,7 +135,7 @@ export async function reserveJob(ctx: Ctx, args: {
     } else if (args.operation === 'note_enrichment') {
       await ctx.db.query(`insert into consent_records(org_id,user_id,purpose,policy_version,scope) select $1,$2,'external_provider_query','apify-zen-detail-v1',$3 where not exists (select 1 from consent_records where org_id=$1 and user_id=$2 and policy_version='apify-zen-detail-v1' and scope=$3::jsonb and withdrawn_at is null)`, [ctx.orgId,ctx.uid,{operation:args.operation,quoteId:args.quoteId}]);
     } else if(args.operation==='provider_search' && args.scope.source==='apify') {
-      await ctx.db.query(`insert into consent_records(org_id,user_id,purpose,policy_version,scope) values($1,$2,'external_provider_query','apify-search-v1',$3)`,[ctx.orgId,ctx.uid,{quoteId:args.quoteId}]);
+      await ctx.db.query(`insert into consent_records(org_id,user_id,purpose,policy_version,scope) select $1,$2,'external_provider_query','apify-search-v1',$3 where not exists (select 1 from consent_records where org_id=$1 and user_id=$2 and policy_version='apify-search-v1' and scope=$3::jsonb and withdrawn_at is null)`,[ctx.orgId,ctx.uid,{quoteId:args.quoteId}]);
     } else await recordLiveConsent(ctx, args.operation as LiveOperation);
   }
   try {
