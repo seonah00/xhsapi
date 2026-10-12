@@ -4,8 +4,9 @@ import { z } from 'zod';
 import { addSnapshot, createPublication, createQuote, deletePublication, METRIC_KEYS, reserveJob } from '@xhs/core';
 import { service, withPageCtx } from '@/server/ctx';
 import { orRedirectWithError } from '@/server/actions-util';
+import { koreanLocalTimeToIso } from '@/components/korean-local-time';
 
-const toIso = (v: FormDataEntryValue | null) => { const s = String(v ?? ''); return s ? new Date(s).toISOString() : undefined; };
+const toIso = (v: FormDataEntryValue | null) => koreanLocalTimeToIso(String(v ?? ''));
 
 export async function addPublication(f: FormData) {
   const id = await orRedirectWithError('/app/results', () => withPageCtx((ctx) => createPublication(ctx, {

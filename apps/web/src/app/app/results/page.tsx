@@ -90,6 +90,7 @@ export default async function Results({ searchParams }: { searchParams: Promise<
         <div className="space-y-4">
           <Card>
             <h2 className="font-semibold">게시물 등록</h2>
+            <p className="mt-1 text-xs text-muted">발행·관찰 시각은 한국 시간 기준입니다.</p>
             <form action={addPublication} className="mt-3 space-y-2 text-sm">
               <input type="hidden" name="accountId" value={d.account.id} />
               <p className="text-xs text-muted">기획과 연결하려면 기획의 “최종본 전달” 화면에서 등록하세요.</p>
