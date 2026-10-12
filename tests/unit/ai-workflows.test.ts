@@ -1,5 +1,5 @@
 import { describe,it,expect,vi } from 'vitest';
-import { FactSheet, PlanContent, sectionsOf, validateContextualAi, validatePlanAi, validateReflectionAi, callTextWorkflow, type PlanAiInput, type ReflectionAiRow } from '@xhs/core';
+import { FactSheet, PlanContent, sectionsOf, validateContextualAi, validatePlanAi, validateReflectionAi, reflectionMeasurements, callTextWorkflow, type PlanAiInput, type ReflectionAiRow } from '@xhs/core';
 import { validateRegister } from '../../scripts/price.ts';
 const input:PlanAiInput={facts:FactSheet.parse({subject:'散步',confirmedFacts:['走过公园'],shootableScenes:['公园入口'],sponsorship:'no'}),profile:{mainTopic:'travel',tone:'plain',formats:['vlog'],audience:'散步爱好者'},references:[{id:'ref1',title:'路线',tags:['散步'],insights:['설명한 순서대로 전개']} ]};
 const proposal=()=>({candidates:[{angle:'산책 순서',difference:'내 동선',neededFacts:[],difficulty:'low'}],titleOptions:['公园散步','散步记录'],content:PlanContent.parse({title:'公园散步',body:'走过公园',shots:[{scene:'公园入口',note:'입구 촬영 제안'}]}),evidenceRefs:['ref1'],missingFacts:[],notes:[]});
@@ -47,4 +47,12 @@ it('anchors contextual suggestions only to unique exact text and rejects invente
  expect(validateContextualAi({findings:[{...f,fieldKey:'body',originalSpan:'今天很开心。'}]},input)[0]?.anchored).toBe(false);
  expect(()=>validateContextualAi({findings:[{...f,originalSpan:'不存在'}]},input)).toThrow('AI_SPAN_INVALID');
  expect(()=>validateContextualAi({findings:[{...f,suggestionZh:'只需99元'}]},input)).toThrow('AI_INVENTED_NUMBERS');
+});
+
+it('calculates reflection measurements from the same snapshot without inventing missing or zero-denominator rates',()=>{
+ const base={...rows[0]!,publishedAt:'2026-10-06T00:00:00Z'};
+ expect(reflectionMeasurements({...base,metrics:{views:100,saves:2}})).toEqual({saveRatePercent:2,elapsedHours:24});
+ expect(reflectionMeasurements({...base,metrics:{views:100,saves:0}}).saveRatePercent).toBe(0);
+ for(const metrics of [{views:0,saves:2},{saves:2},{views:100}]) expect(reflectionMeasurements({...base,metrics}).saveRatePercent).toBeNull();
+ expect(reflectionMeasurements(rows[0]!).elapsedHours).toBeNull();
 });
