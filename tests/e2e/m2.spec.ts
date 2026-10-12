@@ -139,6 +139,12 @@ test('autosave conflict across two tabs and standalone check keeps text out of t
   await page.getByLabel('본문 (최대 10,000자)').fill('最好的面霜，联系13812345678');
   await page.getByRole('button', { name: '점검' }).click();
   await expect(page.locator('mark', { hasText: '13812345678' })).toBeVisible();
+  await page.getByLabel('본문 (최대 10,000자)').fill('允子严选［0A圣水洞逛街攻略 ［0A圣水洞。用了3天，再用了3天。');
+  await page.getByRole('button', { name: '점검', exact: true }).click();
+  await expect(page.getByText('복사된 기호 확인', { exact: true })).toHaveCount(1);
+  await expect(page.getByText('같은 표현 2회 · 첫 위치 표시', { exact: true })).toHaveCount(2);
+  await expect(page.locator('mark', { hasText: /^3$/ })).toHaveCount(1);
+  await expect(page.getByText(/AI 교정 결과는 포함되지 않습니다/)).toBeVisible();
   expect(page.url()).not.toContain('13812345678');
   expect(page.url()).toMatch(/\/app\/check$/);
 });

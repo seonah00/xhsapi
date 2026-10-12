@@ -65,10 +65,14 @@ type NoteRow = {
   topics: string[]; formats: string[]; metrics: NoteCard['metrics'] | null; saved: boolean;
 };
 
+export function selectCoverUrls(primary: string | null, alternate: string | null): Pick<NoteCard, 'coverUrl' | 'fallbackCoverUrl'> {
+  const candidates = [...new Set([primary, alternate].filter((url): url is string => !!url && !coverExpired(url)))];
+  return { coverUrl: candidates[0] ?? null, fallbackCoverUrl: candidates[1] ?? null };
+}
+
 function toCard(r: NoteRow): NoteCard {
   return {
-    hasOriginalLink: r.has_original_link, id: r.id, platformNoteId: r.platform_note_id, title: r.title, bodyExcerpt: r.body_excerpt, canonicalUrl: r.canonical_url, coverUrl: r.cover_url && !coverExpired(r.cover_url) ? r.cover_url : null,
-    fallbackCoverUrl: r.source_cover_url && r.source_cover_url !== r.cover_url && !coverExpired(r.source_cover_url) ? r.source_cover_url : null,
+    hasOriginalLink: r.has_original_link, id: r.id, platformNoteId: r.platform_note_id, title: r.title, bodyExcerpt: r.body_excerpt, canonicalUrl: r.canonical_url, ...selectCoverUrls(r.cover_url, r.source_cover_url),
     noteType: r.note_type, authorName: r.author_display_name, authorRef: r.author_ref, authorFollowers: r.author_followers,
     publishedAt: r.published_at?.toISOString() ?? null, observedAt: r.observed_at?.toISOString() ?? null, dataMode: r.data_mode,
     topics: r.topics, formats: r.formats, tags: r.provider_tags, metrics: r.metrics ?? {}, saved: r.saved,

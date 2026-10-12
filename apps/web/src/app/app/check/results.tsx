@@ -11,6 +11,7 @@ export function Results({ state }: { state: CheckState }) {
   const text = (k: string) => (k === 'tags' ? s.tags.join(' ') : k === 'document' ? null : (s as Record<string, unknown>)[k] as string);
   return (
     <section className="mt-4 space-y-2" aria-labelledby="result" aria-live="polite">
+      <p className="text-sm text-muted">기본 점검 결과입니다. 중국어 문맥·자연스러움에 대한 AI 교정 결과는 포함되지 않습니다.</p>
       <h2 id="result" className="font-semibold">결과 · {f.length}건</h2>
       {f.length === 0 ? <p role="status" className="rounded-xl bg-ok-soft px-4 py-3 text-sm text-ok">{DISCLAIMER}</p> : (
         <ul className="space-y-2">{f.map((x, i) => <FindingItemClient key={`${state.runId}-${i}`} f={x} text={text(x.fieldKey)}

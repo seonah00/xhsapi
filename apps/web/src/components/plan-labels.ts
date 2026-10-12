@@ -7,6 +7,7 @@ export const SUBMISSION_STATUS: Record<string, [string, 'neutral' | 'info' | 'wa
 export const FINDING_LABEL: Record<string, string> = {
   absolute_or_exaggerated_claim: '단정·과장 표현', unsupported_health_claim: '근거 없는 효능·건강 주장', fact_mismatch: '사실 불일치', title_body_mismatch: '제목-본문 불일치',
   sponsorship_review_needed: '광고·협찬 확인 필요', personal_information: '개인정보', child_privacy: '아동 개인정보', unrelated_tag: '관련 약한 태그',
+  formatting_review: '복사된 기호 확인',
   language_awkwardness: '어색한 표현', source_uncertain: '출처 불확실',
 };
 export const SEVERITY: Record<string, [string, 'accent' | 'warn' | 'info' | 'neutral']> = {

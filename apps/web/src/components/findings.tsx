@@ -16,6 +16,7 @@ export function FindingItem({ f, text, action }: { f: Finding; text: string | nu
         <span className="text-xs text-muted">· {FIELD_LABEL[f.fieldKey] ?? f.fieldKey}</span>
         {f.layer === 'contextual' && <Badge tone="info">AI 의견(데모)</Badge>}
         {f.requiresHumanReview && <Badge tone="warn">사람 검토 필요</Badge>}
+        {(f.occurrenceCount ?? 1) > 1 && <Badge tone="neutral">같은 표현 {f.occurrenceCount}회 · 첫 위치 표시</Badge>}
         {f.reviewOverdue && <Badge tone="warn">규칙 검토 기한 지남</Badge>}
       </div>
       {ctx && <p className="zh mt-2 rounded-lg bg-surface px-2 py-1" lang="zh-CN">…{ctx.pre}<mark className="rounded bg-accent-soft px-0.5 text-accent">{ctx.hit}</mark>{ctx.post}…</p>}

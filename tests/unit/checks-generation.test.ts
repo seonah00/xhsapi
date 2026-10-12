@@ -39,6 +39,21 @@ describe('runRules', () => {
     expect(f.filter((x) => x.type === 'source_uncertain')).toEqual([]);
   });
 
+  it('does not interpret paste codes, model names, dates or list numbers as price claims', () => {
+    const f = runRules({ body: '允子严选［0A圣水洞逛街攻略 ［0A圣水洞 iPhone16 2026-10-12\n1. 出发' }, facts({ sponsorship: 'no' }), []);
+    expect(f.filter(x => x.type === 'source_uncertain')).toEqual([]);
+    expect(f.find(x => x.type === 'formatting_review')).toMatchObject({ originalSpan: '［0A', occurrenceCount: 2, confidence: 'low' });
+  });
+
+  it('groups repeated numeric claims in one field and retains the first UTF-16 anchor', () => {
+    const sections = { title: '3天行程', body: '😀用了3天，再用了3天。人均￥89。提升50%。' };
+    const f = runRules(sections, facts({ sponsorship: 'no' }), []).filter(x => x.type === 'source_uncertain');
+    expect(f).toHaveLength(4);
+    const repeated = f.find(x => x.fieldKey === 'body' && x.originalSpan === '3')!;
+    expect(repeated.occurrenceCount).toBe(2);
+    expect(sections.body.slice(repeated.start!, repeated.end!)).toBe('3');
+  });
+
   it('returns no findings for clean text (UI shows the no-guarantee disclaimer)', () => {
     expect(runRules({ title: '我的晨间护肤', body: '我的晨间护肤顺序分享' }, facts({ sponsorship: 'no' }), [rule('最好')])).toEqual([]);
   });

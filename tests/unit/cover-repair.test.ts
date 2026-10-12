@@ -10,3 +10,13 @@ it('includes missing URLs and browser failures, excludes working and stale failu
 it('never selects more than the allowed 50 notes', () => {
   expect(repairableCoverIds(Array.from({length:60},(_,i)=>({id:String(i),coverUrl:null})),{})).toHaveLength(50);
 });
+
+import { selectCoverUrls } from '@xhs/core';
+
+it('promotes a valid alternate when the primary cover is missing or malformed', () => {
+  const alternate = 'https://sns-img-hw.xhscdn.com/preview';
+  expect(selectCoverUrls('malformed', alternate)).toEqual({ coverUrl: alternate, fallbackCoverUrl: null });
+  expect(selectCoverUrls(null, alternate).coverUrl).toBe(alternate);
+  expect(selectCoverUrls(alternate, alternate).fallbackCoverUrl).toBeNull();
+  expect(selectCoverUrls('broken', null).coverUrl).toBeNull();
+});

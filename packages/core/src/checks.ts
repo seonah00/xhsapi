@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { notFound, type Ctx, type ServiceRunner as Runner } from './context.ts';
 import { FactSheet, getVersion, sectionsOf } from './plans.ts';
 
-export const BUILTIN_RULES_VERSION = 'builtin-v1';
+export const BUILTIN_RULES_VERSION = 'builtin-v2';
 export const MAX_CHECK_CHARS = 10_000;
 
 export const CheckInput = z.object({
@@ -37,6 +37,7 @@ export type Finding = {
   requiresHumanReview: boolean;
   layer: 'rule' | 'builtin' | 'contextual';
   anchored: boolean;
+  occurrenceCount?: number;
 };
 
 type Rule = { id: string; rule_key: string; version: number; source_class: string; scope: { fields?: string[] }; match_config: { type: 'exact_phrase' | 'keyword'; value: string };
@@ -65,6 +66,7 @@ export function runRules(sections: CheckSections, facts: FactSheet, rules: Rule[
       if (!scope.includes(f)) continue;
       const text = fieldText(sections, f);
       const needle = rule.match_config.value;
+      if (!needle) continue;
       const hay = rule.match_config.type === 'keyword' ? text.toLowerCase() : text;
       const n = rule.match_config.type === 'keyword' ? needle.toLowerCase() : needle;
       let from = 0;
@@ -89,6 +91,7 @@ export function runRules(sections: CheckSections, facts: FactSheet, rules: Rule[
   const factNumbers = new Set(factText.match(/\d+(?:\.\d+)?/g) ?? []);
   for (const f of FIELDS) {
     const text = fieldText(sections, f);
+    for (const m of all(/[［\[]0[A-F](?=[一-龥])/g, text)) out.push({ ...builtin(f, m, 'formatting_review', 'low', '복사 과정에서 섞인 기호일 수 있습니다. 원문과 비교해 불필요한 문자만 지우세요. 의미가 있는 코드라면 유지하세요.'), confidence: 'low' });
     for (const m of all(PHONE, text)) out.push(builtin(f, m, 'personal_information', 'high', '전화번호로 보이는 개인정보입니다. 공개 게시물에서 지우세요.'));
     for (const m of all(EMAIL, text)) out.push(builtin(f, m, 'personal_information', 'high', '이메일 주소로 보이는 개인정보입니다.'));
     for (const m of all(NAMED_SCHOOL, text)) out.push(builtin(f, m, 'child_privacy', 'medium', '아이의 학교·기관 이름은 위치를 특정할 수 있습니다. 일반 명칭으로 바꾸는 것을 권합니다.'));
@@ -97,7 +100,13 @@ export function runRules(sections: CheckSections, facts: FactSheet, rules: Rule[
       for (const m of all(/\d+(?:\.\d+)?/g, text.replace(/^\s*\d+\.\s/gm, (s) => ' '.repeat(s.length)))) {
         // Digits inside a phone number are already reported as personal information.
         if (pii.some((p) => m.index < p.end! && m.index + m[0].length > p.start!)) continue;
-        if (!factNumbers.has(m[0])) out.push({ ...builtin(f, m, 'source_uncertain', 'low', '사실 입력에 없는 숫자입니다. 가격·기간·결과라면 근거를 확인하세요.'), confidence: 'low' });
+        const before = text.slice(Math.max(0, m.index - 8), m.index);
+        const after = text.slice(m.index + m[0].length, m.index + m[0].length + 8);
+        // IDs, model names, list markers and paste artifacts are not numeric claims.
+        if (/[A-Za-z0-9_]$/.test(before) || /^[A-Za-z_]/.test(after)) continue;
+        if (!/^(?:\s*)(?:元|块|天|周|个月|月|年|小时|分钟|秒|次|倍|%|％|折|원|일|주|개월)/.test(after)
+          && !/(?:价格|售价|原价|现价|人均|花费|￥|¥|₩|\$)\s*$/.test(before)) continue;
+        if (!factNumbers.has(m[0])) out.push({ ...builtin(f, m, 'source_uncertain', 'low', '가격·기간·수량으로 보이는 표현입니다. 입력한 사실에서 이 숫자를 확인하지 못했습니다. 실제 경험·자료와 비교해 주세요.'), confidence: 'low' });
       }
     }
   }
@@ -109,7 +118,16 @@ export function runRules(sections: CheckSections, facts: FactSheet, rules: Rule[
     out.push(doc('sponsorship_review_needed', 'medium', '광고·협찬이라고 입력했지만 본문에 표시가 없습니다. 표시 방법을 확인하세요.'));
   }
   if (facts.sponsorship === 'unknown') out.push({ ...doc('sponsorship_review_needed', 'info', '광고·협찬 여부가 “미확인”입니다. 게시 전에 확인하세요.'), requiresHumanReview: false });
-  return out;
+  // Group repeated builtin notices within a field; preserve the first exact anchor.
+  const grouped = new Map<string, Finding>();
+  return out.filter(f => {
+    if (f.layer !== 'builtin' || !f.anchored) return true;
+    const key = JSON.stringify([f.fieldKey, f.type, f.originalSpan, f.rationaleKo]);
+    const previous = grouped.get(key);
+    if (previous) { previous.occurrenceCount = (previous.occurrenceCount ?? 1) + 1; return false; }
+    grouped.set(key, f);
+    return true;
+  });
 }
 
 export type CheckRunView = {
