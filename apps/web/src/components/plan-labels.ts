@@ -5,6 +5,7 @@ export const SUBMISSION_STATUS: Record<string, [string, 'neutral' | 'info' | 'wa
   submitted: ['제출됨', 'info'], in_review: ['검토 중', 'info'], changes_requested: ['수정 요청', 'warn'], feedback_complete: ['피드백 완료', 'ok'], withdrawn: ['철회됨', 'neutral'],
 };
 export const FINDING_LABEL: Record<string, string> = {
+  contextual: '중국어 문맥·표현 교정',
   absolute_or_exaggerated_claim: '단정·과장 표현', unsupported_health_claim: '근거 없는 효능·건강 주장', fact_mismatch: '사실 불일치', title_body_mismatch: '제목-본문 불일치',
   sponsorship_review_needed: '광고·협찬 확인 필요', personal_information: '개인정보', child_privacy: '아동 개인정보', unrelated_tag: '관련 약한 태그',
   formatting_review: '복사된 기호 확인',

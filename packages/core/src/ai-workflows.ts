@@ -33,7 +33,7 @@ export function validateContextualAi(raw:unknown,input:{sections:ReturnType<type
     const anchored=text.indexOf(f.originalSpan,start+1)<0;
     const allowed=new Set(JSON.stringify(input).match(/\d+(?:\.\d+)?/g)??[]);
     if((f.suggestionZh.match(/\d+(?:\.\d+)?/g)??[]).some(n=>!allowed.has(n))) throw new Error('AI_INVENTED_NUMBERS');
-    return {...f,start:anchored?start:null,end:anchored?start+f.originalSpan.length:null,anchored,type:'contextual',severity:'info',confidence:'medium',ruleKey:'openai-contextual-v1',ruleId:null,sourceClass:null,reviewOverdue:false,requiresHumanReview:true,layer:'contextual'};
+    return {...f,start:anchored?start:null,end:anchored?start+f.originalSpan.length:null,anchored,type:'contextual',severity:'info',confidence:'medium',ruleKey:'openai-contextual-v1',ruleId:null,sourceClass:'ai_opinion',reviewOverdue:false,requiresHumanReview:true,layer:'contextual'};
   });
 }
 export async function prepareContextualAi(db:Db,orgId:string,uid:string,checkRunId:string) {
