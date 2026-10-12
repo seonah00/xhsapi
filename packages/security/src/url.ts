@@ -134,7 +134,7 @@ export function safeXhsAccessUrl(input: unknown, expectedId: string, token?: unk
       || NOTE_PATH.exec(url.pathname)?.[1]?.toLowerCase() !== expectedId.toLowerCase()) return null;
     const supplied = url.searchParams.get('xsec_token') || (typeof token === 'string' ? token : '');
     if (!supplied || supplied.length > 2048 || /[\s\x00-\x1f]/.test(supplied)) return null;
-    const out = new URL(`https://www.xiaohongshu.com/explore/${expectedId.toLowerCase()}`);
+    const out = new URL(`https://www.xiaohongshu.com${url.pathname}`);
     out.searchParams.set('xsec_token', supplied);
     const source = url.searchParams.get('xsec_source');
     if (source && /^[a-zA-Z0-9_]{1,50}$/.test(source)) out.searchParams.set('xsec_source', source);

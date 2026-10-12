@@ -1,3 +1,5 @@
+import { apifySearchOptions } from './apify-search.ts';
+import { ApifySearchProvider, ApifySearchScope } from '@xhs/providers';
 import { isTextAiOperation, runTextWorkflow } from './ai-workflows.ts';
 import { runReferenceAi } from './ai-reference.ts';
 import { advanceCollection, CollectionTarget, collectionPages, enrichmentIds, contentHash, type AppEnv, type DataMode, type JobKind } from '@xhs/domain';
@@ -41,6 +43,7 @@ export type JobDeps = {
   apifyDetailProvider?: EnrichmentProviderFactory;
   env?: AppEnv;
   aiFetch?: typeof fetch;
+  apifySearchFetch?: typeof fetch;
 };
 
 const MAX_TRANSCRIPT_WAIT_MS = 24 * 3600_000;
@@ -94,6 +97,8 @@ export async function runJob(deps: JobDeps, jobId: string, workerId: string): Pr
       outcome = await runTextWorkflow(deps,job);
     } else if (job.kind === 'note_enrichment') {
       outcome = await enrichNote(deps, job);
+    } else if(job.kind==='provider_search' && job.data_mode==='live' && job.input_ref.source==='apify') {
+      outcome=await apifySearch(deps,job);
     } else if (job.data_mode === 'live' && job.kind !== 'user_deletion') {
       if (!deps.liveProvider || !deps.env) {
         outcome = { state: 'failed', errorCode: 'live_not_configured', sent: false };
@@ -135,7 +140,7 @@ async function finish(deps: JobDeps, job: JobRow, o: JobOutcome): Promise<void> 
       // maximum for completed units (unused collection pages are released); any uncertain failure keeps the reservation as unknown_outcome for admin reconciliation.
       // Mock ledger rows are `demo` and never settle.
       if (o.state === 'succeeded') {
-        const usedUnits = job.kind === 'note_enrichment' ? Number(o.result?.completed ?? 1)
+        const usedUnits = job.kind==='provider_search' && job.input_ref.source==='apify' ? null : job.kind === 'note_enrichment' ? Number(o.result?.completed ?? 1)
           : job.kind === 'provider_search' && job.input_ref.targetCount !== undefined ? Number(o.result?.pages ?? 1) : null;
         await db.query(`select app.settle_usage($1, 'settled', (select case when $2::integer is null then l.reserved_amount
           else least(l.reserved_amount, l.reserved_amount * $2 / greatest(q.max_billable_units,1)) end
@@ -190,6 +195,27 @@ async function providerSearch(deps: JobDeps, job: JobRow): Promise<JobOutcome> {
     await db.query(`update app_jobs set provider_task_id=null,result_ref=$2 where id=$1`,[job.id,next]);
     return next.stopReason ? { state: 'succeeded', result: next } : { state: 'waiting_external', retryInMs: 100 };
   });
+}
+
+async function apifySearch(deps:JobDeps,job:JobRow):Promise<JobOutcome> {
+  if(!deps.env) return {state:'failed',errorCode:'APIFY_NOT_CONFIGURED',sent:false};
+  const input=ApifySearchScope.parse(job.input_ref);
+  const options=await deps.service(db=>apifySearchOptions(db,job,deps.env!));
+  const provider=new ApifySearchProvider(options,deps.apifySearchFetch);
+  provider.assertReady(input);
+  await deps.service(db=>db.query(`update app_jobs set provider_task_id='apify-search-started' where id=$1`,[job.id]));
+  try {
+    const result=await provider.search(input);
+    return await deps.service(async db=>{
+      // Recheck revocation and policy after the external call, before storing anything.
+      const current=await apifySearchOptions(db,job,deps.env!);
+      new ApifySearchProvider(current,deps.apifySearchFetch).assertReady(input);
+      const {noteIds}=await ingestSearchResult(db,{orgId:job.org_id,provider:'apify',endpoint:'AP02',query:{...input,jobId:job.id}},result);
+      const progress={notes:noteIds.length,noteIds,fetchedNoteIds:noteIds,pages:1,targetCount:input.targetCount,stopReason:noteIds.length>=input.targetCount?'target_reached':'provider_exhausted',links:result.notes.filter(n=>n.accessUrl).length};
+      await db.query(`update app_jobs set provider_task_id=null,result_ref=$2 where id=$1`,[job.id,progress]);
+      return {state:'succeeded',result:progress} as const;
+    });
+  } catch {return {state:'unknown_outcome',errorCode:'APIFY_SEARCH_RESULT_NEEDS_REVIEW'};}
 }
 
 async function enrichNote(deps: JobDeps, job: JobRow): Promise<JobOutcome> {

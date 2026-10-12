@@ -10,6 +10,8 @@ export const AutoSearchPolicy = z.object({
   cacheHours: z.number().int().min(1).max(168).default(24),
   perStudent: z.number().int().min(1).max(600).default(90),
   perMonth: z.number().int().min(1).max(3000).default(300),
+  provider:z.enum(['redfox','apify']).default('redfox'),
+  maxUsd:z.string().regex(/^\d{1,4}(\.\d{1,8})?$/).default('0.30'),
   maxCny: z.string().regex(/^\d{1,4}(\.\d{1,8})?$/).default('0.30'),
   expiresAt: z.string().datetime().optional(),
   approvedBy: z.string().uuid().optional(),
@@ -17,7 +19,7 @@ export const AutoSearchPolicy = z.object({
 export async function setAutoSearchPolicy(ctx: Ctx, input: unknown) {
   requireAdmin(ctx);
   const p=AutoSearchPolicy.parse(input);
-  if(p.enabled && (!p.expiresAt || Date.parse(p.expiresAt)<=Date.now() || Date.parse(p.expiresAt)>Date.now()+31*86400_000 || Number(p.maxCny)<=0))
+  if(p.enabled && (!p.expiresAt || Date.parse(p.expiresAt)<=Date.now() || Date.parse(p.expiresAt)>Date.now()+31*86400_000 || Number(p.provider==='apify'?p.maxUsd:p.maxCny)<=0))
     throw new AppError('VALIDATION_FAILED','자동 검색 승인 기간(최대 31일)과 건당 상한을 확인하세요.');
   await ctx.db.query(`update organizations set settings=jsonb_set(settings,'{auto_search}',$2::jsonb),revision=revision+1 where id=$1`,[ctx.orgId,{...p,approvedBy:ctx.uid}]);
 }
@@ -30,8 +32,7 @@ export async function autoSearchPolicy(ctx: Ctx) {
 export async function requestAutoSearch(ctx: Ctx, service: ServiceRunner, raw: string, env: AppEnv, filters: {topic?: string; days?: number} = {}): Promise<string | null> {
   const query=z.string().min(1).max(50).parse(normalizeSearchQuery(raw));
   const checked=z.object({topic:z.enum(['beauty','daily-life','parenting','food-places','travel-outing','fashion']).optional(),days:z.union([z.literal(7),z.literal(14),z.literal(30)]).optional()}).parse(filters);
-  const scope={query,targetCount:50,...checked};
-  const hash=sha256Hex(canonicalJson({...scope,mode:ctx.mode}));
+
   return service(async db=>{
     await db.query(`select pg_advisory_xact_lock(hashtextextended($1,0))`,[`auto-search:${ctx.orgId}`]);
     const member=await db.query(`select 1 from memberships where org_id=$1 and user_id=$2 and status='active'`,[ctx.orgId,ctx.uid]);
@@ -40,6 +41,8 @@ export async function requestAutoSearch(ctx: Ctx, service: ServiceRunner, raw: s
     const policy=AutoSearchPolicy.parse(row?.settings?.auto_search ?? {});
     if(!policy.enabled || !policy.approvedBy || !policy.expiresAt || Date.parse(policy.expiresAt)<=Date.now()
       || (ctx.mode==='live' && !env.AUTO_REFRESH_ENABLED)) return null;
+    const scope={query,targetCount:50,...checked,...(policy.provider==='apify'?{source:'apify'}:{})};
+    const hash=sha256Hex(canonicalJson({...scope,mode:ctx.mode}));
     const sponsor=(await db.query(`select 1 from memberships where org_id=$1 and user_id=$2 and role='org_admin' and status='active'`,[ctx.orgId,policy.approvedBy])).rowCount;
     if(!sponsor) return null;
     const cached=(await db.query(`select j.id from search_requests r join app_jobs j on j.id=r.job_id
@@ -57,8 +60,8 @@ export async function requestAutoSearch(ctx: Ctx, service: ServiceRunner, raw: s
       const sponsored: Ctx={...ctx,db,uid:policy.approvedBy,role:'org_admin'};
       const same: ServiceRunner=fn=>fn(db);
       const quote=await createQuote(sponsored,same,'provider_search',scope,{env});
-      const within=(await db.query(`select $1::numeric <= $2::numeric as ok`,[quote.maxAmount,policy.maxCny])).rows[0]?.ok;
-      if(ctx.mode==='live' && (quote.currency!=='CNY' || !within)) throw new AppError('BUDGET_EXCEEDED','새 게시물 검색의 운영 한도에 도달했습니다.');
+      const within=(await db.query(`select $1::numeric <= $2::numeric as ok`,[quote.maxAmount,policy.provider==='apify'?policy.maxUsd:policy.maxCny])).rows[0]?.ok;
+      if(ctx.mode==='live' && (quote.currency!==(policy.provider==='apify'?'USD':'CNY') || !within)) throw new AppError('BUDGET_EXCEEDED','새 게시물 검색의 운영 한도에 도달했습니다.');
       jobId=(await reserveJob(sponsored,{quoteId:quote.id,route:'POST /discover/automatic',idempotencyKey:randomUUID(),operation:'provider_search',scope,
         jobKind:'provider_search',dedupeKey:`auto-search:${quote.id}`,inputRef:scope,consent:true})).jobId;
     }

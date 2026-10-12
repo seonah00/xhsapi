@@ -130,3 +130,7 @@ pnpm bootstrap:org --org-name "<조직 이름>" --admin-email <관리자 이메�
 - 레퍼런스 분석, 기획 제안, 성과 회고는 같은 AI01 상한을 사용한다. 요청별 전송 동의와 예산 예약을 유지한다. 새로운 일회성/반복 예산 승인을 기존 Apify 승인으로 대신하지 않는다.
 - 합성 자료 1건씩 품질 점검할 때도 호출 예산을 먼저 정한다. unknown_outcome은 실제 발송 여부를 확정할 수 없어 자동 재시도하지 않는다.
 - 기획은 대상·확인 사실·촬영 가능 장면을 저장해야 요청 가능하다. 참고 자료의 경험은 사용자 사실이 아니며 생성문은 적용 전 확인한다. 성과는 게시물당 기록 1개, 최대 20개 선택한다.
+
+### 원문 링크 검색
+
+마이그레이션 28은 AP02를 단가 unknown으로 등록한다. web/worker의 APIFY_SEARCH_BUILD와 검증된 USD/result 단가 등록 후 관리자 자동 검색 공급자를 선택한다. RedFox는 기존 기본값이다. APIFY_ENABLED/LIVE_PROVIDER_CALLS_ENABLED/AUTO_REFRESH_ENABLED와 승인 정책·USD 예산이 모두 필요하다.

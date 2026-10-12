@@ -18,6 +18,7 @@ export const EnvSchema = z.object({
   DATABASE_URL: z.string().optional(),
   APIFY_ENABLED: flag,
   APIFY_TOKEN: z.string().optional(),
+  APIFY_SEARCH_BUILD: z.string().regex(/^\d+\.\d+\.\d+$/).optional(),
   APIFY_ACTOR_BUILD: z.string().regex(/^\d+\.\d+\.\d+$/).optional(),
   REDFOX_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),

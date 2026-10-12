@@ -2,7 +2,8 @@ import { isTextAiOperation, aiJobScope, validateAiTarget } from './ai-workflows.
 import { priceReferenceAi, referenceAiConfig } from './ai-reference.ts';
 import { AppError, CollectionTarget, enrichmentIds, canonicalJson, loadEnv, sha256Hex, type AppEnv, type JobKind } from '@xhs/domain';
 import { pgCode, type Ctx, type ServiceRunner } from './context.ts';
-import { APIFY_ACTOR } from '@xhs/providers';
+import { APIFY_ACTOR, APIFY_SEARCH_ACTOR, ApifySearchScope } from '@xhs/providers';
+import { priceApifySearch } from './apify-search.ts';
 import { enrichmentTarget, priceEnrichment } from './note-enrichment.ts';
 import { orgOps } from './ops.ts';
 import { OPERATION_ENDPOINTS, priceLiveOperation, recordLiveConsent, type LiveOperation } from './live.ts';
@@ -61,6 +62,8 @@ export async function monthlyLimit(ctx: Ctx, op: Operation): Promise<number> {
 }
 
 export async function createQuote(ctx: Ctx, service: ServiceRunner, operation: Operation, scope: Record<string, unknown>, opts: { env?: AppEnv } = {}): Promise<Quote> {
+  const apifySearch=operation==='provider_search' && scope.source==='apify';
+  if(apifySearch) ApifySearchScope.parse(scope);
   if (operation === 'note_enrichment') await enrichmentTarget(ctx, scope);
   if (operation === 'provider_search' && scope.targetCount !== undefined) CollectionTarget.parse(scope.targetCount);
   const ops = await orgOps(ctx.db, ctx.orgId);
@@ -74,16 +77,16 @@ export async function createQuote(ctx: Ctx, service: ServiceRunner, operation: O
     // Unknown price, blocked gate, zero budget or a provider without a contract refuse here (spec 6.3, 9.2).
     if(isTextAiOperation(operation)) await validateAiTarget(ctx,operation,scope);
     const env = opts.env ?? loadEnv(process.env);
-    const priced = isTextAiOperation(operation) ? await priceReferenceAi(ctx, service, env, operation) : operation === 'note_enrichment' ? await priceEnrichment(ctx, service, env, enrichmentIds(scope).length) : await priceLiveOperation(ctx, service, operation, env, scope);
+    const priced = apifySearch ? await priceApifySearch(ctx,service,env,scope) : isTextAiOperation(operation) ? await priceReferenceAi(ctx, service, env, operation) : operation === 'note_enrichment' ? await priceEnrichment(ctx, service, env, enrichmentIds(scope).length) : await priceLiveOperation(ctx, service, operation, env, scope);
     const row = await service(async (db) => (await db.query<{ id: string; expires_at: Date }>(
       `insert into cost_quotes (org_id, owner_user_id, operation, request_hash, data_mode, scope_json, max_billable_units, max_amount, currency, price_version_ids, permission_versions)
        values ($1, $2, $3, $4, 'live', $5, $6, $7, $8, $9, $10) returning id, expires_at`,
       [ctx.orgId, ctx.uid, operation, hash,
-       { ...scope, ...(isTextAiOperation(operation) ? {model:referenceAiConfig(env,operation).model} : {}), ...(operation === 'note_enrichment' ? { actor: APIFY_ACTOR, actorBuild: env.APIFY_ACTOR_BUILD, runCapUsd: priced.prices[0]!.unitCost } : {}), provider: isTextAiOperation(operation) ? referenceAiConfig(env,operation).provider : operation === 'note_enrichment' ? 'apify' : 'redfox', endpoint: priced.prices[0]!.endpoint, prices: priced.prices.map((p) => ({ endpoint: p.endpoint, units: p.units, unitCost: p.unitCost, unit: p.unit })) },
+       { ...scope, ...(apifySearch ? {actor:APIFY_SEARCH_ACTOR,actorBuild:env.APIFY_SEARCH_BUILD}:{}), ...(isTextAiOperation(operation) ? {model:referenceAiConfig(env,operation).model} : {}), ...(operation === 'note_enrichment' ? { actor: APIFY_ACTOR, actorBuild: env.APIFY_ACTOR_BUILD, runCapUsd: priced.prices[0]!.unitCost } : {}), provider: apifySearch ? 'apify' : isTextAiOperation(operation) ? referenceAiConfig(env,operation).provider : operation === 'note_enrichment' ? 'apify' : 'redfox', endpoint: priced.prices[0]!.endpoint, prices: priced.prices.map((p) => ({ endpoint: p.endpoint, units: p.units, unitCost: p.unitCost, unit: p.unit })) },
        priced.maxUnits, priced.maxAmount, priced.currency, priced.prices.map((p) => p.priceVersionId), {}],
     )).rows[0]!);
     return {
-      id: row.id, operation, provider:isTextAiOperation(operation) ? referenceAiConfig(env,operation).provider : operation==='note_enrichment' ? 'apify' : 'redfox', mode: 'live', maxAmount: priced.maxAmount, currency: priced.currency, maxBillableUnits: priced.maxUnits,
+      id: row.id, operation, provider:apifySearch ? 'apify' : isTextAiOperation(operation) ? referenceAiConfig(env,operation).provider : operation==='note_enrichment' ? 'apify' : 'redfox', mode: 'live', maxAmount: priced.maxAmount, currency: priced.currency, maxBillableUnits: priced.maxUnits,
       expiresAt: row.expires_at.toISOString(), usedThisMonth: used, monthlyLimit: limit, requestHash: hash,
     };
   }
@@ -131,6 +134,8 @@ export async function reserveJob(ctx: Ctx, args: {
       await ctx.db.query(`insert into consent_records(org_id,user_id,purpose,policy_version,scope) values($1,$2,'external_ai_processing','external-text-v2',$3)`,[ctx.orgId,ctx.uid,{quoteId:args.quoteId}]);
     } else if (args.operation === 'note_enrichment') {
       await ctx.db.query(`insert into consent_records(org_id,user_id,purpose,policy_version,scope) select $1,$2,'external_provider_query','apify-zen-detail-v1',$3 where not exists (select 1 from consent_records where org_id=$1 and user_id=$2 and policy_version='apify-zen-detail-v1' and scope=$3::jsonb and withdrawn_at is null)`, [ctx.orgId,ctx.uid,{operation:args.operation,quoteId:args.quoteId}]);
+    } else if(args.operation==='provider_search' && args.scope.source==='apify') {
+      await ctx.db.query(`insert into consent_records(org_id,user_id,purpose,policy_version,scope) values($1,$2,'external_provider_query','apify-search-v1',$3)`,[ctx.orgId,ctx.uid,{quoteId:args.quoteId}]);
     } else await recordLiveConsent(ctx, args.operation as LiveOperation);
   }
   try {

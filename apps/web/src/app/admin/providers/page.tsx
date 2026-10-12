@@ -23,7 +23,7 @@ async function saveProvider(f: FormData) {
 async function saveAutoSearch(f:FormData) {
   'use server';
   await orRedirectWithError(back,()=>withAdmin(ctx=>setAutoSearchPolicy(ctx,{
-    enabled:f.get('enabled')==='on',cacheHours:Number(f.get('cacheHours')),perStudent:Number(f.get('perStudent')),perMonth:Number(f.get('perMonth')),maxCny:String(f.get('maxCny')),
+    provider:String(f.get('provider')??'redfox'),maxUsd:String(f.get('maxUsd')??'0.30'),enabled:f.get('enabled')==='on',cacheHours:Number(f.get('cacheHours')),perStudent:Number(f.get('perStudent')),perMonth:Number(f.get('perMonth')),maxCny:String(f.get('maxCny')),
     ...(f.get('expiresAt')?{expiresAt:new Date(String(f.get('expiresAt'))+'T23:59:59+09:00').toISOString()}:{})
   })));
   redirect(`${back}?saved=1`);
@@ -81,15 +81,17 @@ export default async function Providers({ searchParams }: { searchParams: Promis
 
       <Card className="mt-4">
         <h2 className="font-semibold">학생 자동 검색</h2>
-        <p className="mt-2 text-sm text-muted">학생 검색을 조직 예산으로 실행합니다. 동일 검색은 재사용하며 50건 목표로 최대 5페이지를 조회합니다. 실제 결과 수는 공급자에 따라 달라집니다. 표지 추가 조회는 포함하지 않습니다. 서버 AUTO_REFRESH_ENABLED도 켜야 합니다.</p>
+        <p className="mt-2 text-sm text-muted">학생 검색을 조직 예산으로 실행합니다. 동일 검색은 재사용하며 50건을 목표로 조회합니다. RedFox는 최대 5페이지, Apify는 원문 공유 링크를 포함한 검색 1회를 사용합니다. 실제 결과 수는 공급자에 따라 달라집니다. 표지 추가 조회는 포함하지 않습니다. 서버 AUTO_REFRESH_ENABLED도 켜야 합니다.</p>
         <form action={saveAutoSearch} className="mt-3 grid gap-2 text-sm">
           <label><input type="checkbox" name="enabled" defaultChecked={d.auto.enabled}/> 아래 범위의 학생 자동 검색 비용을 승인합니다</label>
           <label>승인 종료일(최대 31일) <input type="date" name="expiresAt" defaultValue={d.auto.expiresAt?.slice(0,10)}/></label>
+          <label>검색 공급자 <select name="provider" defaultValue={d.auto.provider}><option value="redfox">RedFox</option><option value="apify">Apify · 원문 링크 포함 검색</option></select></label>
+          <label>Apify 검색 1회 최대 USD <input name="maxUsd" defaultValue={d.auto.maxUsd} required/></label>
           <label>검색 1회 최대 CNY <input name="maxCny" defaultValue={d.auto.maxCny} required/></label>
           <label>학생 1명 월간 새 검색 <input type="number" name="perStudent" min="1" max="600" defaultValue={d.auto.perStudent}/></label>
           <label>조직 월간 새 검색 <input type="number" name="perMonth" min="1" max="3000" defaultValue={d.auto.perMonth}/></label>
           <label>동일 검색 재사용 시간 <input type="number" name="cacheHours" min="1" max="168" defaultValue={d.auto.cacheHours}/></label>
-          <p>월간 CNY 예산도 함께 적용됩니다. 승인 만료·관리자 권한 해제·전체 중지 시 추가 호출을 중단합니다.</p>
+          <p>선택한 공급자의 조직 예산(CNY 또는 USD)도 함께 적용됩니다. Apify는 AP02 단가와 APIFY_SEARCH_BUILD 설정이 필요합니다. 승인 만료·관리자 권한 해제·전체 중지 시 추가 호출을 중단합니다.</p>
           <button className={btn.secondary}>자동 검색 설정 저장</button>
         </form>
       </Card>

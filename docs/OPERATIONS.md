@@ -200,3 +200,7 @@ pnpm price unverify --provider apify --endpoint AP01
 5. 새 레퍼런스에 텍스트가 있는지 확인. 관리자 링크 조회는 고정 Apify 빌드와 AP01 검증 단가가 필요하며 1건 조회 후 분석을 별도로 요청한다. 수강생은 본문을 직접 입력하거나 탐색의 저장된 게시물을 가져온다.
 
 복구: `REFERENCE_AI_PROVIDER=openai`로 되돌리면 기존 모델/단가 체계를 사용한다. 이미 예약한 다른 제공자의 작업은 전송 전 거절하며 예약을 해제한다. 외부 응답이 불명확한 작업은 수동 검토하며 재전송하지 않는다.
+
+## 원문 링크 포함 자동 검색 (ADR 0031)
+
+web/worker APIFY_SEARCH_BUILD에 검증한 숫자 빌드를 설정한다. AP02 단가는 `pnpm price register --provider apify --endpoint AP02 --unit result --unit-cost <검증값> --currency USD --evidence <근거> --verified-by <관리자>`로 등록한다. 관리자 공급자 화면에서 자동 검색 공급자 Apify 및 건당 USD 상한을 선택한다. 기존 월간 조직 USD 예산과 승인 기간/횟수도 적용된다. AP01 표지 비용과 별도이며 API 키는 기존 worker APIFY_TOKEN을 쓴다. 공유 링크는 24시간 후 숨겨지며 이후 검색 재수집 시 갱신된다. 기존 카드의 수동 연결 폼은 예외 복구 수단이다.

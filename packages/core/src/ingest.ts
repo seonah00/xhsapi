@@ -53,6 +53,9 @@ async function upsertNote(db: Db, meta: IngestMeta, result: SearchResult, runId:
     publishedAt: n.publishedAt, fetchedAt: result.fetchedAt, providerSnapshotAt: n.providerSnapshotAt,
     analysisScope: 'metadata_only', permissionId: meta.permissionId ?? null, collectionStrategyVersion: 'v1',
   };
+  // A second supplier must enrich the same platform post, not create a duplicate card.
+  await db.query(`select pg_advisory_xact_lock(hashtextextended($1,0))`,[`note:${meta.orgId}:${result.mode}:${n.platformNoteId}`]);
+  const existing = meta.endpoint==='AP02' ? (await db.query(`select provider from notes where org_id=$1 and platform_note_id=$2 and data_mode=$3 order by created_at limit 1`,[meta.orgId,n.platformNoteId,result.mode])).rows[0] : null;
   const id = (await db.query<{ id: string }>(
     `insert into notes (org_id, provider, platform_note_id, data_mode, canonical_url, note_type, title, body_excerpt, author_ref, author_display_name,
                         author_followers, published_at, provenance, provider_tags, is_fallback, ingestion_run_id, observed_at, cover_url)
@@ -68,11 +71,15 @@ async function upsertNote(db: Db, meta: IngestMeta, result: SearchResult, runId:
        -- a note seen once as a real result is not demoted by a later fallback appearance
        is_fallback = notes.is_fallback and excluded.is_fallback
      returning id`,
-    [meta.orgId, meta.provider, n.platformNoteId, result.mode, n.canonicalUrl, n.noteType, n.title, n.bodyExcerpt, n.author.ref,
+    [meta.orgId, existing?.provider ?? meta.provider, n.platformNoteId, result.mode, n.canonicalUrl, n.noteType, n.title, n.bodyExcerpt, n.author.ref,
      n.author.displayName, n.author.followers, n.publishedAt, provenance, n.providerTags, isFallback, runId, result.fetchedAt, n.coverUrl ?? null],
   )).rows[0]!.id;
 
   await storeNoteAccessLink(db, meta.orgId, id, n.platformNoteId, n.accessUrl);
+  if(meta.endpoint==='AP02' && n.accessUrl) {
+    const copies=(await db.query(`select id from notes where org_id=$1 and platform_note_id=$2 and data_mode=$3 and id<>$4`,[meta.orgId,n.platformNoteId,result.mode,id])).rows;
+    for(const copy of copies) await storeNoteAccessLink(db,meta.orgId,copy.id,n.platformNoteId,n.accessUrl);
+  }
 
   await db.query(
     `insert into metric_snapshots (note_id, observed_at, provider_snapshot_at, metrics_json, ingestion_run_id) values ($1, $2, $3, $4, $5)`,
