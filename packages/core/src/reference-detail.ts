@@ -36,7 +36,7 @@ cta: 저장·댓글·팔로우 유도 문구와 행동 요청의 위치를 설�
 adaptation: 이 자료의 구조를 내 경험에 적용하는 구체적인 제안 2개. 가능하면 새로운 중국어 제목/마무리 예시를 제안 안에 포함하고 원문 인용과 구별하세요. 실제 경험·효과를 지어내지 말고 [내 장소] 같은 자리표시자를 쓰세요.
 각 항목은 claims 1~2개, 각 textKo는 100~200자 이내를 목표로 구체적으로 작성하세요. 관찰 observation, 추론 inference, 제안 suggestion을 구별하세요. audience는 inference, adaptation은 suggestion이어야 합니다. 추론에는 uncertainty를 반드시 쓰세요.
 각 claim의 evidenceIds는 실제 존재하는 입력 필드(title, body, tags, userText, userMemo)만 사용하세요. quotes는 실제 입력 필드에 포함된 원문 부분 문자열만 쓰며 100자 이내, 항목당 최대 3개입니다. wording에 원문 인용을 반드시 포함하세요.
-자료가 없어 분석 불가한 항목은 status=insufficient, claims=[], quotes=[], missingReason에 부족한 자료를 쓰세요. 본문이 없으면 structure, 태그가 없으면 tags는 반드시 insufficient입니다. 분석 가능하면 missingReason=null입니다. 본문·제목에서 근거를 찾아 adaptation을 빠뜨리지 마세요.
+자료가 없어 분석 불가한 항목은 status=insufficient, claims=[], quotes=[], missingReason에 부족한 자료를 쓰세요. body 또는 userText 중 하나라도 있으면 그것을 본문으로 사용해 structure를 분석하세요. userText는 사용자가 직접 입력한 본문이며 body가 비어 있어도 본문이 없는 것이 아닙니다. 둘 다 없을 때만 structure를 insufficient로 처리하세요. 별도 tags가 없으면 tags는 insufficient입니다. 분석 가능하면 missingReason=null입니다. 본문·제목에서 근거를 찾아 adaptation을 빠뜨리지 마세요.
 촬영 구도·카메라 움직임·장면·편집·음악·영상 자막·대사는 확인할 수 없습니다. 본문 문구를 영상 대사라고 부르지 마세요. 실제 타깃·성공 원인·성과를 단정하지 마세요. missingFacts에는 확인할 수 없는 점만 기록하세요.`;
 
 export function referenceSources(input: AnalysisInput): Record<string, string[]> {

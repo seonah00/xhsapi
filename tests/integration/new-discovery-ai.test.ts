@@ -2,7 +2,7 @@ import { detailedAiFixture } from '../fixtures/detailed-ai.ts';
 import { beforeAll,afterAll,it,expect } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { pool,asUser } from './db.ts';
-import { updateReference,prepareReferenceAi,createAccount,createPlan,getPlan,saveDraft,applyProposal,createPublication,addSnapshot,listPublications,listReflections,PlanContent,requestAutoSearch,autoSearchStatus,setAutoSearchPolicy,originalNoteLink,storeNoteAccessLink,createReference,createQuote,reserveJob,runJob,type Ctx,type Runner } from '@xhs/core';
+import { saveVersion,runCheck,getCheck,markContextualRequested,updateReference,prepareReferenceAi,createAccount,createPlan,getPlan,saveDraft,applyProposal,createPublication,addSnapshot,listPublications,listReflections,PlanContent,requestAutoSearch,autoSearchStatus,setAutoSearchPolicy,originalNoteLink,storeNoteAccessLink,createReference,createQuote,reserveJob,runJob,type Ctx,type Runner } from '@xhs/core';
 import { MockXhsProvider } from '@xhs/providers';
 import { loadEnv } from '@xhs/domain';
 const org=randomUUID(),admin=randomUUID(),student=randomUUID(),other=randomUUID();
@@ -192,4 +192,34 @@ it('routes reference jobs to Gemini while binding the reserved provider and mode
   expect((await pool.query(`select output_json from analyses where target_id=$1`,[refId])).rows[0].output_json.generator).toBe('gemini-reference-v2');
   expect((await pool.query(`select provider,status from usage_ledger where job_id=$1`,[job])).rows[0]).toMatchObject({provider:'gemini',status:'settled'});
   await pool.query(`update provider_capabilities set price_status='unknown' where provider='gemini'`);
+});
+
+it('stores anchored live contextual suggestions and preserves rule findings when AI fails',async()=>{
+ const accountId=await user(student,ctx=>createAccount(ctx,{displayName:'문맥 테스트',topics:['travel-outing'],mainTopic:'travel-outing',audience:'여행자',goals:['learn_chinese'],tone:'plain',formats:['vlog'],chineseLevel:'beginner',showFace:false,useVoice:true}));
+ const planId=await user(student,ctx=>createPlan(ctx,{accountId,title:'문맥 검증'}));
+ const p=await user(student,ctx=>getPlan(ctx,planId));
+ await user(student,ctx=>saveDraft(ctx,planId,{content:{body:'我去了公园很开心的。'},facts:{sponsorship:'no'}},p.revision));
+ const p2=await user(student,ctx=>getPlan(ctx,planId));
+ const version=await user(student,ctx=>saveVersion(ctx,planId,p2.revision));
+ const checkRunId=await user(student,ctx=>runCheck(ctx,service,{}, {planId,versionId:version.id}),'live');
+ const scope={checkRunId};
+ await expect(user(other,ctx=>createQuote(ctx,service,'contextual_check',scope,{env:aiEnv}),'live')).rejects.toThrow();
+ const enqueue=async()=>{
+  const q=await user(student,ctx=>createQuote(ctx,service,'contextual_check',scope,{env:aiEnv}),'live');
+  return (await user(student,ctx=>reserveJob(ctx,{quoteId:q.id,route:'test/context',idempotencyKey:randomUUID(),operation:'contextual_check',scope,jobKind:'contextual_check',dedupeKey:q.id,inputRef:scope,consent:true}),'live')).jobId;
+ };
+ const jobId=await enqueue();
+ await markContextualRequested(service,checkRunId);
+ let calls=0;
+ const aiFetch:typeof fetch=async()=>{calls++;return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify({findings:[{fieldKey:'body',originalSpan:'我去了公园很开心的。',suggestionZh:'去了公园，心情很好。',rationaleKo:'문장 끝의 불필요한 표현을 정리합니다.'}]})}}]});};
+ expect(await runJob({service,provider:new MockXhsProvider(),env:aiEnv,aiFetch},jobId,'context-worker')).toMatchObject({state:'succeeded'});
+ const result=await user(student,ctx=>getCheck(ctx,checkRunId),'live');
+ expect(result.completeness.contextual).toBe('completed');
+ expect(result.findings).toEqual(expect.arrayContaining([expect.objectContaining({layer:'contextual',anchored:true,ruleKey:'openai-contextual-v1'})]));
+ const failing=await enqueue();
+ expect(await runJob({service,provider:new MockXhsProvider(),env:aiEnv,aiFetch:async()=>{calls++;throw new Error('lost');}},failing,'context-worker')).toMatchObject({state:'unknown_outcome'});
+ expect((await user(student,ctx=>getCheck(ctx,checkRunId),'live')).completeness).toMatchObject({rules:'completed',contextual:'failed'});
+ await pool.query(`update app_jobs set state='queued' where id=$1`,[failing]);
+ await runJob({service,provider:new MockXhsProvider(),env:aiEnv,aiFetch},failing,'context-worker');
+ expect(calls).toBe(2);
 });
