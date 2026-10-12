@@ -195,6 +195,7 @@ it('routes reference jobs to Gemini while binding the reserved provider and mode
 });
 
 it('stores anchored live contextual suggestions and preserves rule findings when AI fails',async()=>{
+ await pool.query(`update provider_price_versions set output_token_limit=6000 where provider='openai' and verified_by=$1`,[admin]);
  const accountId=await user(student,ctx=>createAccount(ctx,{displayName:'문맥 테스트',topics:['travel-outing'],mainTopic:'travel-outing',audience:'여행자',goals:['learn_chinese'],tone:'plain',formats:['vlog'],chineseLevel:'beginner',showFace:false,useVoice:true}));
  const planId=await user(student,ctx=>createPlan(ctx,{accountId,title:'문맥 검증'}));
  const p=await user(student,ctx=>getPlan(ctx,planId));
