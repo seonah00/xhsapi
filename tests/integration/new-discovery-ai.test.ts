@@ -37,7 +37,7 @@ it('stores signed URLs separately, rejects cross-org access and expires without 
 });
 it('requires administrator policy, deduplicates concurrent requests and caps new searches',async()=>{
   expect(await user(student,ctx=>requestAutoSearch(ctx,service,'测试',mock))).toBeNull();
-  const policy={enabled:true,perStudent:1,perDay:2,cacheHours:24,maxCny:'0.30',expiresAt:new Date(Date.now()+86400_000).toISOString()};
+  const policy={enabled:true,perStudent:1,perMonth:2,cacheHours:24,maxCny:'0.30',expiresAt:new Date(Date.now()+86400_000).toISOString()};
   await expect(user(student,ctx=>setAutoSearchPolicy(ctx,policy))).rejects.toThrow();
   await user(admin,ctx=>setAutoSearchPolicy(ctx,policy));
   const [a,b]=await Promise.all([user(student,ctx=>requestAutoSearch(ctx,service,'#测试',mock)),user(student,ctx=>requestAutoSearch(ctx,service,'测试',mock))]);

@@ -20,7 +20,7 @@ const config: DictionaryAiConfig = {
   apiKey: 'synthetic-key',
   sessionSecret: 's'.repeat(32),
   model: DICTIONARY_AI_MODEL,
-  userDailyLimit: 3,
+  userMonthlyLimit: 90,
   globalMonthlyUsdLimit: 5,
 };
 const baseInput: DictionaryAiInput = {
@@ -135,8 +135,8 @@ describe('dictionary AI preview', () => {
   });
 
   it('reports fixed configuration and org/daily/global controls without exposing secrets', async () => {
-    const status = await getDictionaryAiStatus(ctx(dbFor({ daily: 3 })), config);
-    expect(status).toMatchObject({ enabled: false, configured: true, disabledReason: 'daily_limit', userDailyRemaining: 0, reservationMaxCostUsd: 0.06 });
+    const status = await getDictionaryAiStatus(ctx(dbFor({ daily: 90 })), config);
+    expect(status).toMatchObject({ enabled: false, configured: true, disabledReason: 'monthly_limit', userMonthlyRemaining: 0, reservationMaxCostUsd: 0.06 });
     expect(JSON.stringify(status)).not.toContain('synthetic-key');
     expect((await getDictionaryAiStatus(ctx(dbFor({ orgLive: false })), config)).disabledReason).toBe('organization_disabled');
   });

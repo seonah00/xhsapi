@@ -14,7 +14,7 @@ export function getDictionaryAiConfig(): DictionaryAiConfig {
     sessionSecret: sessionSecret(),
     model: 'gemini-3.8-flash',
     // Conservative initial rollout. Raising these requires an explicit budget change.
-    userDailyLimit: 3,
+    userMonthlyLimit: 90,
     globalMonthlyUsdLimit: 5,
   };
 }

@@ -14,7 +14,7 @@ export function FindingItem({ f, text, action }: { f: Finding; text: string | nu
         <Badge tone={sevTone}>{sevLabel}</Badge>
         <span className="font-medium">{FINDING_LABEL[f.type] ?? f.type}</span>
         <span className="text-xs text-muted">· {FIELD_LABEL[f.fieldKey] ?? f.fieldKey}</span>
-        {f.layer === 'contextual' && <Badge tone="info">AI 의견(데모)</Badge>}
+        {f.layer === 'contextual' && <Badge tone="info">{f.ruleKey === 'openai-contextual-v1' ? 'AI 문맥 의견' : 'AI 의견(데모)'}</Badge>}
         {f.requiresHumanReview && <Badge tone="warn">사람 검토 필요</Badge>}
         {(f.occurrenceCount ?? 1) > 1 && <Badge tone="neutral">같은 표현 {f.occurrenceCount}회 · 첫 위치 표시</Badge>}
         {f.reviewOverdue && <Badge tone="warn">규칙 검토 기한 지남</Badge>}

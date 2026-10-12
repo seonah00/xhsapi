@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { orgOps, reconcileUsage, setDailyLimits, setMonthlyBudget, usageSummary } from '@xhs/core';
+import { orgOps, reconcileUsage, setMonthlyLimits, setMonthlyBudget, usageSummary } from '@xhs/core';
 import { withAdmin } from '../forbidden-guard';
 import { orRedirectWithError } from '@/server/actions-util';
 import { Badge, btn, Card, ErrorNotice, input, Notice, PageHeader } from '@/components/ui';
@@ -9,7 +9,7 @@ export const metadata = { title: '사용량·한도' };
 
 async function saveLimits(f: FormData) {
   'use server';
-  await orRedirectWithError('/admin/usage', () => withAdmin((ctx) => setDailyLimits(ctx, { provider_search: Number(f.get('provider_search')), ai: Number(f.get('ai')), transcript: Number(f.get('transcript')) }, Number(f.get('revision')))));
+  await orRedirectWithError('/admin/usage', () => withAdmin((ctx) => setMonthlyLimits(ctx, { provider_search: Number(f.get('provider_search')), ai: Number(f.get('ai')), transcript: Number(f.get('transcript')) }, Number(f.get('revision')))));
   redirect('/admin/usage?saved=1');
 }
 async function saveBudget(f: FormData) {
@@ -43,7 +43,7 @@ export default async function Usage({ searchParams }: { searchParams: Promise<{ 
         <Card>
           <h2 className="font-semibold">월 live 예산</h2>
           {d.s.budgets.length === 0 ? <p className="mt-2 text-sm text-muted">설정된 예산이 없습니다(= 0, live 호출 불가).</p> : (
-            <ul className="mt-2 space-y-1 text-sm">{d.s.budgets.map((b) => <li key={b.id}>{b.currency}: 한도 {b.limit} · 예약 {b.reserved} · 확정 {b.settled}</li>)}</ul>
+            <ul className="mt-2 space-y-1 text-sm">{d.s.budgets.map((b) => <li key={b.id}>{b.periodStart} ~ {b.periodEnd} · {b.active ? '사용 가능' : '현재 사용 불가'} · {b.currency}: 한도 {b.limit} · 예약 {b.reserved} · 확정 {b.settled}</li>)}</ul>
           )}
           <form action={saveBudget} className="mt-3 flex flex-wrap items-end gap-2 text-sm">
             <input type="hidden" name="month" value={month} />
@@ -54,12 +54,12 @@ export default async function Usage({ searchParams }: { searchParams: Promise<{ 
           <p className="mt-2 text-xs text-muted">통화별로 따로 관리합니다. 이미 예약·확정된 금액보다 낮출 수 없습니다.</p>
         </Card>
         <Card>
-          <h2 className="font-semibold">학생 1인 하루 한도</h2>
+          <h2 className="font-semibold">학생 1인 월간 한도 (한국 시간)</h2>
           <form action={saveLimits} className="mt-3 grid grid-cols-3 gap-2 text-sm">
             <input type="hidden" name="revision" value={d.ops.revision} />
-            <label>외부 검색<input name="provider_search" type="number" min={0} max={100} defaultValue={d.ops.limits.provider_search} className={`${input} mt-1`} /></label>
-            <label>AI 작업<input name="ai" type="number" min={0} max={100} defaultValue={d.ops.limits.ai} className={`${input} mt-1`} /></label>
-            <label>음성 문안<input name="transcript" type="number" min={0} max={100} defaultValue={d.ops.limits.transcript} className={`${input} mt-1`} /></label>
+            <label>외부 검색<input name="provider_search" type="number" min={0} max={3000} defaultValue={d.ops.limits.provider_search} className={`${input} mt-1`} /></label>
+            <label>AI 작업<input name="ai" type="number" min={0} max={3000} defaultValue={d.ops.limits.ai} className={`${input} mt-1`} /></label>
+            <label>음성 문안<input name="transcript" type="number" min={0} max={3000} defaultValue={d.ops.limits.transcript} className={`${input} mt-1`} /></label>
             <div className="col-span-3"><button className={btn.secondary}>저장</button></div>
           </form>
         </Card>

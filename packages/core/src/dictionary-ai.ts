@@ -10,7 +10,7 @@ export const DICTIONARY_AI_MAX_PROMPT_SCHEMA_BYTES = 12_000;
 export const DICTIONARY_AI_RESERVATION_USD = 0.06;
 export const DICTIONARY_AI_PREVIEW_TTL_MS = 5 * 60 * 1_000;
 
-const USER_DAILY_LIMIT = 3 as const;
+const USER_MONTHLY_LIMIT = 90 as const;
 const GLOBAL_MONTHLY_USD_LIMIT = 5 as const;
 const INPUT_USD_PER_MILLION = 1.5;
 const OUTPUT_USD_PER_MILLION = 7.5;
@@ -43,7 +43,7 @@ export type DictionaryAiConfig = {
   apiKey?: string;
   sessionSecret: string;
   model: typeof DICTIONARY_AI_MODEL;
-  userDailyLimit: typeof USER_DAILY_LIMIT;
+  userMonthlyLimit: typeof USER_MONTHLY_LIMIT;
   globalMonthlyUsdLimit: typeof GLOBAL_MONTHLY_USD_LIMIT;
 };
 
@@ -122,9 +122,9 @@ export type DictionaryAiStatus = {
   enabled: boolean;
   configured: boolean;
   model: typeof DICTIONARY_AI_MODEL;
-  userDailyLimit: typeof USER_DAILY_LIMIT;
-  userDailyUsed: number;
-  userDailyRemaining: number;
+  userMonthlyLimit: typeof USER_MONTHLY_LIMIT;
+  userMonthlyUsed: number;
+  userMonthlyRemaining: number;
   globalMonthlyUsdLimit: typeof GLOBAL_MONTHLY_USD_LIMIT;
   reservationMaxCostUsd: typeof DICTIONARY_AI_RESERVATION_USD;
   pricing: {
@@ -132,7 +132,7 @@ export type DictionaryAiStatus = {
     outputUsdPerMillionTokens: typeof OUTPUT_USD_PER_MILLION;
     estimateOnly: true;
   };
-  disabledReason: 'environment_disabled' | 'missing_api_key' | 'missing_session_secret' | 'invalid_fixed_config' | 'mock_mode' | 'organization_disabled' | 'daily_limit' | 'global_cap' | null;
+  disabledReason: 'environment_disabled' | 'missing_api_key' | 'missing_session_secret' | 'invalid_fixed_config' | 'mock_mode' | 'organization_disabled' | 'monthly_limit' | 'global_cap' | null;
 };
 
 export type DictionaryAiCtxRunner = <T>(fn: (ctx: Ctx) => Promise<T>) => Promise<T>;
@@ -236,7 +236,7 @@ function assertActor(ctx: Ctx): void {
 }
 
 function validFixedConfig(config: DictionaryAiConfig): boolean {
-  return config.model === DICTIONARY_AI_MODEL && config.userDailyLimit === USER_DAILY_LIMIT && config.globalMonthlyUsdLimit === GLOBAL_MONTHLY_USD_LIMIT;
+  return config.model === DICTIONARY_AI_MODEL && config.userMonthlyLimit === USER_MONTHLY_LIMIT && config.globalMonthlyUsdLimit === GLOBAL_MONTHLY_USD_LIMIT;
 }
 
 function validSecret(secret: string): boolean {
@@ -379,13 +379,13 @@ function nonceHash(nonce: string): string {
 export async function getDictionaryAiStatus(ctx: Ctx, config: DictionaryAiConfig): Promise<DictionaryAiStatus> {
   assertActor(ctx);
   const controls = await loadOrgControls(ctx);
-  let userDailyUsed = 0;
+  let userMonthlyUsed = 0;
   let globalCapAvailable = true;
   try {
     const capacity = (await ctx.db.query<{ user_daily_used: number; global_cap_available: boolean }>(
       'select * from app.dictionary_ai_capacity($1)', [ctx.orgId],
     )).rows[0];
-    userDailyUsed = Number(capacity?.user_daily_used ?? 0);
+    userMonthlyUsed = Number(capacity?.user_daily_used ?? 0);
     globalCapAvailable = capacity?.global_cap_available !== false;
   } catch (error) {
     if (pgCode(error) === 'FORBIDDEN') throw new AppError('FORBIDDEN', '이 조직에 접근할 권한이 없습니다.');
@@ -399,15 +399,15 @@ export async function getDictionaryAiStatus(ctx: Ctx, config: DictionaryAiConfig
   else if (!config.enabled) disabledReason = 'environment_disabled';
   else if (ctx.mode !== 'live') disabledReason = 'mock_mode';
   else if (!controls.live || controls.kill || !controls.ai) disabledReason = 'organization_disabled';
-  else if (userDailyUsed >= USER_DAILY_LIMIT) disabledReason = 'daily_limit';
+  else if (userMonthlyUsed >= USER_MONTHLY_LIMIT) disabledReason = 'monthly_limit';
   else if (!globalCapAvailable) disabledReason = 'global_cap';
   return {
     enabled: disabledReason === null,
     configured,
     model: DICTIONARY_AI_MODEL,
-    userDailyLimit: USER_DAILY_LIMIT,
-    userDailyUsed,
-    userDailyRemaining: Math.max(0, USER_DAILY_LIMIT - userDailyUsed),
+    userMonthlyLimit: USER_MONTHLY_LIMIT,
+    userMonthlyUsed,
+    userMonthlyRemaining: Math.max(0, USER_MONTHLY_LIMIT - userMonthlyUsed),
     globalMonthlyUsdLimit: GLOBAL_MONTHLY_USD_LIMIT,
     reservationMaxCostUsd: DICTIONARY_AI_RESERVATION_USD,
     pricing: { inputUsdPerMillionTokens: INPUT_USD_PER_MILLION, outputUsdPerMillionTokens: OUTPUT_USD_PER_MILLION, estimateOnly: true },
@@ -527,7 +527,7 @@ async function finishUsage(ctx: Ctx, usageId: string, outcome: 'succeeded' | 'fa
 function reservationError(error: unknown): never {
   const code = pgCode(error);
   if (code === 'DICTIONARY_AI_REPLAY') throw new AppError('CONFLICT', '이미 사용한 미리보기입니다. 다시 미리보기부터 진행해 주세요.');
-  if (code === 'DICTIONARY_AI_DAILY_LIMIT') throw new AppError('RATE_LIMITED', '오늘 사용할 수 있는 AI 작성 횟수를 모두 사용했습니다.');
+  if (code === 'DICTIONARY_AI_DAILY_LIMIT') throw new AppError('RATE_LIMITED', '이번 달 사용할 수 있는 AI 작성 횟수를 모두 사용했습니다.');
   if (code === 'DICTIONARY_AI_GLOBAL_CAP') throw new AppError('BUDGET_EXCEEDED', '이번 달 AI 비용 상한에 도달해 실행할 수 없습니다.');
   if (code === 'FORBIDDEN' || code === 'UNAUTHENTICATED') throw new AppError(code === 'FORBIDDEN' ? 'FORBIDDEN' : 'UNAUTHENTICATED', '이 기능을 사용할 권한이 없습니다.');
   throw error;

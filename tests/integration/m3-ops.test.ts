@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
   approvePermission, cancelJob, createPermission, createQuote, listAudit, listOrgJobs, LocalPrivateStorage, orgOps, providerOverview, reconcileUsage,
-  reserveJob, revokePermission, runJob, setDailyLimits, setFeatureSwitches, setMonthlyBudget, setProviderSwitches, uploadAsset, usageSummary,
+  reserveJob, revokePermission, runJob, setMonthlyLimits, setFeatureSwitches, setMonthlyBudget, setProviderSwitches, uploadAsset, usageSummary,
   type Ctx, type Runner,
 } from '@xhs/core';
 import { MockXhsProvider } from '@xhs/providers';
@@ -30,7 +30,7 @@ async function as<T>(uid: string, fn: (ctx: Ctx) => Promise<T>): Promise<T> {
 }
 const rev = async () => (await pool.query(`select revision from organizations where id = $1`, [ORG])).rows[0].revision as number;
 afterAll(async () => {
-  await pool.query(`update organizations set settings = (settings - 'feature_switches' - 'daily_limits' - 'provider_switches') || '{"provider_switches":{"live":false}}' where id = $1`, [ORG]);
+  await pool.query(`update organizations set settings = (settings - 'feature_switches' - 'monthly_limits' - 'provider_switches') || '{"provider_switches":{"live":false}}' where id = $1`, [ORG]);
   await pool.end();
 });
 
@@ -80,10 +80,10 @@ describe('switches and limits', () => {
   });
 
   it('daily limits are org-adjustable', async () => {
-    await as(ADMIN, async (ctx) => setDailyLimits(ctx, { provider_search: 10, ai: 0, transcript: 5 }, await rev()));
+    await as(ADMIN, async (ctx) => setMonthlyLimits(ctx, { provider_search: 10, ai: 0, transcript: 5 }, await rev()));
     await expect(as(STUDENT, (ctx) => createQuote(ctx, service, 'plan_generation', { planId: 'x' }))).rejects.toMatchObject({ code: 'RATE_LIMITED' });
-    await expect(as(ADMIN, async (ctx) => setDailyLimits(ctx, { ai: 1000 }, await rev()))).rejects.toThrow();
-    await as(ADMIN, async (ctx) => setDailyLimits(ctx, { provider_search: 10, ai: 20, transcript: 5 }, await rev()));
+    await expect(as(ADMIN, async (ctx) => setMonthlyLimits(ctx, { ai: 3001 }, await rev()))).rejects.toThrow();
+    await as(ADMIN, async (ctx) => setMonthlyLimits(ctx, { provider_search: 10, ai: 20, transcript: 5 }, await rev()));
   });
 });
 

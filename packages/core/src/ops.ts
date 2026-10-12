@@ -12,12 +12,12 @@ export const FeatureSwitches = z.object({
   provider_search: z.boolean().default(true),
 });
 export const ProviderSwitches = z.object({ live: z.boolean().default(false), kill: z.boolean().default(false) });
-export const DailyLimits = z.object({
-  provider_search: z.number().int().min(0).max(100).default(10),
-  ai: z.number().int().min(0).max(100).default(20),
-  transcript: z.number().int().min(0).max(100).default(5),
+export const MonthlyLimits = z.object({
+  provider_search: z.number().int().min(0).max(3000).default(300),
+  ai: z.number().int().min(0).max(3000).default(600),
+  transcript: z.number().int().min(0).max(3000).default(150),
 });
-export type OrgOps = { revision: number; features: z.infer<typeof FeatureSwitches>; provider: z.infer<typeof ProviderSwitches>; limits: z.infer<typeof DailyLimits> };
+export type OrgOps = { revision: number; features: z.infer<typeof FeatureSwitches>; provider: z.infer<typeof ProviderSwitches>; limits: z.infer<typeof MonthlyLimits> };
 
 export async function orgOps(db: Db, orgId: string): Promise<OrgOps> {
   const r = (await db.query(`select settings, revision from organizations where id = $1`, [orgId])).rows[0];
@@ -27,7 +27,7 @@ export async function orgOps(db: Db, orgId: string): Promise<OrgOps> {
     revision: r.revision,
     features: FeatureSwitches.parse(s.feature_switches ?? {}),
     provider: ProviderSwitches.parse(s.provider_switches ?? {}),
-    limits: DailyLimits.parse(s.daily_limits ?? {}),
+    limits: MonthlyLimits.parse(s.monthly_limits ?? {}),
   };
 }
 
@@ -58,8 +58,8 @@ export async function setFeatureSwitches(ctx: Ctx, input: unknown, revision: num
 export async function setProviderSwitches(ctx: Ctx, input: unknown, revision: number) {
   await updateSettings(ctx, revision, { provider_switches: ProviderSwitches.parse(input) });
 }
-export async function setDailyLimits(ctx: Ctx, input: unknown, revision: number) {
-  await updateSettings(ctx, revision, { daily_limits: DailyLimits.parse(input) });
+export async function setMonthlyLimits(ctx: Ctx, input: unknown, revision: number) {
+  await updateSettings(ctx, revision, { monthly_limits: MonthlyLimits.parse(input) });
 }
 
 // ---------------------------------------------------------------- provider permissions
@@ -153,9 +153,9 @@ export async function usageSummary(ctx: Ctx, month: string) {
   }));
   const budgets = (await ctx.db.query(
     `select id, subject_type, currency, amount_limit, reserved_total, settled_total, period_start, period_end, revision from usage_budgets
-     where org_id = $1 and subject_type = 'org' and period_start <= $2 and period_end > $2 order by currency`, [ctx.orgId, from],
+     where org_id = $1 and subject_type = 'org' and period_start < $3 and period_end > $2 order by currency, period_start`, [ctx.orgId, from, to],
   )).rows.map((b) => ({ id: b.id as string, currency: b.currency as string, limit: b.amount_limit as string, reserved: b.reserved_total as string, settled: b.settled_total as string,
-    periodStart: b.period_start.toISOString().slice(0, 10), revision: b.revision as number }));
+    periodEnd: b.period_end.toISOString().slice(0, 10), active: b.period_start <= new Date() && b.period_end > new Date(), periodStart: b.period_start.toISOString().slice(0, 10), revision: b.revision as number }));
   const unknown = (await ctx.db.query(
     `select id, endpoint, currency, reserved_amount, occurred_at from usage_ledger where org_id = $1 and status = 'unknown_outcome' order by occurred_at`, [ctx.orgId],
   )).rows.map((u) => ({ id: u.id as string, endpoint: u.endpoint as string, currency: u.currency as string, reserved: u.reserved_amount as string, at: u.occurred_at.toISOString() }));

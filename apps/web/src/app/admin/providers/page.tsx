@@ -23,7 +23,7 @@ async function saveProvider(f: FormData) {
 async function saveAutoSearch(f:FormData) {
   'use server';
   await orRedirectWithError(back,()=>withAdmin(ctx=>setAutoSearchPolicy(ctx,{
-    enabled:f.get('enabled')==='on',cacheHours:Number(f.get('cacheHours')),perStudent:Number(f.get('perStudent')),perDay:Number(f.get('perDay')),maxCny:String(f.get('maxCny')),
+    enabled:f.get('enabled')==='on',cacheHours:Number(f.get('cacheHours')),perStudent:Number(f.get('perStudent')),perMonth:Number(f.get('perMonth')),maxCny:String(f.get('maxCny')),
     ...(f.get('expiresAt')?{expiresAt:new Date(String(f.get('expiresAt'))+'T23:59:59+09:00').toISOString()}:{})
   })));
   redirect(`${back}?saved=1`);
@@ -78,8 +78,8 @@ export default async function Providers({ searchParams }: { searchParams: Promis
           <label><input type="checkbox" name="enabled" defaultChecked={d.auto.enabled}/> 아래 범위의 학생 자동 검색 비용을 승인합니다</label>
           <label>승인 종료일(최대 31일) <input type="date" name="expiresAt" defaultValue={d.auto.expiresAt?.slice(0,10)}/></label>
           <label>검색 1회 최대 CNY <input name="maxCny" defaultValue={d.auto.maxCny} required/></label>
-          <label>학생 1명 일일 새 검색 <input type="number" name="perStudent" min="1" max="20" defaultValue={d.auto.perStudent}/></label>
-          <label>조직 일일 새 검색 <input type="number" name="perDay" min="1" max="100" defaultValue={d.auto.perDay}/></label>
+          <label>학생 1명 월간 새 검색 <input type="number" name="perStudent" min="1" max="600" defaultValue={d.auto.perStudent}/></label>
+          <label>조직 월간 새 검색 <input type="number" name="perMonth" min="1" max="3000" defaultValue={d.auto.perMonth}/></label>
           <label>동일 검색 재사용 시간 <input type="number" name="cacheHours" min="1" max="168" defaultValue={d.auto.cacheHours}/></label>
           <p>월간 CNY 예산도 함께 적용됩니다. 승인 만료·관리자 권한 해제·전체 중지 시 추가 호출을 중단합니다.</p>
           <button className={btn.secondary}>자동 검색 설정 저장</button>

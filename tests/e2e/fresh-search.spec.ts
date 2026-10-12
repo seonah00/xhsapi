@@ -103,7 +103,7 @@ test('student automatic search runs without cost controls and reuses the same se
   const org='00000000-0000-4000-b000-000000000001';
   const previous=(await db.query('select settings from organizations where id=$1',[org])).rows[0].settings;
   try {
-    await db.query(`update organizations set settings=jsonb_set(settings,'{auto_search}',$2::jsonb) where id=$1`,[org,{enabled:true,approvedBy:'00000000-0000-4000-a000-000000000005',expiresAt:new Date(Date.now()+86400_000).toISOString(),cacheHours:24,perStudent:3,perDay:20,maxCny:'0.30'}]);
+    await db.query(`update organizations set settings=jsonb_set(settings,'{auto_search}',$2::jsonb) where id=$1`,[org,{enabled:true,approvedBy:'00000000-0000-4000-a000-000000000005',expiresAt:new Date(Date.now()+86400_000).toISOString(),cacheHours:24,perStudent:3,perMonth:20,maxCny:'0.30'}]);
     await page.goto('/login');await page.getByRole('button',{name:/student-b@demo\.invalid/}).click();await page.waitForURL(/\/app/);
     await page.goto('/app/discover');
     await page.getByRole('textbox',{name:'검색어',exact:true}).fill('自动测试');

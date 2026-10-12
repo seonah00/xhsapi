@@ -107,7 +107,7 @@ export default async function PlanPage({ params, searchParams }: { params: Promi
 
           <Card>
             <h2 id="check" className="font-semibold">발행 전 표현 점검</h2>
-            <p className="mt-1 text-xs text-muted">저장된 버전을 점검합니다. 규칙 검사는 즉시 실행됩니다. 실제 AI 문맥 교정은 준비 중이며, 데모 모드에서만 예시 점검을 제공합니다.</p>
+            <p className="mt-1 text-xs text-muted">저장된 버전을 점검합니다. 규칙 검사는 즉시 실행됩니다. AI 문맥 점검은 중국어 표현과 흐름을 검토하고 수정안을 제안합니다. 적용 전에 뜻과 사실을 확인하세요.</p>
             {latestEdit && (
               <form action={A.check} className="mt-3">{hidden({ versionId: latestEdit.id })}<button className={btn.secondary}>버전 {latestEdit.version} 점검</button></form>
             )}
@@ -122,8 +122,8 @@ export default async function PlanPage({ params, searchParams }: { params: Promi
                 {selected.completeness.contextual === 'failed' && <Notice tone="warn">AI 문맥 검사를 완료하지 못했습니다. 아래는 규칙 검사 결과입니다.</Notice>}
                 {sp.confirm === 'contextual' && d.quote ? (
                   <QuoteConfirm quote={d.quote} title="AI 문맥 점검 확인" action={A.confirmContextual} hidden={{ planId: p, checkRunId: selected.id }} cancelHref={`/app/plans/${p}?check=${selected.id}`}
-                    scopeLines={['대상: 이 점검의 버전 문안', '데모 모드: 휴리스틱 의견, 외부 AI 호출 없음']} />
-                ) : selected.dataMode === 'mock' && selected.completeness.contextual === 'not_requested' && selected.planVersionId && (
+                    scopeLines={['대상: 이 점검의 버전 문안', selected.dataMode === 'mock' ? '데모 모드: 휴리스틱 의견, 외부 AI 호출 없음' : '저장된 문안과 사실 입력으로 중국어 표현·흐름을 검토합니다.']} />
+                ) : selected.completeness.contextual === 'not_requested' && selected.planVersionId && (
                   <form action={A.quoteContextual}>{hidden({ checkRunId: selected.id })}<button className={btn.small}>AI 문맥 점검 요청</button></form>
                 )}
                 {sp.job && sp.check && <JobStatus jobId={sp.job} label="AI 문맥 점검" />}

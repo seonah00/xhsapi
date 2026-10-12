@@ -127,6 +127,9 @@ async function finish(deps: JobDeps, job: JobRow, o: JobOutcome): Promise<void> 
       `update app_jobs set state = $2, error_code = $3, result_ref = coalesce($4, result_ref), lease_expires_at = null where id = $1`,
       [job.id, o.state, 'errorCode' in o ? o.errorCode : null, o.state === 'succeeded' ? o.result ?? null : null],
     );
+    if (job.kind === 'contextual_check' && o.state !== 'succeeded') {
+      await db.query(`update check_runs set status='partial',completeness_json=completeness_json || '{"contextual":"failed"}' where id=$1 and org_id=$2 and owner_user_id=$3`,[job.input_ref.checkRunId,job.org_id,job.owner_user_id]);
+    }
     if (job.reserved_usage_id && job.data_mode === 'live') {
       // Conservative live settlement until provider billing reports exist: success is charged at the
       // maximum for completed units (unused collection pages are released); any uncertain failure keeps the reservation as unknown_outcome for admin reconciliation.

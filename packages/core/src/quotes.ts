@@ -9,21 +9,21 @@ import { OPERATION_ENDPOINTS, priceLiveOperation, recordLiveConsent, type LiveOp
 
 export type Operation = 'note_enrichment' | 'provider_search' | 'reference_analysis' | 'transcript_submit' | 'plan_generation' | 'contextual_check' | 'results_reflection';
 
-/** App policy limits per student per day (spec 9.2; adjustable later by admins). */
-export const DAILY_LIMITS: Record<Operation, { limit: number; label: string; kinds: JobKind[] }> = {
-  note_enrichment: { limit: 10, label: '상세·표지 보완', kinds: ['provider_search', 'note_enrichment'] },
-  provider_search: { limit: 10, label: '외부 검색', kinds: ['provider_search', 'note_enrichment'] },
-  reference_analysis: { limit: 20, label: 'AI 작업', kinds: ['reference_analysis', 'query_expansion', 'plan_generation', 'contextual_check', 'results_reflection'] },
-  transcript_submit: { limit: 5, label: '음성 문안 추출', kinds: ['transcript_submit'] },
-  plan_generation: { limit: 20, label: 'AI 작업', kinds: ['reference_analysis', 'query_expansion', 'plan_generation', 'contextual_check', 'results_reflection'] },
-  results_reflection: { limit: 20, label: 'AI 작업', kinds: ['reference_analysis', 'query_expansion', 'plan_generation', 'contextual_check', 'results_reflection'] },
-  contextual_check: { limit: 20, label: 'AI 작업', kinds: ['reference_analysis', 'query_expansion', 'plan_generation', 'contextual_check', 'results_reflection'] },
+/** App policy limits per student per calendar month (Asia/Seoul) (spec 9.2; adjustable later by admins). */
+export const MONTHLY_LIMITS: Record<Operation, { limit: number; label: string; kinds: JobKind[] }> = {
+  note_enrichment: { limit: 300, label: '상세·표지 보완', kinds: ['provider_search', 'note_enrichment'] },
+  provider_search: { limit: 300, label: '외부 검색', kinds: ['provider_search', 'note_enrichment'] },
+  reference_analysis: { limit: 600, label: 'AI 작업', kinds: ['reference_analysis', 'query_expansion', 'plan_generation', 'contextual_check', 'results_reflection'] },
+  transcript_submit: { limit: 150, label: '음성 문안 추출', kinds: ['transcript_submit'] },
+  plan_generation: { limit: 600, label: 'AI 작업', kinds: ['reference_analysis', 'query_expansion', 'plan_generation', 'contextual_check', 'results_reflection'] },
+  results_reflection: { limit: 600, label: 'AI 작업', kinds: ['reference_analysis', 'query_expansion', 'plan_generation', 'contextual_check', 'results_reflection'] },
+  contextual_check: { limit: 600, label: 'AI 작업', kinds: ['reference_analysis', 'query_expansion', 'plan_generation', 'contextual_check', 'results_reflection'] },
 };
 
-export async function usedToday(ctx: Ctx, op: Operation): Promise<number> {
+export async function usedThisMonth(ctx: Ctx, op: Operation): Promise<number> {
   const r = await ctx.db.query<{ n: number }>(
-    `select count(*)::int as n from app_jobs where org_id = $1 and owner_user_id = $2 and kind = any($3) and created_at >= date_trunc('day', now())`,
-    [ctx.orgId, ctx.uid, DAILY_LIMITS[op].kinds],
+    `select count(*)::int as n from app_jobs where org_id = $1 and owner_user_id = $2 and kind = any($3) and created_at >= (date_trunc('month', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul')`,
+    [ctx.orgId, ctx.uid, MONTHLY_LIMITS[op].kinds],
   );
   return r.rows[0]?.n ?? 0;
 }
@@ -37,8 +37,8 @@ export type Quote = {
   currency: string;
   maxBillableUnits: number;
   expiresAt: string;
-  usedToday: number;
-  dailyLimit: number;
+  usedThisMonth: number;
+  monthlyLimit: number;
   requestHash: string;
 };
 
@@ -54,8 +54,8 @@ const FEATURE_OF: Record<Operation, 'ai' | 'transcript' | 'provider_search'> = {
   note_enrichment: 'provider_search', provider_search: 'provider_search', transcript_submit: 'transcript', reference_analysis: 'ai', plan_generation: 'ai', contextual_check: 'ai', results_reflection: 'ai',
 };
 
-/** Effective daily limit: org setting (admin-adjustable) falling back to the app default. */
-export async function dailyLimit(ctx: Ctx, op: Operation): Promise<number> {
+/** Effective monthly limit: org setting (admin-adjustable) falling back to the app default. */
+export async function monthlyLimit(ctx: Ctx, op: Operation): Promise<number> {
   const ops = await orgOps(ctx.db, ctx.orgId);
   return ops.limits[FEATURE_OF[op]];
 }
@@ -66,9 +66,9 @@ export async function createQuote(ctx: Ctx, service: ServiceRunner, operation: O
   const ops = await orgOps(ctx.db, ctx.orgId);
   if (ops.provider.kill) throw new AppError('FEATURE_DISABLED', '관리자가 외부 작업을 모두 중지했습니다.');
   if (!ops.features[FEATURE_OF[operation]]) throw new AppError('FEATURE_DISABLED', '관리자가 이 기능을 꺼 두었습니다.');
-  const used = await usedToday(ctx, operation);
+  const used = await usedThisMonth(ctx, operation);
   const limit = ops.limits[FEATURE_OF[operation]];
-  if (used >= limit) throw new AppError('RATE_LIMITED', `오늘 ${DAILY_LIMITS[operation].label} 한도(${limit}회)를 모두 사용했습니다.`);
+  if (used >= limit) throw new AppError('RATE_LIMITED', `이번 달 ${MONTHLY_LIMITS[operation].label} 한도(${limit}회)를 모두 사용했습니다.`);
   const hash = requestHash(operation, scope);
   if (ctx.mode === 'live') {
     // Unknown price, blocked gate, zero budget or a provider without a contract refuse here (spec 6.3, 9.2).
@@ -84,7 +84,7 @@ export async function createQuote(ctx: Ctx, service: ServiceRunner, operation: O
     )).rows[0]!);
     return {
       id: row.id, operation, provider:isTextAiOperation(operation) ? referenceAiConfig(env,operation).provider : operation==='note_enrichment' ? 'apify' : 'redfox', mode: 'live', maxAmount: priced.maxAmount, currency: priced.currency, maxBillableUnits: priced.maxUnits,
-      expiresAt: row.expires_at.toISOString(), usedToday: used, dailyLimit: limit, requestHash: hash,
+      expiresAt: row.expires_at.toISOString(), usedThisMonth: used, monthlyLimit: limit, requestHash: hash,
     };
   }
   const row = await service(async (db) => (await db.query<{ id: string; expires_at: Date }>(
@@ -94,12 +94,13 @@ export async function createQuote(ctx: Ctx, service: ServiceRunner, operation: O
   )).rows[0]!);
   return {
     id: row.id, operation, mode: 'mock', maxAmount: '0', currency: 'CNY', maxBillableUnits: 1,
-    expiresAt: row.expires_at.toISOString(), usedToday: used, dailyLimit: limit, requestHash: hash,
+    expiresAt: row.expires_at.toISOString(), usedThisMonth: used, monthlyLimit: limit, requestHash: hash,
   };
 }
 
 
 const QUOTE_ERRORS: Record<string, [ConstructorParameters<typeof AppError>[0], string]> = {
+  MONTHLY_LIMIT: ['RATE_LIMITED', '이번 달 이용 한도를 모두 사용했습니다.'],
   QUOTE_CONSUMED: ['CONFLICT', '이미 사용한 견적입니다. 다시 견적을 받아 주세요.'],
   QUOTE_EXPIRED: ['CONFLICT', '견적이 만료되었습니다(5분). 다시 견적을 받아 주세요.'],
   QUOTE_INVALID: ['NOT_FOUND', '견적을 찾을 수 없습니다.'],
@@ -166,7 +167,7 @@ export async function getQuote(ctx: Ctx, id: string): Promise<(Quote & { consume
   const op = r.operation as Operation;
   return {
     id: r.id, operation: op, provider:r.scope_json?.provider, mode: r.data_mode, maxAmount: r.max_amount, currency: r.currency, maxBillableUnits: r.max_billable_units,
-    expiresAt: r.expires_at.toISOString(), usedToday: await usedToday(ctx, op), dailyLimit: await dailyLimit(ctx, op), requestHash: r.request_hash,
+    expiresAt: r.expires_at.toISOString(), usedThisMonth: await usedThisMonth(ctx, op), monthlyLimit: await monthlyLimit(ctx, op), requestHash: r.request_hash,
     consumed: r.consumed_at !== null, expired: r.expires_at <= new Date(),
   };
 }

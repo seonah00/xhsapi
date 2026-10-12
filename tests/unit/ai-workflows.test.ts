@@ -1,5 +1,5 @@
 import { describe,it,expect,vi } from 'vitest';
-import { FactSheet, PlanContent, validatePlanAi, validateReflectionAi, callTextWorkflow, type PlanAiInput, type ReflectionAiRow } from '@xhs/core';
+import { FactSheet, PlanContent, sectionsOf, validateContextualAi, validatePlanAi, validateReflectionAi, callTextWorkflow, type PlanAiInput, type ReflectionAiRow } from '@xhs/core';
 import { validateRegister } from '../../scripts/price.ts';
 const input:PlanAiInput={facts:FactSheet.parse({subject:'散步',confirmedFacts:['走过公园'],shootableScenes:['公园入口'],sponsorship:'no'}),profile:{mainTopic:'travel',tone:'plain',formats:['vlog'],audience:'散步爱好者'},references:[{id:'ref1',title:'路线',tags:['散步'],insights:['설명한 순서대로 전개']} ]};
 const proposal=()=>({candidates:[{angle:'산책 순서',difference:'내 동선',neededFacts:[],difficulty:'low'}],titleOptions:['公园散步','散步记录'],content:PlanContent.parse({title:'公园散步',body:'走过公园',shots:[{scene:'公园入口',note:'입구 촬영 제안'}]}),evidenceRefs:['ref1'],missingFacts:[],notes:[]});
@@ -38,4 +38,13 @@ describe('paid text workflows (fake API only)',()=>{
     expect(validateRegister({...opts,'output-token-limit':'2000'}).length).toBeGreaterThan(0);
     expect(validateRegister({...opts,'output-token-limit':'6000'})).toEqual([]);
   });
+});
+
+it('anchors contextual suggestions only to unique exact text and rejects invented numbers',()=>{
+ const input={sections:sectionsOf(PlanContent.parse({body:'今天很开心。今天很开心。',title:'我去公园了'})),facts:FactSheet.parse({})};
+ const f={fieldKey:'title',originalSpan:'我去公园了',suggestionZh:'今天去了公园',rationaleKo:'시간 흐름을 자연스럽게 표현합니다.'};
+ expect(validateContextualAi({findings:[f]},input)[0]).toMatchObject({anchored:true,start:0,end:5,ruleKey:'openai-contextual-v1'});
+ expect(validateContextualAi({findings:[{...f,fieldKey:'body',originalSpan:'今天很开心。'}]},input)[0]?.anchored).toBe(false);
+ expect(()=>validateContextualAi({findings:[{...f,originalSpan:'不存在'}]},input)).toThrow('AI_SPAN_INVALID');
+ expect(()=>validateContextualAi({findings:[{...f,suggestionZh:'只需99元'}]},input)).toThrow('AI_INVENTED_NUMBERS');
 });

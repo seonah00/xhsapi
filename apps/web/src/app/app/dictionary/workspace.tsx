@@ -18,7 +18,7 @@ const DISABLED_REASON: Record<Exclude<DictionaryAiStatus['disabledReason'], null
   invalid_fixed_config: '고정 모델·한도 설정을 확인해야 합니다.',
   mock_mode: '데모 모드에서는 외부 AI를 호출하지 않습니다.',
   organization_disabled: '조직의 AI 또는 live 실행 설정이 꺼져 있습니다.',
-  daily_limit: '오늘의 개인 생성 한도를 모두 사용했습니다.',
+  monthly_limit: '이번 달 개인 생성 한도를 모두 사용했습니다.',
   global_cap: '전체 월간 AI 비용 한도에 도달했습니다.',
 };
 
@@ -87,7 +87,7 @@ function AiComposer({
       <h2 className="font-semibold">AI 초안제시</h2>
       <p className="mt-1 text-xs text-muted">선택한 공용 항목과 직접 적은 조건만 사용합니다. 개인 초안과 결과는 공용 사전에 공유되지 않으며, 생성 결과는 게시 전에 직접 검토해야 합니다.</p>
       <p className="mt-3 text-sm">태그 {tags.length}/8 · 표현 {expressions.length}/3</p>
-      <p className="mt-1 text-xs text-muted">오늘 생성 가능 {status.userDailyRemaining}/{status.userDailyLimit}회 · 월간 전체 상한 {status.globalMonthlyUsdLimit} USD</p>
+      <p className="mt-1 text-xs text-muted">이번 달 생성 가능 {status.userMonthlyRemaining}/{status.userMonthlyLimit}회 · 월간 전체 상한 {status.globalMonthlyUsdLimit} USD</p>
       {!status.enabled && status.disabledReason && <p role="status" className="mt-2 rounded-lg bg-warn-soft px-3 py-2 text-xs text-warn">{DISABLED_REASON[status.disabledReason]} 미리보기는 가능하지만 실제 결과를 만들지는 않습니다.</p>}
       {chosen.length === 0 ? <p className="mt-3 text-sm text-muted">왼쪽 목록에서 항목을 선택하세요.</p> : (
         <ul className="mt-3 flex flex-wrap gap-1" aria-label="선택한 항목">

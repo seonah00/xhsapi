@@ -8,8 +8,8 @@ import { createQuote, reserveJob } from './quotes.ts';
 export const AutoSearchPolicy = z.object({
   enabled: z.boolean().default(false),
   cacheHours: z.number().int().min(1).max(168).default(24),
-  perStudent: z.number().int().min(1).max(20).default(3),
-  perDay: z.number().int().min(1).max(100).default(10),
+  perStudent: z.number().int().min(1).max(600).default(90),
+  perMonth: z.number().int().min(1).max(3000).default(300),
   maxCny: z.string().regex(/^\d{1,4}(\.\d{1,8})?$/).default('0.30'),
   expiresAt: z.string().datetime().optional(),
   approvedBy: z.string().uuid().optional(),
@@ -26,7 +26,7 @@ export async function autoSearchPolicy(ctx: Ctx) {
   return AutoSearchPolicy.parse(row?.policy ?? {});
 }
 
-/** One transaction serializes cache lookup, daily caps and existing monetary reservation. */
+/** One transaction serializes cache lookup, monthly caps and existing monetary reservation. */
 export async function requestAutoSearch(ctx: Ctx, service: ServiceRunner, raw: string, env: AppEnv, filters: {topic?: string; days?: number} = {}): Promise<string | null> {
   const query=z.string().min(1).max(50).parse(normalizeSearchQuery(raw));
   const checked=z.object({topic:z.enum(['beauty','daily-life','parenting','food-places','travel-outing','fashion']).optional(),days:z.union([z.literal(7),z.literal(14),z.literal(30)]).optional()}).parse(filters);
@@ -51,8 +51,8 @@ export async function requestAutoSearch(ctx: Ctx, service: ServiceRunner, raw: s
     if(!jobId) {
       const usage=(await db.query(`select count(distinct job_id)::int as total,
         count(distinct job_id) filter(where user_id=$2)::int as own from search_requests
-        where org_id=$1 and created_at >= date_trunc('day',now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul'`,[ctx.orgId,ctx.uid])).rows[0];
-      if(usage.total>=policy.perDay || usage.own>=policy.perStudent) throw new AppError('RATE_LIMITED','오늘 새 게시물 검색 한도에 도달했습니다. 저장된 결과를 이용하세요.');
+        where org_id=$1 and created_at >= date_trunc('month',now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul'`,[ctx.orgId,ctx.uid])).rows[0];
+      if(usage.total>=policy.perMonth || usage.own>=policy.perStudent) throw new AppError('RATE_LIMITED','이번 달 새 게시물 검색 한도에 도달했습니다. 저장된 결과를 이용하세요.');
       await db.query(`select set_config('request.jwt.claim.sub',$1,true)`,[policy.approvedBy]);
       const sponsored: Ctx={...ctx,db,uid:policy.approvedBy,role:'org_admin'};
       const same: ServiceRunner=fn=>fn(db);

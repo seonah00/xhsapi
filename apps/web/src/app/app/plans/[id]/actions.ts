@@ -74,7 +74,7 @@ export async function confirmContextual(f: FormData) {
   const { jobId } = await orRedirectWithError(path(id), () => withPageCtx(async (ctx) => {
     const r = await reserveJob(ctx, {
       quoteId, route: 'POST /checks/:id/contextual', idempotencyKey: uuid.parse(f.get('idem')), operation: 'contextual_check', scope,
-      jobKind: 'contextual_check', dedupeKey: `contextual_check:${quoteId}`, inputRef: scope,
+      consent: f.get('consent') === 'on', jobKind: 'contextual_check', dedupeKey: `contextual_check:${quoteId}`, inputRef: scope,
     });
     if (!r.replayed) await markContextualRequested(service, checkRunId);
     return r;

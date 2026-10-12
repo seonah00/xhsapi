@@ -25,7 +25,7 @@ const config: DictionaryAiConfig = {
   apiKey: 'synthetic-key',
   sessionSecret: 'integration-only-session-secret-32-bytes',
   model: DICTIONARY_AI_MODEL,
-  userDailyLimit: 3,
+  userMonthlyLimit: 90,
   globalMonthlyUsdLimit: 5,
 };
 const input: DictionaryAiInput = {
@@ -134,7 +134,7 @@ describe('authenticated dictionary AI database flow', () => {
     expect(adminRows.rows).toEqual([]);
   });
 
-  it('atomically permits one concurrent nonce reservation, then enforces three calls per KST day', async () => {
+  it('atomically permits one concurrent nonce reservation, then enforces 90 calls per KST month', async () => {
     const preview = await user(userC, (ctx) => previewDictionaryAi(ctx, input, config));
     const fetch = okFetch();
     const attempts = await Promise.allSettled([
@@ -148,13 +148,14 @@ describe('authenticated dictionary AI database flow', () => {
     for (const nonce of ['a'.repeat(64), 'b'.repeat(64)]) {
       await asUser(userC, (db) => db.query('select * from app.reserve_dictionary_ai_usage($1,$2)', [orgId, nonce]));
     }
+    await admin(db => db.query(`insert into dictionary_ai_usage(org_id,user_id,nonce_hash,model,reserved_max_cost_usd,outcome) select $1,$2,md5('monthly-fixture-'||n::text)||md5(n::text),$3,0.000001,'failed' from generate_series(1,87) n`,[orgId,userC,DICTIONARY_AI_MODEL]));
     const limited = await asUser(userC, async (db) => {
       try { await db.query('select * from app.reserve_dictionary_ai_usage($1,$2)', [orgId, 'c'.repeat(64)]); return null; }
       catch (error) { return error; }
     });
     expect(String(limited)).toContain('DICTIONARY_AI_DAILY_LIMIT');
     const status = await user(userC, (ctx) => getDictionaryAiStatus(ctx, config));
-    expect(status).toMatchObject({ enabled: false, disabledReason: 'daily_limit', userDailyUsed: 3, userDailyRemaining: 0 });
+    expect(status).toMatchObject({ enabled: false, disabledReason: 'monthly_limit', userMonthlyUsed: 90, userMonthlyRemaining: 0 });
   });
 
   it('keeps committed costs after a member leaves, without exposing their metadata', async () => {
@@ -175,6 +176,6 @@ describe('authenticated dictionary AI database flow', () => {
     });
     expect(String(blocked)).toContain('DICTIONARY_AI_GLOBAL_CAP');
     const status = await user(userD, (ctx) => getDictionaryAiStatus(ctx, config));
-    expect(status).toMatchObject({ enabled: false, disabledReason: 'global_cap', userDailyUsed: 0 });
+    expect(status).toMatchObject({ enabled: false, disabledReason: 'global_cap', userMonthlyUsed: 0 });
   });
 });
