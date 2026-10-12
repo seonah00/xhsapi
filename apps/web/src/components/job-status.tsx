@@ -12,7 +12,7 @@ const LABEL: Record<string, string> = {
 function usePoll(url: string, terminal: string[], initial: string) {
   const router = useRouter();
   const [state, setState] = useState(initial);
-  const [progress, setProgress] = useState<{notes?:number;targetCount?:number;pages?:number;stopReason?:string;completed?:number;total?:number;covers?:number}|null>(null);
+  const [progress, setProgress] = useState<{notes?:number;targetCount?:number;pages?:number;stopReason?:string;completed?:number;total?:number;covers?:number;missing?:number}|null>(null);
   useEffect(() => {
     let stop = false;
     const tick = async () => {
