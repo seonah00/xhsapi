@@ -57,6 +57,13 @@ export default async function PlanPage({ params, searchParams }: { params: Promi
       {sp.fixed && <div className="mb-3"><Notice tone="ok">수정 제안을 초안에 적용했습니다. 다시 “버전 저장” 후 재점검하세요.</Notice></div>}
       <p className="mb-4 text-xs text-muted">상태는 직접 바꿉니다. 점검 통과나 강사 피드백으로 자동 변경되지 않습니다.</p>
 
+      {plan.keywordSource && <Card>
+        <h2 className="font-semibold">키워드에서 가져온 기획 소재</h2>
+        <p className="text-sm">검색 주제: {plan.keywordSource.query} · 저장 당시 표본 {plan.keywordSource.sampleSize}건</p>
+        {plan.keywordSource.demo && <p className="text-warn">데모 자료입니다. 실제 검색·AI 결과가 아닙니다.</p>}
+        <ul className="my-2 space-y-2">{plan.keywordSource.entries.map(e=><li key={e.term}><strong lang="zh-CN">#{e.term}</strong> · {e.meaning ?? '뜻 미확인'}<p className="text-xs text-muted">{e.dictionaryIds.length ? '공용사전 수록 · ' : ''}{e.noteCount ? `저장 당시 ${e.noteCount}건에서 발견` : '실사용 미확인 추천 후보'}</p>{e.cautions.map((c,i)=><p key={i} className="text-xs text-warn">{c}</p>)}</li>)}</ul>
+        <p className="text-sm">아래 사실 입력에서 직접 확인한 사실과 촬영 가능한 장면을 저장한 뒤 ‘제안 받기’를 누르면 선택 태그를 활용한 본문·자막·촬영 구성을 만들 수 있습니다.</p>
+      </Card>}
       {plan.dictionarySource && <Card>
         <h2 className="font-semibold">공용사전에서 가져온 작업 메모</h2>
         <p className="mt-1 text-xs text-muted">{plan.dictionarySource.mode === 'plan' ? '촬영·방문 계획' : '경험 기록'} · 저장 당시 사전의 뜻과 주의점입니다. 본인의 사실로 자동 확정하지 않습니다.</p>
@@ -71,10 +78,10 @@ export default async function PlanPage({ params, searchParams }: { params: Promi
         <div className="space-y-4">
           <Card>
             <h2 id="ai" className="font-semibold">AI 기획 제안 <DemoBadge mode={d.mode} /></h2>
-            <p className="mt-1 text-xs text-muted">저장한 사실과 레퍼런스 분석을 바탕으로 제목 후보·본문·촬영 제안을 별도 버전으로 만듭니다. 적용하기 전까지 초안은 바뀌지 않습니다.</p>
+            <p className="mt-1 text-xs text-muted">저장한 사실·선택 태그·레퍼런스 분석을 바탕으로 제목 후보·본문·촬영 제안을 별도 버전으로 만듭니다. 적용하기 전까지 초안은 바뀌지 않습니다.</p>
             {sp.confirm === 'generation' && d.quote ? (
               <div className="mt-3"><QuoteConfirm quote={d.quote} title="기획 제안 생성 확인" action={A.confirmGeneration} hidden={{ planId: p }} cancelHref={`/app/plans/${p}`}
-                scopeLines={['입력: 저장한 사실 입력, 계정 방향, 선택한 레퍼런스 제목·태그·분석 요약', d.mode==='live'?'OpenAI가 중국어 제목·본문·자막 초안과 한국어 설명·촬영 제안을 만듭니다.':'데모 모드: 템플릿 기반, 외부 AI 호출 없음']} /></div>
+                scopeLines={['입력: 저장한 사실 입력, 계정 방향, 선택 태그와 뜻, 선택한 레퍼런스 제목·태그·분석 요약', d.mode==='live'?'OpenAI가 중국어 제목·본문·자막 초안과 한국어 설명·촬영 제안을 만듭니다.':'데모 모드: 템플릿 기반, 외부 AI 호출 없음']} /></div>
             ) : (
               <form action={A.quoteGeneration} className="mt-3">{hidden()}<button className={btn.secondary}>제안 받기</button></form>
             )}

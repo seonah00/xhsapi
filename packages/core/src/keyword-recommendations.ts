@@ -9,7 +9,7 @@ const TOPICS = [
   { match: /穿搭|패션|코디/, root: '穿搭', related: ['日常穿搭', '通勤穿搭', '穿搭灵感'], tails: ['小个子通勤穿搭', '秋季简约穿搭', '微胖女生穿搭'] },
 ] as const;
 export type KeywordRecommendation = {
-  term: string; group: 'core' | 'related' | 'longTail';
+  aiReason?: string; term: string; group: 'core' | 'related' | 'longTail';
   dictionaryIds: string[]; meaning: string | null; cautions: string[];
   noteCount: number; evidence: { noteId: string; title: string }[]; suggested: boolean;
 };

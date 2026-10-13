@@ -1,3 +1,4 @@
+import { KeywordSourceSnapshot } from './keyword-research.ts';
 import { AppError, checkInputHash, contentHash, PlanStatus, type CheckSections } from '@xhs/domain';
 import { z } from 'zod';
 import { notFound, type Ctx } from './context.ts';
@@ -67,7 +68,7 @@ const DictionarySource = z.object({
   requestId: z.string().uuid(), mode: z.enum(['record', 'plan']), notes: z.string().max(2000),
   entries: z.array(z.object({ term: z.string(), meaning: z.string(), cautions: z.array(z.string()), entryType: z.enum(['tag', 'expression']) })).max(11),
 });
-export type PlanDetail = PlanSummary & { dictionarySource?: z.infer<typeof DictionarySource> | undefined; revision: number; draft: PlanDraft; draftUpdatedAt: string | null; currentVersionId: string | null; versions: PlanVersion[]; draftHash: string };
+export type PlanDetail = PlanSummary & { keywordSource?: z.infer<typeof KeywordSourceSnapshot> | undefined; dictionarySource?: z.infer<typeof DictionarySource> | undefined; revision: number; draft: PlanDraft; draftUpdatedAt: string | null; currentVersionId: string | null; versions: PlanVersion[]; draftHash: string };
 
 export const PlanCreate = z.object({
   accountId: z.string().uuid(),
@@ -132,6 +133,7 @@ export async function getPlan(ctx: Ctx, id: string): Promise<PlanDetail> {
   const draft = PlanDraft.parse(p.draft_json);
   const current = versions.find((v) => v.id === p.current_version_id);
   return {
+    keywordSource: p.draft_json.keywordSource ? KeywordSourceSnapshot.parse(p.draft_json.keywordSource) : undefined,
     dictionarySource: p.draft_json.dictionarySource ? DictionarySource.parse(p.draft_json.dictionarySource) : undefined,
     id: p.id, title: p.title, status: p.status, accountId: p.account_id, accountName: p.display_name, updatedAt: p.updated_at.toISOString(),
     currentVersion: current?.version ?? null, revision: p.revision, draft, draftUpdatedAt: p.draft_updated_at?.toISOString() ?? null,

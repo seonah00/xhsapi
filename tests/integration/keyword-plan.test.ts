@@ -1,0 +1,27 @@
+import { randomUUID } from 'node:crypto';
+import { afterAll, expect, it } from 'vitest';
+import { createAccount, listAccounts, importKeywordPlan, getPlan, saveDraft, preparePlanAi, keywordPlanCandidates, type Ctx } from '@xhs/core';
+import { ORG1, ORG2, U, pool, asUser } from './db.ts';
+const user=<T>(uid:string,fn:(ctx:Ctx)=>Promise<T>,orgId=ORG1)=>asUser(uid,db=>fn({db,uid,orgId,mode:'mock',role:'student'}));
+afterAll(()=>pool.end());
+it('imports only server-verified candidates, preserves provenance and uses tags in AI input',async()=>{
+ const accountId=await user(U.studentA,async ctx=>(await listAccounts(ctx))[0]?.id??createAccount(ctx,{displayName:'키워드 기획',topics:['daily-life'],mainTopic:'daily-life',audience:'직장인',goals:['record_life'],tone:'plain',formats:['vlog'],chineseLevel:'beginner',showFace:false,useVoice:false}));
+ const input={requestId:randomUUID(),accountId,name:'선크림 키워드 기획',source:{query:'防晒霜推荐',noteIds:[]},selected:['敏感肌防晒霜推荐'],facts:{subject:'내 선크림',confirmedFacts:['직접 사용한 제품'],shootableScenes:['용기 촬영']}};
+ const id=await user(U.studentA,ctx=>importKeywordPlan(ctx,input));
+ expect(await user(U.studentA,ctx=>importKeywordPlan(ctx,input))).toBe(id);
+ const plan=await user(U.studentA,ctx=>getPlan(ctx,id));
+ expect(plan.draft.content.tags).toEqual(input.selected);
+ expect(plan.keywordSource?.entries[0]).toMatchObject({noteCount:0,evidence:[],dictionaryIds:[]});
+ expect(plan.draft.facts.sponsorship).toBe('unknown');
+ await user(U.studentA,ctx=>saveDraft(ctx,id,plan.draft,plan.revision));
+ expect((await user(U.studentA,ctx=>getPlan(ctx,id))).keywordSource?.requestId).toBe(input.requestId);
+ const prep=await user(U.studentA,ctx=>preparePlanAi(ctx.db,ctx.orgId,ctx.uid,id));
+ expect(prep.input.keywords).toEqual([{term:'敏感肌防晒霜推荐',meaning:'',unverified:true}]);
+ await expect(user(U.studentB,ctx=>getPlan(ctx,id))).rejects.toThrow();
+ await expect(user(U.studentB,ctx=>importKeywordPlan(ctx,{...input,requestId:randomUUID()}))).rejects.toThrow();
+ await expect(user(U.studentA,ctx=>importKeywordPlan(ctx,{...input,requestId:randomUUID(),selected:['fabricated']}))).rejects.toThrow();
+ await expect(user(U.studentA,ctx=>keywordPlanCandidates(ctx,{query:'test',noteIds:[randomUUID()]}))).rejects.toThrow();
+ await expect(user(U.studentC,ctx=>getPlan(ctx,id),ORG2)).rejects.toThrow();
+ await pool.query('update plans set deleted_at=now() where id=$1',[id]);
+ await expect(user(U.studentA,ctx=>importKeywordPlan(ctx,input))).rejects.toThrow();
+});

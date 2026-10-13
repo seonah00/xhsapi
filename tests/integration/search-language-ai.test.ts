@@ -21,3 +21,13 @@ it('rejects inaccessible evidence rather than accepting client supplied text',as
  await expect(user(U.studentB,ctx=>prepareLanguageAi(ctx,{task:'interpret',noteIds:[randomUUID()]}))).rejects.toThrow();
  await expect(user(U.studentB,ctx=>prepareLanguageAi(ctx,{task:'interpret',noteIds:[],body:'fabricated'}))).rejects.toThrow();
 });
+it('queues general expansion and prevents another user from importing its result',async()=>{
+ const scope={task:'expand' as const,query:'저당 도시락',noteIds:[]};
+ const quote=await user(U.studentB,ctx=>createQuote(ctx,service,'query_expansion',scope));
+ const {jobId}=await user(U.studentB,ctx=>reserveJob(ctx,{quoteId:quote.id,operation:'query_expansion',scope,route:'test/expand',idempotencyKey:randomUUID(),jobKind:'query_expansion',dedupeKey:quote.id,inputRef:scope}));
+ expect(await runJob({service,provider:new MockXhsProvider()},jobId,'expand-test')).toMatchObject({state:'succeeded'});
+ const {keywordPlanCandidates}=await import('@xhs/core');
+ const own=await user(U.studentB,ctx=>keywordPlanCandidates(ctx,{query:scope.query,noteIds:[],jobId}));
+ expect(own.result.items.some(k=>k.term==='雨天亲子旅行')).toBe(true);
+ await expect(user(U.studentA,ctx=>keywordPlanCandidates(ctx,{query:scope.query,noteIds:[],jobId}))).rejects.toThrow();
+});
