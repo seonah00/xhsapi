@@ -69,7 +69,7 @@ test('student onboarding → discover → reference → analysis → transcript 
   // Analysis via quote → confirm → job (mock)
   await page.getByRole('button', { name: '분석하기' }).click();
   await expect(page.getByText('분석 실행 확인')).toBeVisible();
-  await expect(page.getByText('0 (데모 모드, 실제 과금 없음)')).toBeVisible();
+  await expect(page.getByText('0 (데모 모드, 실제 과금 없음)')).toHaveCount(0);
   await page.getByRole('button', { name: '확인하고 실행' }).click();
   await expect(page.getByRole('heading', { name: '주제와 핵심 메시지', exact: true })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('영상의 화면 구도·편집·장면 전환은 분석하지 않았습니다.')).toBeVisible();

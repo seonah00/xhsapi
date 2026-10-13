@@ -90,8 +90,8 @@ test('admin stages, reviews and publishes a private JSON import; students browse
   await expect(page.getByLabel(/내 조건과 사실/)).toHaveValue(originalNotes);
   await expect(page.getByText('gemini-3.8-flash', { exact: true })).toBeVisible();
   await expect(page.getByText('상류 API 최대 예상 비용')).toHaveCount(0);
-  await expect(page.getByText('조직 예산 예약 상한')).toBeVisible();
-  await expect(page.getByText('조직 예산 예약 상한').locator('..').getByText('0.06 USD', { exact: false })).toBeVisible();
+  await expect(page.getByText('조직 예산 예약 상한')).toHaveCount(0);
+  await expect(page.getByText(/USD|조직 예산|월간 전체 상한/)).toHaveCount(0);
   await expect(page.getByRole('button', { name: '동의하고 1회 생성' })).toBeDisabled();
   expect(await page.content()).not.toContain('PRIVATE_SOURCE_MUST_NOT_RENDER');
 
