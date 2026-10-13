@@ -15,7 +15,7 @@ test('hashtag search quotes a fresh query and displays its completed results', a
   await expect(page).not.toHaveURL(/#refresh$/);
 });
 
-test('a thumbnail directly opens a verified original and clearly distinguishes title search', async ({ page, context }) => {
+test('a thumbnail opens link details and verified original preserves its signed destination', async ({ page, context }) => {
   const { default: pg } = await import('pg');
   const db = new pg.Pool({connectionString:process.env.DATABASE_URL});
   const original='https://www.xiaohongshu.com/explore/aaaaaaaaaaaaaaaaaaaaaaaa?xsec_token=synthetic';
@@ -30,11 +30,10 @@ test('a thumbnail directly opens a verified original and clearly distinguishes t
     await page.getByRole('button',{name:/student-b@demo\.invalid/}).click();
     await page.waitForURL(/\/app/);
     await page.goto('/app/discover?q=thumbnaillinkfixture');
-    const link=page.getByRole('link',{name:'thumbnaillinkfixture 게시물 원문 보기'});
-    await expect(link).toHaveAttribute('href',`/app/notes/${row.id}/original`);
-    await expect(link).toHaveAttribute('target','_blank');
+    const link=page.getByRole('link',{name:'thumbnaillinkfixture 상세 보기'});
+    await expect(link).toHaveAttribute('href',`/app/notes/${row.id}`);
     await expect(link.locator('img')).toBeVisible();
-    await page.goto(`/app/notes/${row.id}`);
+    await link.click();
     await expect(page).toHaveURL(new RegExp(`/app/notes/${row.id}$`));
     await expect(page.getByRole('heading',{name:'thumbnaillinkfixture'})).toBeVisible();
     await expect(page.getByRole('link',{name:'샤오홍슈에서 제목 검색 ↗'})).toBeVisible();
@@ -53,7 +52,7 @@ test('a thumbnail directly opens a verified original and clearly distinguishes t
     await expect(page.getByRole('link',{name:'샤오홍슈에서 제목 검색 ↗'})).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`/app/notes/${row.id}$`));
     await expect(page.getByRole('button',{name:'원문 링크 연결'})).toHaveCount(0);
-    await expect(page.getByText(/현재 이 게시물의 유효한 원문 공유 링크가 없습니다/)).toBeVisible();
+    await expect(page.getByText(/현재 유효한 원문 공유 링크가 없습니다/)).toBeVisible();
     await page.context().clearCookies();
     await page.goto('/login');
     await page.getByRole('button',{name:/student-c@other-org\.demo\.invalid/}).click();
