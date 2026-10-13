@@ -14,3 +14,5 @@
 https://redfox.hk/apis/xiaohongshu/4IVIDHEN (2026-10-13)
 
 `POST /story/api/xhsUser/queryAccountDetail`: 계정 ID로 프로필·팔로워·좋아요 등 계정 정보를 조회한다. 게시물 공유 URL/접근 토큰 반환 필드가 없어 원문 링크 복구 API로 채택하지 않는다. 문서의 최저 가격은 운영 검증 단가로 등록하지 않았다. 실제 API 호출 없음.
+
+Apify 공식 Actor 문서 https://apify.com/zen-studio/rednote-search-scraper 역시 확인했다. `url` 공유 주소와 `xsec_token`을 제공하며 `desc`는 검색 표면의 본문 일부(약 60자)라고 설명한다. 문서가 브라우저 열림을 설명해도 실제 로그인 후 재생 성공으로 간주하지 않는다. 최신 Store 표시 가격으로 운영 고정 빌드/검증 단가를 자동 변경하지 않았다.
