@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { callLanguageAi, validateLanguageOutput, LanguageScope, type LanguageInput } from '@xhs/core';
+import { callLanguageAi, validateLanguageOutput, supportedLanguageOutput, languageFailureCode, LanguageScope, type LanguageInput } from '@xhs/core';
 const input:LanguageInput={task:'interpret',notes:[{alias:'n1',title:'这家店绝绝子',body:'雨天遛娃YYDS',tags:['亲子游']}]};
 const output={translations:[],expressions:[{term:'绝绝子',meaningKo:'아주 좋다는 감탄',usageKo:'가게를 칭찬하는 문맥',cautionKo:'반어적 용법도 있으므로 문맥 확인',confidence:'medium',evidence:[{alias:'n1',quote:'这家店绝绝子'}]}]};
 describe('search language AI',()=>{
@@ -17,6 +17,13 @@ describe('search language AI',()=>{
  it('accepts an honest empty interpretation and Chinese translation options',()=>{
   expect(validateLanguageOutput({translations:[],expressions:[]},input).expressions).toEqual([]);
   expect(validateLanguageOutput({translations:[{zh:'首尔 雨天 亲子 室内',meaningKo:'서울 비 오는 날 아이와 실내 활동'}],expressions:[]},{task:'translate',notes:[],query:'비 오는 날 서울에서 아이와 실내에서 할 것'}).translations).toHaveLength(1);
+ });
+ it('keeps independently grounded candidates and never fabricates evidence',()=>{
+  const unsupported={...output.expressions[0],term:'假的',evidence:[{alias:'n1',quote:'假的文句'}]};
+  expect(supportedLanguageOutput({...output,expressions:[unsupported,...output.expressions,output.expressions[0]]},input)).toEqual(output);
+  expect(()=>supportedLanguageOutput({...output,expressions:[unsupported]},input)).toThrow('AI_EVIDENCE_INVALID');
+  expect(languageFailureCode(new Error('AI_INCOMPLETE'))).toBe('AI_INCOMPLETE');
+  expect(languageFailureCode(new Error('private provider response'))).toBe('AI_RESULT_NEEDS_REVIEW');
  });
  it('uses injected fetch, structured output, no retention; rejects incomplete response',async()=>{
   const fetcher=vi.fn(async()=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(output)}}]})));
