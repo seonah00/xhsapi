@@ -8,10 +8,11 @@ import { enrichmentTarget, priceEnrichment } from './note-enrichment.ts';
 import { orgOps } from './ops.ts';
 import { OPERATION_ENDPOINTS, priceLiveOperation, recordLiveConsent, type LiveOperation } from './live.ts';
 
-export type Operation = 'note_enrichment' | 'provider_search' | 'reference_analysis' | 'transcript_submit' | 'plan_generation' | 'contextual_check' | 'results_reflection';
+export type Operation = 'query_expansion' | 'note_enrichment' | 'provider_search' | 'reference_analysis' | 'transcript_submit' | 'plan_generation' | 'contextual_check' | 'results_reflection';
 
 /** App policy limits per student per calendar month (Asia/Seoul) (spec 9.2; adjustable later by admins). */
 export const MONTHLY_LIMITS: Record<Operation, { limit: number; label: string; kinds: JobKind[] }> = {
+  query_expansion: { limit: 600, label: 'AI 작업', kinds: ['reference_analysis','query_expansion','plan_generation','contextual_check','results_reflection'] },
   note_enrichment: { limit: 300, label: '상세·표지 보완', kinds: ['provider_search', 'note_enrichment'] },
   provider_search: { limit: 300, label: '외부 검색', kinds: ['provider_search', 'note_enrichment'] },
   reference_analysis: { limit: 600, label: 'AI 작업', kinds: ['reference_analysis', 'query_expansion', 'plan_generation', 'contextual_check', 'results_reflection'] },
@@ -52,7 +53,7 @@ export function requestHash(operation: Operation, scope: Record<string, unknown>
  * amount is 0 and the ledger row is `demo`. In live mode an unknown price blocks.
  */
 const FEATURE_OF: Record<Operation, 'ai' | 'transcript' | 'provider_search'> = {
-  note_enrichment: 'provider_search', provider_search: 'provider_search', transcript_submit: 'transcript', reference_analysis: 'ai', plan_generation: 'ai', contextual_check: 'ai', results_reflection: 'ai',
+  query_expansion: 'ai', note_enrichment: 'provider_search', provider_search: 'provider_search', transcript_submit: 'transcript', reference_analysis: 'ai', plan_generation: 'ai', contextual_check: 'ai', results_reflection: 'ai',
 };
 
 /** Effective monthly limit: org setting (admin-adjustable) falling back to the app default. */

@@ -1,3 +1,4 @@
+import { prepareLanguageAi } from './search-language-ai.ts';
 import { verifyAiJob, prepareReferenceAi } from './ai-reference.ts';
 import { z } from 'zod';
 import { AppError, contentHash } from '@xhs/domain';
@@ -10,7 +11,7 @@ import type { JobRow } from './jobs.ts';
 import { fieldText, type Finding } from './checks.ts';
 import { REFERENCE_OUTPUT_TOKENS } from './reference-detail.ts';
 
-export const AI_OPERATIONS = ['reference_analysis','plan_generation','results_reflection','contextual_check'] as const;
+export const AI_OPERATIONS = ['query_expansion','reference_analysis','plan_generation','results_reflection','contextual_check'] as const;
 export const isTextAiOperation = (operation:string): operation is typeof AI_OPERATIONS[number] => (AI_OPERATIONS as readonly string[]).includes(operation);
 export const aiJobScope = (kind:string,input:Record<string,unknown>) => kind==='results_reflection' && Array.isArray(input.snapshotIds) ? {...input,snapshotIds:input.snapshotIds.join(',')} : input;
 const str={type:'string'};
@@ -119,6 +120,7 @@ export async function prepareReflectionAi(db:Db,orgId:string,uid:string,scope:Re
   return {input:boundedAiData(input.map(row=>({...row,measurements:reflectionMeasurements(row)}))),snapshotIds:rows.map(r=>r.id as string),accountId};
 }
 export async function validateAiTarget(ctx:Ctx,kind:string,scope:Record<string,unknown>) {
+  if(kind==='query_expansion') await prepareLanguageAi(ctx,scope);
   if(kind==='contextual_check') await prepareContextualAi(ctx.db,ctx.orgId,ctx.uid,z.string().uuid().parse(scope.checkRunId));
   if(kind==='reference_analysis') await prepareReferenceAi(ctx,z.string().uuid().parse(scope.referenceId));
   if(kind==='plan_generation') await preparePlanAi(ctx.db,ctx.orgId,ctx.uid,z.string().uuid().parse(scope.planId));

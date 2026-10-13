@@ -1,3 +1,4 @@
+import { runLanguageAi } from './search-language-ai.ts';
 import { apifySearchOptions } from './apify-search.ts';
 import { ApifySearchProvider, ApifySearchScope } from '@xhs/providers';
 import { isTextAiOperation, runTextWorkflow } from './ai-workflows.ts';
@@ -79,7 +80,7 @@ export async function runJob(deps: JobDeps, jobId: string, workerId: string): Pr
     const blocked = await deps.service(async (db) => {
       const s = (await db.query(`select settings from organizations where id = $1`, [job.org_id])).rows[0]?.settings ?? {};
       const feature = ({ transcript_submit: 'transcript', transcript_result: 'transcript', provider_search: 'provider_search', note_enrichment: 'provider_search', reference_analysis: 'ai',
-        plan_generation: 'ai', contextual_check: 'ai', results_reflection: 'ai' } as Record<string, string>)[job.kind];
+        query_expansion: 'ai', plan_generation: 'ai', contextual_check: 'ai', results_reflection: 'ai' } as Record<string, string>)[job.kind];
       // Housekeeping (deletion, expiry) is never blocked by the kill switch.
       if (!feature) return null;
       if (s.provider_switches?.kill === true) return 'kill_switch';
@@ -91,6 +92,8 @@ export async function runJob(deps: JobDeps, jobId: string, workerId: string): Pr
       outcome = { state: 'failed', errorCode: 'membership_revoked', sent: false };
     } else if (blocked) {
       outcome = { state: 'failed', errorCode: blocked, sent: false };
+    } else if (job.kind === 'query_expansion') {
+      outcome = await runLanguageAi(deps,job);
     } else if (job.kind === 'reference_analysis' && job.data_mode === 'live') {
       outcome = await runReferenceAi(deps, job);
     } else if (isTextAiOperation(job.kind) && job.data_mode === 'live') {

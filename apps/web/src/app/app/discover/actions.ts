@@ -5,8 +5,8 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { AppError } from '@xhs/domain';
-import { requestAutoSearch, createQuote, createReference, reserveJob, toggleSave } from '@xhs/core';
+import { AppError, containsHangul } from '@xhs/domain';
+import { chineseSearchCandidate, isChineseSearch, requestAutoSearch, createQuote, createReference, reserveJob, toggleSave } from '@xhs/core';
 import { service, withPageCtx } from '@/server/ctx';
 import { orRedirectWithError, safeLocalPath } from '@/server/actions-util';
 
@@ -59,6 +59,7 @@ const presentation = (f: FormData) => Object.fromEntries(['format', 'sort'].flat
 
 /** "외부 자료 새로 조회": quote first (spec F04 step 3). In mock mode the provider returns synthetic fixtures only. */
 export async function quoteRefresh(f: FormData) {
+  if(containsHangul(String(f.get('q')??''))) return prepareChineseSearch(f);
   const scope = await orRedirectWithError(back(f), async () => refreshScope(f));
   const q = await orRedirectWithError(back(f), () => withAdmin((ctx) => createQuote(ctx, service, 'provider_search', scope)));
   const qs = new URLSearchParams({ q: scope.query, targetCount: String(scope.targetCount), ...(scope.topic ? {topic:scope.topic} : {}), ...(scope.days ? {days:String(scope.days)} : {}), ...presentation(f), refresh: '1', quote: q.id });
@@ -67,6 +68,7 @@ export async function quoteRefresh(f: FormData) {
 }
 
 export async function confirmRefresh(f: FormData) {
+  if(containsHangul(String(f.get('q')??''))) return prepareChineseSearch(f);
   const scope = await orRedirectWithError(back(f), async () => refreshScope(f));
   const quoteId = id.parse(f.get('quoteId'));
   const { jobId } = await orRedirectWithError(back(f), () => withAdmin((ctx) => reserveJob(ctx, {
@@ -77,8 +79,21 @@ export async function confirmRefresh(f: FormData) {
   redirect(`/app/discover?${qs}`);
 }
 
+/** Korean input is previewed before any provider request. */
+export async function prepareChineseSearch(f: FormData) {
+  const raw=String(f.get('q')??'').trim().slice(0,100);
+  const candidate=chineseSearchCandidate(raw);
+  const qs=new URLSearchParams({q:raw,prepare:'1',...presentation(f)});
+  for(const key of ['topic','days']) if(f.get(key)) qs.set(key,String(f.get(key)));
+  if(candidate.text) qs.set('zh',candidate.text);
+  redirect(`/app/discover?${qs}`);
+}
+
 export async function searchAutomatically(f: FormData) {
-  const q=categorySearch(String(f.get('q')??''),String(f.get('topic')??''));
+  const raw=categorySearch(String(f.get('q')??''),String(f.get('topic')??''));
+  if(containsHangul(raw) && !f.get('zh')) return prepareChineseSearch(f);
+  const q=String(f.get('zh')??raw).trim();
+  if(q && !isChineseSearch(q)) redirect('/app/discover?error='+encodeURIComponent('중국어 검색어를 50자 이내로 확인해 주세요.'));
   const filters={...(f.get('topic')?{topic:String(f.get('topic'))}:{}),...(f.get('days')?{days:Number(f.get('days'))}:{})};
   const qs=new URLSearchParams({q,...presentation(f),...Object.fromEntries(Object.entries(filters).map(([k,v])=>[k,String(v)]))});
   if(q) {

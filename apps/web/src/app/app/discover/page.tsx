@@ -1,7 +1,8 @@
+import { SearchLanguage } from '@/components/search-language';
 import { AutoSearchStatus } from '@/components/auto-search-status';
 import Link from 'next/link';
 import { categorySearch } from '@/components/category-search';
-import { autoCoverPolicy, autoSearchPolicy, discover, DiscoverQuery, getQuote, requestHash } from '@xhs/core';
+import { chineseSearchCandidate, observedDictionary, autoCoverPolicy, autoSearchPolicy, discover, DiscoverQuery, getQuote, requestHash } from '@xhs/core';
 import { withPageCtx } from '@/server/ctx';
 import { searchAutomatically, confirmRefresh, getCompareIds, quoteRefresh } from './actions';
 import { JobStatus } from '@/components/job-status';
@@ -14,7 +15,7 @@ import { FORMAT_LABEL, TOPIC_LABEL, fmtDate } from '@/components/labels';
 
 export const metadata = { title: '탐색' };
 
-type SP = { auto?: string; targetCount?: string; q?: string; topic?: string; format?: string; days?: string; sort?: string; terms?: string | string[]; cursor?: string; error?: string; refresh?: string; quote?: string; job?: string };
+type SP = { prepare?: string; zh?: string; auto?: string; targetCount?: string; q?: string; topic?: string; format?: string; days?: string; sort?: string; terms?: string | string[]; cursor?: string; error?: string; refresh?: string; quote?: string; job?: string };
 
 export default async function Discover({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -27,6 +28,8 @@ export default async function Discover({ searchParams }: { searchParams: Promise
     withPageCtx(async (ctx) => [await discover(ctx, query), ctx.role === 'org_admin' && sp.quote && /^[0-9a-f-]{36}$/.test(sp.quote) ? await getQuote(ctx, sp.quote) : null, ctx.mode, ctx.role === 'org_admin', await autoSearchPolicy(ctx), await autoCoverPolicy(ctx)] as const),
     getCompareIds(),
   ]);
+  const dictionary = result.notes.length ? await withPageCtx(ctx => observedDictionary(ctx,result.notes)) : [];
+  const candidate = chineseSearchCandidate(sp.q ?? '');
   const qs = new URLSearchParams(Object.entries({ q: sp.q ?? '', topic: sp.topic ?? '', format: sp.format ?? '', days: sp.days ?? '', sort: sp.sort ?? '', job: sp.job ?? '' }).filter(([, v]) => v));
   const searchQuery = categorySearch(sp.q, sp.topic);
   const targetCount = sp.targetCount === '100' ? '100' : '50';
@@ -35,6 +38,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
   const back = `/app/discover${qs.size ? `?${qs}` : ''}`;
   return (
     <>
+      <Link href="/app/discover/language" className={btn.secondary}>한국어 자유문장으로 AI 검색어 만들기</Link>
       <PageHeader title="탐색" description={<>검색어·해시태그로 게시물을 찾아보세요. 마지막 갱신 {fmtDate(result.lastFetchedAt, true)}</>}
         actions={<><Link href="/app/reference-accounts" className={btn.secondary}>참고 계정</Link><Link href="/app/discover/compare" className={btn.secondary}>비교 ({compare.length}/3)</Link></>} />
       <ErrorNotice message={sp.error ?? (parsed.success ? undefined : '검색 조건을 확인하세요.')} />
@@ -46,8 +50,22 @@ export default async function Discover({ searchParams }: { searchParams: Promise
         <select name="sort" defaultValue={sp.sort ?? 'popular'} className={input} aria-label="정렬"><option value="popular">좋아요 많은 순</option><option value="saves">저장 많은 순</option><option value="recent">최신순</option></select>
         <select name="days" defaultValue={sp.days ?? ''} className={input} aria-label="기간"><option value="">전체 기간</option><option value="7">최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option></select>
         {canManage && <PendingButton formAction={quoteRefresh} className={btn.primary} pendingText="검색 준비 중…">새 게시물 검색</PendingButton>}
-        <button formAction={automatic.enabled || !canManage ? searchAutomatically : undefined} className={canManage ? btn.secondary : btn.primary}>{canManage && !automatic.enabled ? '저장된 게시물 검색' : '검색'}</button>
+        <button formAction={searchAutomatically} className={canManage ? btn.secondary : btn.primary}>{canManage && !automatic.enabled ? '저장된 게시물 검색' : '검색'}</button>
       </form>
+
+      {sp.prepare && <section aria-labelledby="chinese-search-title" className="mb-4 rounded-2xl border border-line bg-surface p-4">
+        <h2 id="chinese-search-title" className="font-semibold">중국어 검색어 확인</h2>
+        <p className="mt-1 text-sm">한국어: {sp.q} · 사전 기반 검색어 초안입니다. 의미를 확인하고 수정할 수 있습니다.</p>
+        {candidate.unmatched.length > 0 && <p className="text-sm text-warn">아직 변환하지 못한 단어: {candidate.unmatched.join(', ')}. 아래에 중국어 검색어를 입력하세요.</p>}
+        <form action={searchAutomatically} className="mt-2 flex flex-wrap gap-2">
+          <input type="hidden" name="q" value={sp.q ?? ''}/>
+          {Object.entries({topic:sp.topic,days:sp.days,format:sp.format,sort:sp.sort}).map(([k,v])=>v?<input key={k} type="hidden" name={k} value={v}/>:null)}
+          <label htmlFor="zh" className="sr-only">중국어 검색어</label>
+          <input id="zh" name="zh" required maxLength={50} defaultValue={sp.zh ?? candidate.text} className={input} placeholder="예: 圣水洞 咖啡店"/>
+          <PendingButton className={btn.primary} pendingText="검색 중…">이 중국어로 검색</PendingButton>
+        </form>
+      </section>}
+      {(sp.q || sp.topic) && result.notes.length > 0 && <SearchLanguage notes={result.notes} dictionary={dictionary}/>}
 
       {!canManage && automatic.enabled && <p className="mb-3 text-xs text-muted">검색어로 외부 공개 게시물을 찾아옵니다. 최근에 검색한 결과는 재사용합니다.</p>}
       {sp.auto && <AutoSearchStatus requestId={sp.auto}/>}

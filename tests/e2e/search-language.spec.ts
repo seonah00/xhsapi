@@ -1,0 +1,46 @@
+import { expect, test } from '@playwright/test';
+
+test('Korean search previews a composed Chinese query; result evidence counts distinct notes',async({page})=>{
+  const {default:pg}=await import('pg');
+  const db=new pg.Pool({connectionString:process.env.DATABASE_URL});
+  const org='00000000-0000-4000-b000-000000000001';
+  const row=(await db.query(`insert into notes(org_id,provider,platform_note_id,data_mode,canonical_url,title,body_excerpt,provider_tags,provenance)
+    values($1,'mock','language-evidence-fixture','mock','https://demo.invalid/evidence','圣水洞 咖啡店 合成测试','yyds #咖啡[话题]# #咖啡[话题]#',array['咖啡'],'{}') returning id`,[org])).rows[0];
+  try {
+    await page.goto('/login');
+    await page.getByRole('button',{name:/student-b@demo\.invalid/}).click();
+    await page.waitForURL(/\/app/);
+    await page.goto('/app/discover');
+    await page.getByRole('textbox',{name:'검색어',exact:true}).fill('성수동 카페');
+    await page.getByRole('button',{name:'검색',exact:true}).click();
+    await expect(page.getByRole('textbox',{name:'중국어 검색어',exact:true})).toHaveValue('圣水洞 咖啡店');
+    await expect(page).not.toHaveURL(/auto=/);
+    await page.getByRole('button',{name:'이 중국어로 검색'}).click();
+    const section=page.getByRole('region',{name:'이 검색에서 발견한 해시태그·표현'});
+    await expect(section).toContainText('중복 제외 1개 게시물');
+    await expect(section).toContainText('1/1개 게시물에서 발견');
+    await expect(section).toContainText('yyds');
+    await expect(section).toContainText('실제 사용 빈도가 아닙니다');
+    await section.locator('summary').first().click();
+    await expect(section.getByRole('link',{name:'圣水洞 咖啡店 合成测试'}).first()).toHaveAttribute('href',`/app/notes/${row.id}`);
+    await page.getByRole('textbox',{name:'검색어',exact:true}).fill('알수없는단어 카페');
+    await page.getByRole('button',{name:'검색',exact:true}).click();
+    await expect(page.getByText(/아직 변환하지 못한 단어:/)).toBeVisible();
+    await expect(page.getByRole('textbox',{name:'중국어 검색어',exact:true})).toHaveValue('');
+  } finally {await db.query('delete from notes where id=$1',[row.id]);await db.end();}
+});
+
+test('free Korean sentence follows AI preview, consent and worker completion without external calls',async({page})=>{
+ await page.goto('/login');await page.getByRole('button',{name:/student-b@demo\.invalid/}).click();await page.waitForURL(/\/app/);
+ await page.goto('/app/discover/language');
+ await page.getByLabel('한국어로 찾고 싶은 내용').fill('비가 오는 날 서울에서 아이와 실내에서 놀 곳');
+ await page.getByRole('button',{name:'AI 중국어 검색어 만들기'}).click();
+ await expect(page.getByRole('heading',{name:'AI 처리 확인'})).toBeVisible();
+ await expect(page.getByText(/최대 .*CNY/)).toHaveCount(0);
+ await page.getByRole('checkbox').check();
+ await page.getByRole('button',{name:'AI 실행',exact:true}).click();
+ await expect(page.getByRole('status')).toContainText('완료',{timeout:20000});
+ await expect(page.getByText('고정 데모 예시이며 실제 번역·분석 결과가 아닙니다.')).toBeVisible();
+ await expect(page.getByRole('heading',{name:'旅行攻略'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'이 중국어로 게시물 검색'})).toBeVisible();
+});
