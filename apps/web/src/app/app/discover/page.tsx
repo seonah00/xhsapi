@@ -15,13 +15,13 @@ import { FORMAT_LABEL, TOPIC_LABEL, fmtDate } from '@/components/labels';
 
 export const metadata = { title: '탐색' };
 
-type SP = { prepare?: string; zh?: string; auto?: string; targetCount?: string; q?: string; topic?: string; format?: string; days?: string; sort?: string; terms?: string | string[]; cursor?: string; error?: string; refresh?: string; quote?: string; job?: string };
+type SP = { original?: string; prepare?: string; zh?: string; auto?: string; targetCount?: string; q?: string; topic?: string; format?: string; days?: string; sort?: string; terms?: string | string[]; cursor?: string; error?: string; refresh?: string; quote?: string; job?: string };
 
 export default async function Discover({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const parsed = DiscoverQuery.safeParse({
     q: sp.q ?? '', topic: sp.topic || undefined, format: sp.format || undefined, days: sp.days || undefined, sort: sp.sort || undefined,
-    terms: sp.terms ? ([] as string[]).concat(sp.terms) : undefined, cursor: sp.cursor, job: sp.job,
+    terms: sp.terms ? ([] as string[]).concat(sp.terms) : undefined, cursor: sp.cursor, job: sp.job, original: sp.original,
   });
   const query = parsed.success ? parsed.data : DiscoverQuery.parse({});
   const [[result, quote, mode, canManage, automatic, coverPolicy], compare] = await Promise.all([
@@ -32,7 +32,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
   const candidate = chineseSearchCandidate(sp.q ?? '');
   const dictionaryMatches = sp.q ? await withPageCtx(ctx => listSharedDictionary(ctx, { query: (candidate.text || sp.q!).replace(/推荐|攻略/g, '').slice(0,100), entryType: 'tag', pageSize: 100 })) : null;
   const keywordDictionary = [...new Map([...dictionary, ...(dictionaryMatches?.items ?? [])].map(d => [d.id, d])).values()];
-  const qs = new URLSearchParams(Object.entries({ q: sp.q ?? '', topic: sp.topic ?? '', format: sp.format ?? '', days: sp.days ?? '', sort: sp.sort ?? '', job: sp.job ?? '' }).filter(([, v]) => v));
+  const qs = new URLSearchParams(Object.entries({ q: sp.q ?? '', topic: sp.topic ?? '', format: sp.format ?? '', days: sp.days ?? '', sort: sp.sort ?? '', job: sp.job ?? '', original: sp.original ?? '' }).filter(([, v]) => v));
   const searchQuery = categorySearch(sp.q, sp.topic);
   const targetCount = sp.targetCount === '100' ? '100' : '50';
   const quoteScope = {query:searchQuery,targetCount:Number(targetCount),...(sp.topic?{topic:sp.topic}:{}),...(sp.days?{days:Number(sp.days)}:{})};
@@ -43,6 +43,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
       <Link href="/app/discover/language" className={btn.secondary}>한국어 자유문장으로 AI 검색어 만들기</Link>
       <PageHeader title="탐색" description={<>검색어·해시태그로 게시물을 찾아보세요. 마지막 갱신 {fmtDate(result.lastFetchedAt, true)}</>}
         actions={<><Link href="/app/reference-accounts" className={btn.secondary}>참고 계정</Link><Link href="/app/discover/compare" className={btn.secondary}>비교 ({compare.length}/3)</Link></>} />
+      <div className="mb-3 flex gap-2"><Link className={btn.secondary} href={`/app/discover?${new URLSearchParams({...Object.fromEntries(qs),original:'1'})}`}>원문 링크 있는 게시물만 보기</Link>{sp.original && <Link className={btn.secondary} href="/app/discover">전체 게시물 보기</Link>}</div>
       <ErrorNotice message={sp.error ?? (parsed.success ? undefined : '검색 조건을 확인하세요.')} />
       <form role="search" className="mb-4 grid gap-2 rounded-2xl border border-line bg-surface p-3 sm:grid-cols-[1fr_auto_auto_auto]">
         <label className="sr-only" htmlFor="q">검색어</label>

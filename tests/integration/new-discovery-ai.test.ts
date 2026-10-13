@@ -2,7 +2,7 @@ import { detailedAiFixture } from '../fixtures/detailed-ai.ts';
 import { beforeAll,afterAll,it,expect } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { pool,asUser } from './db.ts';
-import { saveVersion,runCheck,getCheck,markContextualRequested,updateReference,prepareReferenceAi,createAccount,createPlan,getPlan,saveDraft,applyProposal,createPublication,addSnapshot,listPublications,listReflections,PlanContent,requestAutoSearch,autoSearchStatus,setAutoSearchPolicy,originalNoteLink,storeNoteAccessLink,createReference,createQuote,reserveJob,runJob,type Ctx,type Runner } from '@xhs/core';
+import { discover,saveVersion,runCheck,getCheck,markContextualRequested,updateReference,prepareReferenceAi,createAccount,createPlan,getPlan,saveDraft,applyProposal,createPublication,addSnapshot,listPublications,listReflections,PlanContent,requestAutoSearch,autoSearchStatus,setAutoSearchPolicy,originalNoteLink,storeNoteAccessLink,createReference,createQuote,reserveJob,runJob,type Ctx,type Runner } from '@xhs/core';
 import { MockXhsProvider } from '@xhs/providers';
 import { loadEnv } from '@xhs/domain';
 const org=randomUUID(),admin=randomUUID(),student=randomUUID(),other=randomUUID();
@@ -34,6 +34,16 @@ it('stores signed URLs separately, rejects cross-org access and expires without 
   expect(await user(student,ctx=>originalNoteLink(ctx,service,note))).toBe(signed);
   await pool.query(`update note_access_links set expires_at=now()-interval '1 second' where note_id=$1`,[note]);
   expect(await user(student,ctx=>originalNoteLink(ctx,service,note))).toBeNull();
+});
+it('reuses the fresh link for the same platform note across providers without reviving expired links',async()=>{
+ const pid='a'.repeat(24),link=`https://www.xiaohongshu.com/explore/${pid}?xsec_token=synthetic-fresh`;
+ const duplicate=(await pool.query(`insert into notes(org_id,provider,platform_note_id,data_mode,canonical_url,title,provenance) values($1,'apify',$2,'mock',$3,'duplicate fixture','{}') returning id`,[org,pid,link.split('?')[0]])).rows[0].id;
+ await service(db=>storeNoteAccessLink(db,org,duplicate,pid,link));
+ expect(await user(student,ctx=>originalNoteLink(ctx,service,note))).toBe(link);
+ expect((await user(student,ctx=>discover(ctx,{original:'1'}))).notes.some(n=>n.id===note&&n.hasOriginalLink)).toBe(true);
+ expect(await user(student,ctx=>originalNoteLink(ctx,service,note),'live')).toBeNull();
+ await pool.query(`update note_access_links set expires_at=now()-interval '1 second' where note_id=$1`,[duplicate]);
+ expect(await user(student,ctx=>originalNoteLink(ctx,service,note))).toBeNull();
 });
 it('requires administrator policy, deduplicates concurrent requests and caps new searches',async()=>{
   expect(await user(student,ctx=>requestAutoSearch(ctx,service,'测试',mock))).toBeNull();

@@ -31,6 +31,7 @@ export type NoteCard = {
 export const DiscoverQuery = z.object({
   q: z.string().max(100).default('').transform(normalizeSearchQuery),
   job: z.string().uuid().optional(),
+  original: z.literal('1').optional(),
   topic: z.string().optional(),
   format: z.string().optional(),
   days: z.coerce.number().int().refine((d) => [7, 14, 30].includes(d)).optional(),
@@ -47,8 +48,10 @@ const metricOrder = (key: 'likes' | 'saves') => `(select coalesce((m.metrics_jso
   from metric_snapshots m where m.note_id = n.id order by m.observed_at desc limit 1) desc nulls last,`;
 const ORDER: Record<'popular' | 'saves' | 'recent', string> = { popular: metricOrder('likes'), saves: metricOrder('saves'), recent: '' };
 
+const HAS_ORIGINAL_LINK = `exists (select 1 from notes linked where linked.org_id=n.org_id and linked.platform_note_id=n.platform_note_id and linked.data_mode=n.data_mode and (linked.expires_at is null or linked.expires_at>now()) and app.has_note_access_link(linked.id))`;
+
 const NOTE_SELECT = `
-  select app.has_note_access_link(n.id) as has_original_link, n.id, n.platform_note_id, coalesce(e.title,n.title) as title, coalesce(e.body_excerpt,n.body_excerpt) as body_excerpt, n.canonical_url, coalesce(e.note_type,n.note_type) as note_type,
+  select ${HAS_ORIGINAL_LINK} as has_original_link, n.id, n.platform_note_id, coalesce(e.title,n.title) as title, coalesce(e.body_excerpt,n.body_excerpt) as body_excerpt, n.canonical_url, coalesce(e.note_type,n.note_type) as note_type,
          coalesce(e.cover_url, case when n.cover_url is not null and app.org_allows_media_display(n.org_id) then n.cover_url end) as cover_url, case when app.org_allows_media_display(n.org_id) then n.cover_url end as source_cover_url, n.author_display_name, n.author_ref,
          n.author_followers, n.published_at, n.observed_at, n.data_mode, coalesce(nullif(e.provider_tags,'{}'::text[]),n.provider_tags) as provider_tags, n.is_fallback,
          coalesce((select array_agg(t.slug order by t.slug) from note_taxonomy nt join taxonomy_terms t on t.id = nt.taxonomy_id where nt.note_id = n.id and t.kind = 'topic'), '{}') as topics,
@@ -110,6 +113,8 @@ export async function discover(ctx: Ctx, input: z.input<typeof DiscoverQuery>): 
   const where: string[] = ['n.org_id = $2', 'n.data_mode = $3', 'not n.is_fallback'];
   const params: unknown[] = [ctx.uid, ctx.orgId, ctx.mode];
   const postFilters: string[] = [];
+
+  if(q.original) where.push(HAS_ORIGINAL_LINK);
 
   if (q.job) {
     // Restrict fresh results to this user's search. Never expose another member's job payload.

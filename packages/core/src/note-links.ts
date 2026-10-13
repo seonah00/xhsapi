@@ -14,11 +14,19 @@ export async function storeNoteAccessLink(db: Db, orgId: string, noteId: string,
 
 /** Resolve after RLS/mode checks; never return stored credentials in note JSON or AI inputs. */
 export async function originalNoteLink(ctx: Ctx, service: ServiceRunner, id: string): Promise<string | null> {
-  const note = (await ctx.db.query(`select platform_note_id from notes where id=$1 and org_id=$2 and data_mode=$3`,[id,ctx.orgId,ctx.mode])).rows[0];
+  const note = (await ctx.db.query(`select platform_note_id from notes where id=$1 and org_id=$2 and data_mode=$3 and (expires_at is null or expires_at>now())`,[id,ctx.orgId,ctx.mode])).rows[0];
   if (!note) return null;
   return service(async db => {
-    const row=(await db.query(`select access_url from note_access_links where note_id=$1 and org_id=$2 and expires_at>now()`,[id,ctx.orgId])).rows[0];
-    return safeXhsAccessUrl(row?.access_url,note.platform_note_id);
+    const rows=(await db.query(`select l.access_url from note_access_links l
+      join notes n on n.id=l.note_id and n.org_id=l.org_id
+      where l.org_id=$1 and n.platform_note_id=$2 and n.data_mode=$3
+      and l.expires_at>now() and (n.expires_at is null or n.expires_at>now())
+      order by l.expires_at desc`,[ctx.orgId,note.platform_note_id,ctx.mode])).rows;
+    for(const row of rows) {
+      const url=safeXhsAccessUrl(row.access_url,note.platform_note_id);
+      if(url) return url;
+    }
+    return null;
   });
 }
 

@@ -24,12 +24,14 @@ const DISABLED_REASON: Record<Exclude<DictionaryAiStatus['disabledReason'], null
 
 function AiComposer({
   chosen,
+  canManage,
   accounts,
   status,
   selectionVersion,
   onRemove,
 }: {
   chosen: SharedDictionaryEntry[];
+  canManage: boolean;
   accounts: PlanAccount[];
   status: DictionaryAiStatus;
   selectionVersion: number;
@@ -87,8 +89,8 @@ function AiComposer({
       <h2 className="font-semibold">AI 초안제시</h2>
       <p className="mt-1 text-xs text-muted">선택한 공용 항목과 직접 적은 조건만 사용합니다. 개인 초안과 결과는 공용 사전에 공유되지 않으며, 생성 결과는 게시 전에 직접 검토해야 합니다.</p>
       <p className="mt-3 text-sm">태그 {tags.length}/8 · 표현 {expressions.length}/3</p>
-      <p className="mt-1 text-xs text-muted">이번 달 생성 가능 {status.userMonthlyRemaining}/{status.userMonthlyLimit}회 · 월간 전체 상한 {status.globalMonthlyUsdLimit} USD</p>
-      {!status.enabled && status.disabledReason && <p role="status" className="mt-2 rounded-lg bg-warn-soft px-3 py-2 text-xs text-warn">{DISABLED_REASON[status.disabledReason]} 미리보기는 가능하지만 실제 결과를 만들지는 않습니다.</p>}
+      <p className="mt-1 text-xs text-muted">이번 달 생성 가능 {status.userMonthlyRemaining}/{status.userMonthlyLimit}회{canManage && <> · 월간 전체 상한 {status.globalMonthlyUsdLimit} USD</>}</p>
+      {!status.enabled && status.disabledReason && <p role="status" className="mt-2 rounded-lg bg-warn-soft px-3 py-2 text-xs text-warn">{canManage ? DISABLED_REASON[status.disabledReason] : '현재 AI 생성을 이용할 수 없습니다. 관리자에게 문의해 주세요.'} 미리보기는 가능하지만 실제 결과를 만들지는 않습니다.</p>}
       {chosen.length === 0 ? <p className="mt-3 text-sm text-muted">왼쪽 목록에서 항목을 선택하세요.</p> : (
         <ul className="mt-3 flex flex-wrap gap-1" aria-label="선택한 항목">
           {chosen.map((item) => (
@@ -129,15 +131,15 @@ function AiComposer({
         </label>
         {state.error && <p role="alert" className="rounded-xl bg-accent-soft px-3 py-2 text-sm text-accent">{state.error}</p>}
         {state.preview && !previewIsCurrent && !output && <p role="status" className="rounded-xl bg-warn-soft px-3 py-2 text-sm text-warn">입력이나 선택 항목이 변경되었습니다. 생성 전에 새 미리보기가 필요합니다.</p>}
-        <button type="submit" name="intent" value="preview" disabled={pending || chosen.length === 0} className={`${btn.secondary} w-full`}>{pending ? '확인 중…' : '전송 내용·비용 미리보기'}</button>
+        <button type="submit" name="intent" value="preview" disabled={pending || chosen.length === 0} className={`${btn.secondary} w-full`}>{pending ? '확인 중…' : canManage ? '전송 내용·비용 미리보기' : '전송 내용 미리보기'}</button>
 
         {state.preview && previewIsCurrent && !output && (
           <section aria-labelledby="ai-preview-title" className="rounded-xl border-2 border-accent/40 p-3">
             <h3 id="ai-preview-title" className="font-semibold">실행 전 최종 확인</h3>
             <dl className="mt-2 grid gap-1 text-xs">
               <div className="flex justify-between gap-2"><dt className="text-muted">모델</dt><dd className="font-mono">{state.preview.model}</dd></div>
-              <div className="flex justify-between gap-2"><dt className="text-muted">상류 API 최대 예상 비용</dt><dd><strong>{state.preview.estimatedMaxCostUsd} USD</strong> · 추정치</dd></div>
-              <div className="flex justify-between gap-2"><dt className="text-muted">조직 예산 예약 상한</dt><dd><strong>{status.reservationMaxCostUsd} USD</strong> · 실제 청구서 아님</dd></div>
+              {canManage && <div className="flex justify-between gap-2"><dt className="text-muted">상류 API 최대 예상 비용</dt><dd><strong>{state.preview.estimatedMaxCostUsd} USD</strong> · 추정치</dd></div>}
+              {canManage && <div className="flex justify-between gap-2"><dt className="text-muted">조직 예산 예약 상한</dt><dd><strong>{status.reservationMaxCostUsd} USD</strong> · 실제 청구서 아님</dd></div>}
               <div className="flex justify-between gap-2"><dt className="text-muted">미리보기 만료</dt><dd>{new Date(state.preview.expiresAt).toLocaleString('ko-KR')}</dd></div>
             </dl>
             <details className="mt-3 rounded-lg bg-bg p-2 text-xs">
@@ -146,7 +148,7 @@ function AiComposer({
             </details>
             <label className="mt-3 flex items-start gap-2 text-xs">
               <input type="checkbox" name="externalConsent" checked={externalConsent} onChange={(event) => setExternalConsent(event.target.checked)} className="mt-0.5" />
-              <span>위 내용이 Google Gemini로 전송되고 조직 예산에서 최대 {status.reservationMaxCostUsd} USD가 예약되는 데 동의합니다. 호출 실패 시에도 이 예약·사용 기록이 남을 수 있으며, 표시 금액은 실제 청구서가 아닙니다. 선택한 공개 사전 항목, 카테고리, 내 메모, 작성 방식, 말투, 광고 표시 외의 사전 원문·출처·인용문·URL은 보내지 않습니다.</span>
+              <span>위 내용이 Google Gemini로 전송되는 데 동의합니다.{canManage && <> 조직 예산에서 최대 {status.reservationMaxCostUsd} USD가 예약됩니다. 호출 실패 시에도 예약·사용 기록이 남을 수 있으며 실제 청구서가 아닙니다.</>} 선택한 공개 사전 항목, 카테고리, 내 메모, 작성 방식, 말투, 광고 표시 외의 사전 원문·출처·인용문·URL은 보내지 않습니다.</span>
             </label>
             <input type="hidden" name="token" value={state.preview.token} />
             <button type="submit" name="intent" value="generate" disabled={pending || !status.enabled || !externalConsent} className={`${btn.primary} mt-3 w-full`}>{pending ? '생성 중…' : '동의하고 1회 생성'}</button>
@@ -165,7 +167,7 @@ function AiComposer({
           <div><h4 className="text-sm font-semibold">태그</h4><p className="zh mt-1 text-sm" lang="zh-CN">{output.tags.join(' ')}</p></div>
           {output.usedTerms.length > 0 && <div><h4 className="text-sm font-semibold">사용한 항목과 이유</h4><ul className="mt-1 space-y-1 text-xs">{output.usedTerms.map((item) => <li key={`${item.term}-${item.reason}`}><span className="zh font-medium" lang="zh-CN">{item.term}</span> · {item.reason}</li>)}</ul></div>}
           {output.heldTerms.length > 0 && <div><h4 className="text-sm font-semibold">보류한 항목과 이유</h4><ul className="mt-1 space-y-1 text-xs">{output.heldTerms.map((item) => <li key={`${item.term}-${item.reason}`}><span className="zh font-medium" lang="zh-CN">{item.term}</span> · {item.reason}</li>)}</ul></div>}
-          <p className="text-xs text-muted">모델 {state.generation?.model} · 예약 최대 비용 {state.generation?.usage.reservedMaxCostUsd} USD. 표시 비용은 실제 청구서가 아닌 상한 추정치입니다. 이 결과는 내 비공개 초안이며 공용 사전에 추가되지 않습니다.</p>
+          <p className="text-xs text-muted">{canManage && <>모델 {state.generation?.model} · 예약 최대 비용 {state.generation?.usage.reservedMaxCostUsd} USD. 표시 비용은 실제 청구서가 아닌 상한 추정치입니다. </>} 이 결과는 내 비공개 초안이며 공용 사전에 추가되지 않습니다.</p>
         </section>
       )}
       {chosen.length > 0 && (!output || previewIsCurrent) && <DictionaryPlanImport
@@ -176,7 +178,7 @@ function AiComposer({
   );
 }
 
-export function DictionaryWorkspace({ items, aiStatus, accounts }: { items: SharedDictionaryEntry[]; aiStatus: DictionaryAiStatus; accounts: PlanAccount[] }) {
+export function DictionaryWorkspace({ items, aiStatus, accounts, canManage = false }: { canManage?: boolean; items: SharedDictionaryEntry[]; aiStatus: DictionaryAiStatus; accounts: PlanAccount[] }) {
   const [selectedItems, setSelectedItems] = useState<Map<string, SharedDictionaryEntry>>(() => new Map());
   const [selectionVersion, setSelectionVersion] = useState(0);
   const [limitMessage, setLimitMessage] = useState<string>();
@@ -229,7 +231,7 @@ export function DictionaryWorkspace({ items, aiStatus, accounts }: { items: Shar
         </ul>
       </div>
       <aside aria-label="선택한 사전 항목" className="lg:sticky lg:top-4 lg:self-start">
-        <AiComposer accounts={accounts} chosen={chosen} status={aiStatus} selectionVersion={selectionVersion} onRemove={(item) => toggle(item, false)} />
+        <AiComposer canManage={canManage} accounts={accounts} chosen={chosen} status={aiStatus} selectionVersion={selectionVersion} onRemove={(item) => toggle(item, false)} />
       </aside>
     </div>
   );

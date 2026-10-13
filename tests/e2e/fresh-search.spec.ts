@@ -38,6 +38,7 @@ test('a thumbnail directly opens a verified original and clearly distinguishes t
     await expect(page).toHaveURL(new RegExp(`/app/notes/${row.id}$`));
     await expect(page.getByRole('heading',{name:'thumbnaillinkfixture'})).toBeVisible();
     await expect(page.getByRole('link',{name:'샤오홍슈에서 제목 검색 ↗'})).toBeVisible();
+    await expect(page.getByRole('link',{name:'표지로 게시물 원문 보기'})).toHaveAttribute('href',`/app/notes/${row.id}/original`);
     const originalLink=page.getByRole('link',{name:'게시물 원문 보기 ↗'});
     await expect(originalLink).toHaveAttribute('href',`/app/notes/${row.id}/original`);
     await expect(originalLink).toHaveAttribute('target','_blank');

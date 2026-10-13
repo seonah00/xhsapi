@@ -83,6 +83,7 @@ test('general expansion flows through consent, selection and a private plan with
  await expect(page.getByText('실사용 미확인 추천 후보')).toBeVisible();
  await expect(page.getByLabel('확인된 사실 (한 줄에 하나)')).toHaveValue('직접 만든 도시락');
  await page.getByRole('button',{name:'제안 받기',exact:true}).click();
+ await expect(page.getByText(/최대 비용:|조직 예산|견적 만료/)).toHaveCount(0);
  await page.getByRole('button',{name:'확인하고 실행'}).click();
  await expect(page.getByText('제목 후보')).toBeVisible({timeout:20000});
 });

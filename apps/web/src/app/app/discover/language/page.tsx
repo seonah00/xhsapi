@@ -41,12 +41,12 @@ export default async function LanguagePage({searchParams}:{searchParams:Promise<
       {quote.mode==='mock'&&<p>데모 모드: 실제 AI 호출 없이 고정 예시를 표시합니다.</p>}
       {quote.expired||quote.consumed?<p>요청이 만료되었거나 이미 실행됐습니다.</p>:<form action={confirmLanguage} className="mt-3 space-y-2">
         <input type="hidden" name="quoteId" value={quote.id}/><input type="hidden" name="idem" value={randomUUID()}/>
-        <label className="block"><input type="checkbox" name="consent" required/> 외부 AI 처리에 동의합니다. 조직의 AI 이용 한도가 적용됩니다.</label>
+        <label className="block"><input type="checkbox" name="consent" required/> 외부 AI 처리에 동의합니다.</label>
         <PendingButton className={btn.primary}>AI 실행</PendingButton>
       </form>}
     </section>}
     {sp.job && data.job && <JobStatus jobId={sp.job} label="검색·표현 AI"/>}
-    {data.job?.state==='unknown_outcome'&&<p className="text-warn">처리 결과를 확인할 수 없습니다. 중복 과금을 막기 위해 다시 실행하지 말고 관리자에게 확인하세요.</p>}
+    {data.job?.state==='unknown_outcome'&&<p className="text-warn">처리 결과를 확인할 수 없습니다. 같은 요청을 다시 실행하지 말고 관리자에게 확인하세요.</p>}
     {result && <section className="mt-4 space-y-3">
       {result.demo&&<p className="text-warn">고정 데모 예시이며 실제 번역·분석 결과가 아닙니다.</p>}
       {expanded && <KeywordRecommendations result={expanded.result} source={expanded.source}/>}

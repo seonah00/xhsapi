@@ -27,7 +27,8 @@ export default async function SharedDictionary({ searchParams }: { searchParams:
   const entryType: DictionaryEntryType | undefined = sp.entryType === 'tag' || sp.entryType === 'expression' ? sp.entryType : undefined;
   const parsedPage = Number.parseInt(sp.page ?? '1', 10);
   const requestedPage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
-  const { result, aiStatus, accounts } = await withPageCtx(async (ctx) => ({
+  const { result, aiStatus, accounts, canManage } = await withPageCtx(async (ctx) => ({
+    canManage: ctx.role==='org_admin',
     accounts: (await listAccounts(ctx)).map(a => ({ id: a.id, name: a.display_name })),
     result: await listSharedDictionary(ctx, {
       ...(sp.q?.trim() ? { query: sp.q.trim() } : {}),
@@ -71,7 +72,7 @@ export default async function SharedDictionary({ searchParams }: { searchParams:
       </div>
 
       {result.items.length === 0 && <Empty title="조건에 맞는 항목이 없습니다">검색어나 카테고리 필터를 바꿔 보세요.</Empty>}
-      <DictionaryWorkspace items={result.items} aiStatus={aiStatus} accounts={accounts} />
+      <DictionaryWorkspace canManage={canManage} items={result.items} aiStatus={aiStatus} accounts={accounts} />
 
       {totalPages > 1 && (
         <nav aria-label="사전 페이지" className="mt-5 flex items-center justify-center gap-2">

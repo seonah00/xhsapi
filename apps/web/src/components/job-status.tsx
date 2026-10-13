@@ -46,7 +46,7 @@ export function JobStatus({ jobId, label }: { jobId: string; label: string }) {
   const [msg, setMsg] = useState<string | null>(null);
   const cancel = async () => {
     const res = await fetch(`/api/v1/jobs/${jobId}/cancel`, { method: 'POST' });
-    setMsg(res.ok ? '취소를 요청했습니다. 이미 외부로 보낸 작업과 비용은 취소가 보장되지 않습니다.' : '이미 실행 중이거나 끝난 작업은 취소할 수 없습니다.');
+    setMsg(res.ok ? '취소를 요청했습니다. 이미 시작된 작업은 중단되지 않을 수 있습니다.' : '이미 실행 중이거나 끝난 작업은 취소할 수 없습니다.');
   };
   return (
     <div className="space-y-1">
