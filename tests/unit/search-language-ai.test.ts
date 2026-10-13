@@ -25,12 +25,21 @@ describe('search language AI',()=>{
   expect(languageFailureCode(new Error('AI_INCOMPLETE'))).toBe('AI_INCOMPLETE');
   expect(languageFailureCode(new Error('private provider response'))).toBe('AI_RESULT_NEEDS_REVIEW');
  });
+ it('uses a separate translation-only response schema',async()=>{
+  const translations=[{zh:'防晒霜推荐',meaningKo:'선크림 추천'}];
+  const fetcher=vi.fn(async()=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify({translations})}}]})));
+  expect(await callLanguageAi({task:'translate',query:'선크림추천',notes:[]},{key:'synthetic',model:'fixture'},fetcher as typeof fetch)).toEqual({translations,expressions:[]});
+  const args=fetcher.mock.calls as unknown as [string,RequestInit][];
+  expect(JSON.parse(String(args[0]![1].body)).response_format.json_schema.schema.required).toEqual(['translations']);
+ });
  it('uses injected fetch, structured output, no retention; rejects incomplete response',async()=>{
-  const fetcher=vi.fn(async()=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(output)}}]})));
+  const fetcher=vi.fn(async()=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify({expressions:output.expressions})}}]})));
   expect(await callLanguageAi(input,{key:'synthetic',model:'fixture'},fetcher as typeof fetch)).toEqual(output);
   const args=fetcher.mock.calls as unknown as [string,RequestInit][];
   const body=JSON.parse(String(args[0]![1].body));
+  expect(body.response_format.json_schema.schema.required).toEqual(['expressions']);
+  expect(body.messages[0].content).not.toContain('한국어 자유문장');
   expect(body.store).toBe(false);expect(body.response_format.json_schema.strict).toBe(true);
-  await expect(callLanguageAi(input,{key:'synthetic',model:'fixture'},async()=>new Response(JSON.stringify({choices:[{finish_reason:'length',message:{content:JSON.stringify(output)}}]})))).rejects.toThrow('AI_INCOMPLETE');
+  await expect(callLanguageAi(input,{key:'synthetic',model:'fixture'},async()=>new Response(JSON.stringify({choices:[{finish_reason:'length',message:{content:JSON.stringify({expressions:output.expressions})}}]})))).rejects.toThrow('AI_INCOMPLETE');
  });
 });
