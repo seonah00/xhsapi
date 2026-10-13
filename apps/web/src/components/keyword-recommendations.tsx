@@ -43,8 +43,7 @@ export function KeywordRecommendations({ result, source }: { result: ReturnType<
       <label className="block text-sm">상황 (예: 夏季)<input className="ml-2 rounded border border-line p-2" value={situation} maxLength={20} onChange={e => setSituation(e.target.value)}/></label>
       {(audience || situation) && <form action={searchAutomatically}><input type="hidden" name="q" value={custom}/><p lang="zh-CN">{custom} · 실사용 미확인</p><PendingButton disabled={!result.zh || custom.length > 50 || /[가-힣]/.test(custom)} className="underline">조합한 키워드로 게시물 찾기</PendingButton></form>}
       {!!selected.length && <CopyButton text={selected.map(t => `#${t}`).join(' ')} label={`선택한 ${selected.length}개 태그 복사`}/>}
-      {!!selected.length && <Link className="inline-block rounded-lg border border-line px-3 py-2" href={`/app/discover/plan?${new URLSearchParams({source:JSON.stringify(source),selected:JSON.stringify(selected)})}`}>선택 키워드로 기획하기 ({selected.length}/8)</Link>}
-      <p className="text-xs text-muted">추가 검색은 버튼을 누른 키워드만 기존 검색 한도 안에서 실행합니다. 선택한 태그는 본문·기획 초안에 붙여 넣어 활용할 수 있습니다.</p>
+      <p className="text-xs text-muted">추가 검색은 버튼을 누른 키워드만 기존 검색 한도 안에서 실행합니다. 선택한 태그는 다른 사이트의 본문 초안에 붙여 넣어 활용할 수 있습니다.</p>
     </div>
   </div>;
 }

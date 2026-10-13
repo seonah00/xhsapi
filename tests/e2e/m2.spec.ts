@@ -1,3 +1,4 @@
+import { createLegacyReference } from './legacy-reference.ts';
 import { expect, test, type Page } from '@playwright/test';
 
 async function login(page: Page, email: string) {
@@ -27,7 +28,7 @@ test('plan → AI proposal → check & fix → submit → reviewer feedback → 
   // Student: reference → plan
   await login(page, 'student-a@demo.invalid');
   await page.goto('/app/discover?q=' + encodeURIComponent('敏感肌'));
-  await page.locator('article', { hasText: '敏感肌早晚护肤顺序' }).getByRole('button', { name: '레퍼런스로 가져오기' }).click();
+  await createLegacyReference(page, page.locator('article', { hasText: '敏感肌早晚护肤顺序' }));
   await page.getByRole('link', { name: '이 자료로 기획' }).click();
   await page.getByLabel('기획 이름').fill('E2E 민감성 루틴');
   await page.getByRole('button', { name: '기획 만들기' }).click();

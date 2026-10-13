@@ -1,0 +1,20 @@
+import { test, expect } from '@playwright/test';
+test('focused navigation and cover opens explicit original-link status',async({page})=>{
+ await page.goto('/login');
+ await page.getByRole('button',{name:/student-a@demo\.invalid/}).click();
+ await page.waitForURL(/\/app/);
+ const nav=page.getByRole('navigation',{name:'주 메뉴',exact:true});
+ for(const name of ['레퍼런스','참고 계정','기획실','점검','제출']) await expect(nav.getByRole('link',{name,exact:true})).toHaveCount(0);
+ await expect(page.getByRole('heading',{name:'샤오홍슈 표현 찾기'})).toBeVisible();
+ await page.goto('/app/discover?q='+encodeURIComponent('敏感肌'));
+ const card=page.locator('article',{hasText:'敏感肌早晚护肤顺序'});
+ await expect(card.getByRole('button',{name:'레퍼런스로 가져오기'})).toHaveCount(0);
+ await card.getByRole('link',{name:'敏感肌早晚护肤顺序 상세 보기'}).click();
+ await expect(page.getByRole('heading',{name:'게시물 링크',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'게시물 기본 주소 복사'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'원문 링크 다시 찾기'})).toBeVisible();
+ await expect(page.getByText(/USD|Apify 제목 검색/)).toHaveCount(0);
+ await page.goto('/app/dictionary?q='+encodeURIComponent('敏感肌'));
+ await expect(page.getByRole('heading',{name:'실제 게시물에서 해시태그·현지 표현 찾기'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'이 검색에서 발견한 해시태그·표현'})).toBeVisible();
+});

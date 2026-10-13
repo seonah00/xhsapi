@@ -1,3 +1,4 @@
+import { createLegacyReference } from './legacy-reference.ts';
 import { expect, test, type Page } from '@playwright/test';
 
 async function login(page: Page, email: string) {
@@ -36,8 +37,7 @@ test('student onboarding → discover → reference → analysis → transcript 
   await page.getByRole('checkbox', { name: '루틴', exact: true }).check();
   await page.getByRole('button', { name: '계정 만들기' }).click();
   await page.waitForURL(/\/app\?account=/);
-  await expect(page.getByRole('heading', { name: '맞춤 레퍼런스' })).toBeVisible();
-  await expect(page.getByText('내 주력 주제와 같은 주제입니다.').first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: '샤오홍슈 표현 찾기' })).toBeVisible();
 
   // Discover with Korean query expansion (F04)
   await page.goto('/app/discover?q=스킨케어');
@@ -62,7 +62,7 @@ test('student onboarding → discover → reference → analysis → transcript 
 
   // Reference from note (F05)
   await page.goto('/app/discover?q=敏感肌');
-  await page.locator('article', { hasText: '敏感肌早晚护肤顺序' }).getByRole('button', { name: '레퍼런스로 가져오기' }).click();
+  await createLegacyReference(page, page.locator('article', { hasText: '敏感肌早晚护肤顺序' }));
   await page.waitForURL(/\/app\/references\/[0-9a-f-]{36}$/);
   const refUrl = page.url();
 

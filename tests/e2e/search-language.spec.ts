@@ -60,7 +60,7 @@ test('free Korean sentence follows AI preview, consent and worker completion wit
   await expect(page.getByRole('button', {name: '조합한 키워드로 게시물 찾기'})).toBeDisabled();
  });
 
-test('general expansion flows through consent, selection and a private plan with facts',async({page})=>{
+test('general expansion flows through consent and copy without retired planning link',async({page})=>{
  await page.goto('/login');
  await page.getByRole('button',{name:/student-a@demo\.invalid/}).click();
  await page.waitForURL(/\/app/);
@@ -73,17 +73,6 @@ test('general expansion flows through consent, selection and a private plan with
  await expect(page.getByRole('status')).toContainText('완료',{timeout:20000});
  await expect(page.getByText('고정 데모 예시이며 실제 번역·분석 결과가 아닙니다.')).toBeVisible();
  await page.getByRole('checkbox',{name:'#雨天亲子旅行',exact:true}).check();
- await page.getByRole('link',{name:'선택 키워드로 기획하기 (1/8)'}).click();
- await page.getByLabel('기획 이름').fill('키워드에서 만든 기획');
- await page.getByLabel('직접 확인한 사실 (한 줄에 하나, 선택)').fill('직접 만든 도시락');
- await page.getByLabel('촬영 가능한 장면 (한 줄에 하나, 선택)').fill('도시락 준비 장면');
- await page.getByRole('button',{name:'기획실에 저장'}).click();
- await page.waitForURL(/\/app\/plans\/[0-9a-f-]{36}$/);
- await expect(page.getByRole('heading',{name:'키워드에서 가져온 기획 소재'})).toBeVisible();
- await expect(page.getByText('실사용 미확인 추천 후보')).toBeVisible();
- await expect(page.getByLabel('확인된 사실 (한 줄에 하나)')).toHaveValue('직접 만든 도시락');
- await page.getByRole('button',{name:'제안 받기',exact:true}).click();
- await expect(page.getByText(/최대 비용:|조직 예산|견적 만료/)).toHaveCount(0);
- await page.getByRole('button',{name:'확인하고 실행'}).click();
- await expect(page.getByText('제목 후보')).toBeVisible({timeout:20000});
+ await expect(page.getByRole('button',{name:'선택한 1개 태그 복사'})).toBeVisible();
+ await expect(page.getByRole('link',{name:/선택 키워드로 기획하기/})).toHaveCount(0);
 });

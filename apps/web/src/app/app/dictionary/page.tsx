@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import Form from 'next/form';
-import { getDictionaryAiStatus, listSharedDictionary, listAccounts, type DictionaryEntryType } from '@xhs/core';
+import { getDictionaryAiStatus, listSharedDictionary, discover, observedDictionary, type DictionaryEntryType } from '@xhs/core';
 import { withPageCtx } from '@/server/ctx';
 import { Badge, btn, Empty, ErrorNotice, input, PageHeader } from '@/components/ui';
+import { SearchLanguage } from '@/components/search-language';
+import { searchAutomatically } from '@/app/app/discover/actions';
 import { DictionaryWorkspace } from './workspace';
 import { getDictionaryAiConfig } from '@/server/dictionary-ai-config';
 
@@ -27,9 +29,9 @@ export default async function SharedDictionary({ searchParams }: { searchParams:
   const entryType: DictionaryEntryType | undefined = sp.entryType === 'tag' || sp.entryType === 'expression' ? sp.entryType : undefined;
   const parsedPage = Number.parseInt(sp.page ?? '1', 10);
   const requestedPage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
-  const { result, aiStatus, accounts, canManage } = await withPageCtx(async (ctx) => ({
+  const { result, aiStatus, canManage, research } = await withPageCtx(async (ctx) => ({
     canManage: ctx.role==='org_admin',
-    accounts: (await listAccounts(ctx)).map(a => ({ id: a.id, name: a.display_name })),
+    research: sp.q?.trim() ? await (async () => { const sample = await discover(ctx, {q: (sp.q ?? '').trim().slice(0,100)}); return {notes:sample.notes, dictionary:await observedDictionary(ctx,sample.notes)}; })() : null,
     result: await listSharedDictionary(ctx, {
       ...(sp.q?.trim() ? { query: sp.q.trim() } : {}),
       ...(entryType ? { entryType } : {}),
@@ -43,7 +45,7 @@ export default async function SharedDictionary({ searchParams }: { searchParams:
 
   return (
     <>
-      <PageHeader title="공용 사전" description="운영자가 검토해 공개한 태그와 표현을 검색하고, 작성에 참고할 항목을 선택할 수 있습니다." actions={<Link href="/app/dictionary/history" className={btn.secondary}>내 사전 사용 이력</Link>} />
+      <PageHeader title="공용 사전" description="운영자가 검토해 공개한 태그와 표현을 검색하고, 작성에 참고할 항목을 선택할 수 있습니다." />
       <ErrorNotice message={sp.error} />
       <div role="note" className="mb-4 rounded-xl bg-info-soft px-4 py-3 text-sm text-info">
         이 목록은 편집된 관찰 자료이며 인기 순위, 검색량, 성과 보장을 뜻하지 않습니다. 개인 초안이나 AI 생성 결과는 자동으로 공용 사전에 공유되지 않습니다.
@@ -72,7 +74,13 @@ export default async function SharedDictionary({ searchParams }: { searchParams:
       </div>
 
       {result.items.length === 0 && <Empty title="조건에 맞는 항목이 없습니다">검색어나 카테고리 필터를 바꿔 보세요.</Empty>}
-      <DictionaryWorkspace canManage={canManage} items={result.items} aiStatus={aiStatus} accounts={accounts} />
+      <section className="my-5 rounded-xl border border-line p-4" aria-label="실제 게시물 표현 찾기">
+        <h2 className="font-semibold">실제 게시물에서 해시태그·현지 표현 찾기</h2>
+        <p className="my-2 text-sm text-muted">등록한 사전과 샤오홍슈 검색 자료를 함께 확인하세요. 줄임말·구어체는 사용 문맥과 근거를 확인하고 다른 사이트의 본문 작성에 활용할 수 있습니다.</p>
+        <form action={searchAutomatically} className="flex gap-2"><input name="q" aria-label="게시물 검색 주제" defaultValue={sp.q} required maxLength={100} placeholder="한국어 주제 또는 중국어 표현" className={input}/><button className={btn.secondary}>게시물에서 찾기</button></form>
+      </section>
+      {research && <SearchLanguage query={sp.q ?? ''} notes={research.notes} dictionary={research.dictionary}/>}
+      <DictionaryWorkspace canManage={canManage} items={result.items} aiStatus={aiStatus} />
 
       {totalPages > 1 && (
         <nav aria-label="사전 페이지" className="mt-5 flex items-center justify-center gap-2">

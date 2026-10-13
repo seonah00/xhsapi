@@ -42,7 +42,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
     <>
       <Link href="/app/discover/language" className={btn.secondary}>한국어 자유문장으로 AI 검색어 만들기</Link>
       <PageHeader title="탐색" description={<>검색어·해시태그로 게시물을 찾아보세요. 마지막 갱신 {fmtDate(result.lastFetchedAt, true)}</>}
-        actions={<><Link href="/app/reference-accounts" className={btn.secondary}>참고 계정</Link><Link href="/app/discover/compare" className={btn.secondary}>비교 ({compare.length}/3)</Link></>} />
+        actions={<><Link href="/app/discover/compare" className={btn.secondary}>비교 ({compare.length}/3)</Link></>} />
       <div className="mb-3 flex gap-2"><Link className={btn.secondary} href={`/app/discover?${new URLSearchParams({...Object.fromEntries(qs),original:'1'})}`}>원문 링크 있는 게시물만 보기</Link>{sp.original && <Link className={btn.secondary} href="/app/discover">전체 게시물 보기</Link>}</div>
       <ErrorNotice message={sp.error ?? (parsed.success ? undefined : '검색 조건을 확인하세요.')} />
       <form role="search" className="mb-4 grid gap-2 rounded-2xl border border-line bg-surface p-3 sm:grid-cols-[1fr_auto_auto_auto]">

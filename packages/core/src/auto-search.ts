@@ -29,7 +29,7 @@ export async function autoSearchPolicy(ctx: Ctx) {
 }
 
 /** One transaction serializes cache lookup, monthly caps and existing monetary reservation. */
-export async function requestAutoSearch(ctx: Ctx, service: ServiceRunner, raw: string, env: AppEnv, filters: {topic?: string; days?: number} = {}): Promise<string | null> {
+export async function requestAutoSearch(ctx: Ctx, service: ServiceRunner, raw: string, env: AppEnv, filters: {topic?: string; days?: number} = {}, requiredProvider?: 'apify'): Promise<string | null> {
   const query=z.string().min(1).max(50).parse(normalizeSearchQuery(raw));
   const checked=z.object({topic:z.enum(['beauty','daily-life','parenting','food-places','travel-outing','fashion']).optional(),days:z.union([z.literal(7),z.literal(14),z.literal(30)]).optional()}).parse(filters);
 
@@ -39,6 +39,7 @@ export async function requestAutoSearch(ctx: Ctx, service: ServiceRunner, raw: s
     if(!member.rowCount) throw new AppError('FORBIDDEN','조직에 접근할 수 없습니다.');
     const row=(await db.query(`select settings from organizations where id=$1 and status='active'`,[ctx.orgId])).rows[0];
     const policy=AutoSearchPolicy.parse(row?.settings?.auto_search ?? {});
+    if(requiredProvider && policy.provider!==requiredProvider) throw new AppError('FEATURE_DISABLED','원문 링크 검색 설정을 관리자에게 요청하세요.');
     if(!policy.enabled || !policy.approvedBy || !policy.expiresAt || Date.parse(policy.expiresAt)<=Date.now()
       || (ctx.mode==='live' && !env.AUTO_REFRESH_ENABLED)) return null;
     const scope={query,targetCount:50,...checked,...(policy.provider==='apify'?{source:'apify'}:{})};

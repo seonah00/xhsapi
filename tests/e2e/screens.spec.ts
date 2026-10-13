@@ -1,3 +1,4 @@
+import { createLegacyReference } from './legacy-reference.ts';
 import { expect, test, type Page } from '@playwright/test';
 
 /** Captures core screens for review: `pnpm test:e2e --grep @screens`. Output: docs/screenshots/. */
@@ -28,7 +29,7 @@ for (const [name, viewport] of [['desktop', { width: 1280, height: 900 }], ['mob
     }
     // Reference + transcript for a video note.
     await page.goto('/app/discover?q=' + encodeURIComponent('敏感肌'));
-    await page.locator('article', { hasText: '敏感肌早晚护肤顺序' }).getByRole('button', { name: '레퍼런스로 가져오기' }).click();
+    await createLegacyReference(page, page.locator('article', { hasText: '敏感肌早晚护肤顺序' }));
     await page.waitForURL(/\/app\/references\/[0-9a-f-]{36}$/);
     const ref = page.url();
     await page.goto(`${ref}/transcript`);

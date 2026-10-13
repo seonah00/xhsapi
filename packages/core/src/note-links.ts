@@ -1,3 +1,5 @@
+import { requestAutoSearch } from './auto-search.ts';
+import type { AppEnv } from '@xhs/domain';
 import { AppError } from '@xhs/domain';
 import { z } from 'zod';
 import { requireAdmin } from './admin.ts';
@@ -39,4 +41,17 @@ export async function connectOriginalNoteLink(ctx: Ctx, service: ServiceRunner, 
   const url=safeXhsAccessUrl(z.string().max(4000).parse(supplied).trim(),note.platform_note_id);
   if(!url) throw new AppError('VALIDATION_FAILED','이 게시물의 전체 공유 주소(xsec_token 포함)를 입력하세요. 검색·계정·단축 주소는 연결할 수 없습니다.');
   await service(db=>storeNoteAccessLink(db,ctx.orgId,id,note.platform_note_id,url));
+}
+
+/** Resolve the title from the authorized note, never trust a submitted title or URL. */
+export async function requestOriginalRefresh(ctx: Ctx, service: ServiceRunner, id: string, env: AppEnv) {
+  z.string().uuid().parse(id);
+  const note=(await ctx.db.query(`select title from notes where id=$1 and org_id=$2 and data_mode=$3 and (expires_at is null or expires_at>now())`,[id,ctx.orgId,ctx.mode])).rows[0];
+  if(!note) throw new AppError('NOT_FOUND','게시물을 찾을 수 없습니다.');
+  if(await originalNoteLink(ctx,service,id)) return null;
+  const title=String(note.title ?? '').trim().slice(0,50);
+  if(!title) throw new AppError('VALIDATION_FAILED','검색할 게시물 제목이 없습니다.');
+  const request=await requestAutoSearch(ctx,service,title,env,{},'apify');
+  if(!request) throw new AppError('FEATURE_DISABLED','현재 원문 링크를 다시 찾을 수 없습니다. 관리자에게 검색 설정을 요청하세요.');
+  return request;
 }

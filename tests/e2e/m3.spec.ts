@@ -1,3 +1,4 @@
+import { createLegacyReference } from './legacy-reference.ts';
 import { expect, test, type Page } from '@playwright/test';
 
 async function login(page: Page, email: string) {
@@ -48,7 +49,7 @@ test('results, uploads, admin switches and data deletion', async ({ page }) => {
 
   // Image upload on a fresh reference; other students cannot fetch it
   await page.goto('/app/discover?q=' + encodeURIComponent('咖啡'));
-  await page.locator('article').first().getByRole('button', { name: '레퍼런스로 가져오기' }).click();
+  await createLegacyReference(page, page.locator('article').first());
   await page.waitForURL(/\/app\/references\/[0-9a-f-]{36}$/);
   const refUrl = page.url();
   await page.getByLabel('이미지 추가').setInputFiles({ name: 'shot.png', mimeType: 'image/png', buffer: PNG });

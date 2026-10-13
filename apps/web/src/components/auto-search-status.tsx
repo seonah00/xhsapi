@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-export function AutoSearchStatus({requestId}:{requestId:string}) {
+export function AutoSearchStatus({requestId,original=false}:{requestId:string;original?:boolean}) {
   const [state,setState]=useState('queued');
   const router=useRouter();
   useEffect(()=>{
@@ -20,5 +20,5 @@ export function AutoSearchStatus({requestId}:{requestId:string}) {
     void poll();
     return ()=>{stopped=true;clearTimeout(timer);};
   },[requestId,router]);
-  return <p role="status" className="mb-3 text-sm text-muted">{state==='succeeded'?'최신 검색 결과를 반영했습니다.': ['queued','running','waiting_external'].includes(state)?'새 게시물을 찾고 있습니다. 기존 결과를 먼저 둘러보세요.':'새 검색을 완료하지 못했습니다. 저장된 결과를 이용하세요.'}</p>;
+  return <p role="status" className="mb-3 text-sm text-muted">{state==='succeeded'?(original?'검색을 완료했습니다. 아래 원문 연결 상태를 확인하세요.':'최신 검색 결과를 반영했습니다.'): ['queued','running','waiting_external'].includes(state)?'새 게시물을 찾고 있습니다. 기존 결과를 먼저 둘러보세요.':'새 검색을 완료하지 못했습니다. 저장된 결과를 이용하세요.'}</p>;
 }

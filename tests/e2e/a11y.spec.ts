@@ -1,3 +1,4 @@
+import { createLegacyReference } from './legacy-reference.ts';
 import { AxeBuilder } from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
@@ -35,7 +36,7 @@ test('axe: no WCAG A/AA violations on core screens', async ({ page }) => {
   await page.waitForURL(/\/app\/plans\/[0-9a-f-]{36}$/);
   found.push(...await scan(page, new URL(page.url()).pathname));
   await page.goto('/app/discover?q=' + encodeURIComponent('敏感肌'));
-  await page.getByRole('button', { name: '레퍼런스로 가져오기' }).first().click();
+  await createLegacyReference(page, page.locator('article').first());
   await page.waitForURL(/\/app\/references\/[0-9a-f-]{36}$/);
   const ref = new URL(page.url()).pathname;
   found.push(...await scan(page, ref), ...await scan(page, `${ref}/transcript`));

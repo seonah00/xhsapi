@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { NoteCard as Note } from '@xhs/core';
 import { safeExternalHref } from '@xhs/security';
-import { toggleCompare, toggleSaveNote, useAsReference } from '@/app/app/discover/actions';
+import { toggleCompare, toggleSaveNote } from '@/app/app/discover/actions';
 import { fmtDate, formatLabel, topicLabel } from './labels';
 import { Metric, formatMetric } from './metric';
 import { Badge, DemoBadge, Thumb, btn } from './ui';
@@ -19,9 +19,8 @@ export function NoteCard({ note, back, inCompare, reasons, cons, canManage = fal
   );
   return (
     <article className="flex flex-col rounded-2xl border border-line bg-surface p-3">
-      <a href={note.hasOriginalLink ? `/app/notes/${note.id}/original` : `/app/notes/${note.id}`}
-        target={note.hasOriginalLink ? '_blank' : undefined} rel={note.hasOriginalLink ? 'noopener noreferrer' : undefined}
-        aria-label={`${note.title ?? '게시물'} ${note.hasOriginalLink ? '게시물 원문 보기' : '상세 보기'}`}
+      <a href={`/app/notes/${note.id}`}
+        aria-label={`${note.title ?? '게시물'} 상세 보기`}
         className="block rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">{thumbnail}</a>
       <div className="mt-3 flex flex-wrap items-center gap-1">
         <DemoBadge mode={note.dataMode} />
@@ -51,8 +50,6 @@ export function NoteCard({ note, back, inCompare, reasons, cons, canManage = fal
           <button className={btn.small} aria-pressed={note.saved}>{note.saved ? '★ 저장됨' : '☆ 저장'}</button></form>
         <form action={toggleCompare}><input type="hidden" name="noteId" value={note.id} /><input type="hidden" name="back" value={back} />
           <button className={btn.small} aria-pressed={!!inCompare}>{inCompare ? '비교에서 빼기' : '비교 추가'}</button></form>
-        <form action={useAsReference}><input type="hidden" name="noteId" value={note.id} /><input type="hidden" name="back" value={back} />
-          <button className={btn.small}>레퍼런스로 가져오기</button></form>
         {href && (demoLink
           ? <span className={`${btn.ghost} cursor-not-allowed`} title="데모 노트는 실제 원문이 없습니다">원문(데모)</span>
           : note.hasOriginalLink ? <a href={`/app/notes/${note.id}/original`} target="_blank" rel="noopener noreferrer" className={btn.ghost} title="공급자가 제공한 공유 링크로 이동합니다.">게시물 원문 보기 ↗</a> : <Link href={`/app/notes/${note.id}`} className={btn.ghost}>원문 연결 안내</Link>)}

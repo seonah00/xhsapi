@@ -4,9 +4,11 @@ import { useActionState, useMemo, useState, useTransition, type FormEvent } from
 import type { DictionaryAiInput, DictionaryAiStatus, SharedDictionaryEntry } from '@xhs/core';
 import { Badge, btn, Card } from '@/components/ui';
 import { dictionaryAiAction, type DictionaryAiState } from './actions';
+import { ExpressionPractice } from './expression-practice';
+import { CopyButton } from '@/components/copy-button';
 import { dictionaryAiFormFingerprint } from './dictionary-ai-form-fingerprint';
 
-import { DictionaryPlanImport, type PlanAccount } from './plan-import';
+
 
 const ENTRY_TYPE = { tag: '태그', expression: '표현' };
 const MAX = { tag: 8, expression: 3 } as const;
@@ -25,14 +27,12 @@ const DISABLED_REASON: Record<Exclude<DictionaryAiStatus['disabledReason'], null
 function AiComposer({
   chosen,
   canManage,
-  accounts,
   status,
   selectionVersion,
   onRemove,
 }: {
   chosen: SharedDictionaryEntry[];
   canManage: boolean;
-  accounts: PlanAccount[];
   status: DictionaryAiStatus;
   selectionVersion: number;
   onRemove: (item: SharedDictionaryEntry) => void;
@@ -164,21 +164,19 @@ function AiComposer({
           {output.warnings.length > 0 && <div className="rounded-lg bg-warn-soft p-2 text-sm text-warn"><strong>주의</strong><ul className="mt-1 list-disc pl-5">{output.warnings.map((item) => <li key={item}>{item}</li>)}</ul></div>}
           <div><h4 className="text-sm font-semibold">제목 3안</h4><ol className="mt-1 space-y-2">{output.titles.map((title, index) => <li key={`${title.kind}-${index}`} className="rounded-lg bg-surface p-2 text-sm"><Badge>{title.kind}</Badge><p className="zh mt-1 font-medium" lang="zh-CN">{title.zh}</p><p className="mt-1 text-xs text-muted">{title.ko}</p></li>)}</ol></div>
           <div><h4 className="text-sm font-semibold">본문</h4><p className="zh mt-1 whitespace-pre-wrap rounded-lg bg-surface p-2 text-sm" lang="zh-CN">{output.bodyZh}</p><details className="mt-1 text-xs"><summary className="cursor-pointer text-muted">한국어 확인본</summary><p className="mt-1 whitespace-pre-wrap rounded-lg bg-surface p-2">{output.bodyKo}</p></details></div>
-          <div><h4 className="text-sm font-semibold">태그</h4><p className="zh mt-1 text-sm" lang="zh-CN">{output.tags.join(' ')}</p></div>
+          <CopyButton text={[output.titles[0]?.zh, output.bodyZh, output.tags.join(' ')].filter(Boolean).join('\n\n')} label="제목·본문·태그 복사"/><div><h4 className="text-sm font-semibold">태그</h4><p className="zh mt-1 text-sm" lang="zh-CN">{output.tags.join(' ')}</p></div>
           {output.usedTerms.length > 0 && <div><h4 className="text-sm font-semibold">사용한 항목과 이유</h4><ul className="mt-1 space-y-1 text-xs">{output.usedTerms.map((item) => <li key={`${item.term}-${item.reason}`}><span className="zh font-medium" lang="zh-CN">{item.term}</span> · {item.reason}</li>)}</ul></div>}
           {output.heldTerms.length > 0 && <div><h4 className="text-sm font-semibold">보류한 항목과 이유</h4><ul className="mt-1 space-y-1 text-xs">{output.heldTerms.map((item) => <li key={`${item.term}-${item.reason}`}><span className="zh font-medium" lang="zh-CN">{item.term}</span> · {item.reason}</li>)}</ul></div>}
           <p className="text-xs text-muted">{canManage && <>모델 {state.generation?.model} · 예약 최대 비용 {state.generation?.usage.reservedMaxCostUsd} USD. 표시 비용은 실제 청구서가 아닌 상한 추정치입니다. </>} 이 결과는 내 비공개 초안이며 공용 사전에 추가되지 않습니다.</p>
         </section>
       )}
-      {chosen.length > 0 && (!output || previewIsCurrent) && <DictionaryPlanImport
-        key={`${state.preview?.token ?? 'selection'}:${selectionVersion}:${formVersion}:${output ? 'generated' : 'manual'}`}
-        entries={chosen} source={currentInput} result={output} accounts={accounts} />}
+      {chosen.length > 0 && <ExpressionPractice entries={chosen}/>}
       {output && !previewIsCurrent && <p role="status" className="mt-3 text-sm text-warn">생성 후 입력이 변경되었습니다. 현재 선택으로 새 미리보기를 만들거나 원래 결과를 복사해 보관하세요.</p>}
     </Card>
   );
 }
 
-export function DictionaryWorkspace({ items, aiStatus, accounts, canManage = false }: { canManage?: boolean; items: SharedDictionaryEntry[]; aiStatus: DictionaryAiStatus; accounts: PlanAccount[] }) {
+export function DictionaryWorkspace({ items, aiStatus, canManage = false }: { canManage?: boolean; items: SharedDictionaryEntry[]; aiStatus: DictionaryAiStatus }) {
   const [selectedItems, setSelectedItems] = useState<Map<string, SharedDictionaryEntry>>(() => new Map());
   const [selectionVersion, setSelectionVersion] = useState(0);
   const [limitMessage, setLimitMessage] = useState<string>();
@@ -231,7 +229,7 @@ export function DictionaryWorkspace({ items, aiStatus, accounts, canManage = fal
         </ul>
       </div>
       <aside aria-label="선택한 사전 항목" className="lg:sticky lg:top-4 lg:self-start">
-        <AiComposer canManage={canManage} accounts={accounts} chosen={chosen} status={aiStatus} selectionVersion={selectionVersion} onRemove={(item) => toggle(item, false)} />
+        <AiComposer canManage={canManage} chosen={chosen} status={aiStatus} selectionVersion={selectionVersion} onRemove={(item) => toggle(item, false)} />
       </aside>
     </div>
   );

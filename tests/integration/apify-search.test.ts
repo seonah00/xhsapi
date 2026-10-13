@@ -1,6 +1,6 @@
 import {beforeAll,afterAll,it,expect,vi} from 'vitest';
 import {randomUUID} from 'node:crypto';
-import {createQuote,reserveJob,runJob,originalNoteLink,requestAutoSearch,setAutoSearchPolicy,type Ctx,type Runner} from '@xhs/core';
+import {createQuote,reserveJob,runJob,originalNoteLink,requestOriginalRefresh,requestAutoSearch,setAutoSearchPolicy,type Ctx,type Runner} from '@xhs/core';
 import {MockXhsProvider} from '@xhs/providers';
 import {loadEnv} from '@xhs/domain';
 import {pool} from './db.ts';
@@ -47,4 +47,26 @@ it('selects the approved USD search and shares the cache without a second reserv
  const j=(await pool.query(`select j.id,j.input_ref from search_requests r join app_jobs j on j.id=r.job_id where r.id=$1`,[a])).rows[0];expect(j.input_ref.source).toBe('apify');
  await user(ctx=>setAutoSearchPolicy(ctx,{enabled:false}));
  const count=fake.mock.calls.length;expect(await runJob(deps,j.id,'test')).toMatchObject({state:'failed',sent:false});expect(fake.mock.calls.length).toBe(count);
+});
+
+it('refreshes an authorized missing original through Apify and reuses requests',async()=>{
+ expect(await user(ctx=>requestOriginalRefresh(ctx,service,note,env))).toBeNull();
+ await pool.query('delete from note_access_links where note_id=$1',[note]);
+ await user(ctx=>setAutoSearchPolicy(ctx,{enabled:true,provider:'redfox',maxCny:'0.30',expiresAt:new Date(Date.now()+86400000).toISOString()}));
+ await expect(user(ctx=>requestOriginalRefresh(ctx,service,note,env))).rejects.toMatchObject({code:'FEATURE_DISABLED'});
+ await user(ctx=>setAutoSearchPolicy(ctx,{enabled:true,provider:'apify',maxUsd:'0.30',expiresAt:new Date(Date.now()+86400000).toISOString()}));
+ const request=await user(ctx=>requestOriginalRefresh(ctx,service,note,env));
+ expect(await user(ctx=>requestOriginalRefresh(ctx,service,note,env))).toBe(request);
+ const job=(await pool.query('select job_id from search_requests where id=$1',[request])).rows[0].job_id;
+ expect(await runJob(deps,job,'restore')).toMatchObject({state:'succeeded'});
+ expect(await user(ctx=>originalNoteLink(ctx,service,note))).toContain(pid);
+ await expect(user(ctx=>requestOriginalRefresh(ctx,service,randomUUID(),env))).rejects.toMatchObject({code:'NOT_FOUND'});
+});
+it('a successful title search does not link a different post to the target',async()=>{
+ const target=randomUUID();
+ await pool.query(`insert into notes(id,org_id,provider,platform_note_id,data_mode,canonical_url,title,provenance) values($1,$2,'redfox',$3,'live',$4,'不同标题','{}')`,[target,org,'d'.repeat(24),'https://www.xiaohongshu.com/explore/'+ 'd'.repeat(24)]);
+ const request=await user(ctx=>requestOriginalRefresh(ctx,service,target,env));
+ const job=(await pool.query('select job_id from search_requests where id=$1',[request])).rows[0].job_id;
+ expect(await runJob(deps,job,'different')).toMatchObject({state:'succeeded'});
+ expect(await user(ctx=>originalNoteLink(ctx,service,target))).toBeNull();
 });
