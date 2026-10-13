@@ -19,9 +19,7 @@ export function NoteCard({ note, back, inCompare, reasons, cons, canManage = fal
   );
   return (
     <article className="flex flex-col rounded-2xl border border-line bg-surface p-3">
-      <a href={`/app/notes/${note.id}`}
-        aria-label={`${note.title ?? '게시물'} 상세 보기`}
-        className="block rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">{thumbnail}</a>
+      <div className="rounded-xl">{thumbnail}</div>
       <div className="mt-3 flex flex-wrap items-center gap-1">
         <DemoBadge mode={note.dataMode} />
         {note.topics.map((t) => <Badge key={t} tone="accent">{topicLabel(t)}</Badge>)}
@@ -52,10 +50,8 @@ export function NoteCard({ note, back, inCompare, reasons, cons, canManage = fal
           <button className={btn.small} aria-pressed={!!inCompare}>{inCompare ? '비교에서 빼기' : '비교 추가'}</button></form>
         {href && (demoLink
           ? <span className={`${btn.ghost} cursor-not-allowed`} title="데모 노트는 실제 원문이 없습니다">원문(데모)</span>
-          : note.hasOriginalLink ? <a href={`/app/notes/${note.id}/original`} target="_blank" rel="noopener noreferrer" className={btn.ghost} title="공급자가 제공한 공유 링크로 이동합니다.">게시물 원문 보기 ↗</a> : <Link href={`/app/notes/${note.id}`} className={btn.ghost}>원문 연결 안내</Link>)}
-        {href && !demoLink && note.title && (
-          <a href={`https://www.xiaohongshu.com/search_result?keyword=${encodeURIComponent(note.title.slice(0, 60))}`} target="_blank" rel="noopener noreferrer" className={btn.ghost}>샤오홍슈에서 제목 검색 ↗</a>
-        )}
+          : note.hasOriginalLink ? <a href={`/app/notes/${note.id}/original`} target="_blank" rel="noopener noreferrer" className={btn.ghost} title="공급자가 제공한 공유 링크로 이동합니다.">게시물 원문 보기 ↗</a> : <a href={href} target="_blank" rel="noopener noreferrer" className={btn.ghost} title="기본 게시물 주소입니다. 로그인 또는 공유 링크가 필요할 수 있습니다.">게시물 원문 보기 ↗</a>)}
+        <Link href={`/app/notes/${note.id}`} className={btn.ghost}>게시물 상세 보기</Link>
       </div>
     </article>
   );

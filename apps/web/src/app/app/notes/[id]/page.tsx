@@ -28,15 +28,13 @@ export default async function NoteDetail({params,searchParams}:{params:Promise<{
     {sp.connected && <p role="status">원문 링크를 연결했습니다. 아래 버튼으로 게시물을 여세요.</p>}
     {refresh.success && status && <AutoSearchStatus requestId={refresh.data} original/>}
     <Card>
-      <a href={note.hasOriginalLink ? `/app/notes/${id}/original` : '#original-status'} target={note.hasOriginalLink ? '_blank' : undefined} rel="noopener noreferrer" aria-label={note.hasOriginalLink ? '표지로 게시물 원문 보기' : '원문 연결 상태 확인'}>
+
       {note.coverUrl ? <CoverThumb src={note.coverUrl} alternateSrc={note.fallbackCoverUrl} alt={note.title ?? '게시물 표지'} fallback={<Thumb seed={note.platformNoteId} type={note.noteType}/>}/> : <Thumb seed={note.platformNoteId} type={note.noteType}/>}
-      </a>
       <p className="mt-3 text-sm text-muted">{note.authorName ?? '작성자 미확인'}</p>
       {note.bodyExcerpt && <p lang="zh-CN" className="zh mt-3 whitespace-pre-wrap">{note.bodyExcerpt}</p>}
       <dl className="my-4 grid grid-cols-3 gap-2"><Metric label="좋아요" value={note.metrics.likes}/><Metric label="저장" value={note.metrics.saves}/><Metric label="댓글" value={note.metrics.comments}/></dl>
       <div id="original-status" className="flex flex-wrap gap-2">
         {note.hasOriginalLink && <a href={`/app/notes/${id}/original`} target="_blank" rel="noopener noreferrer" className={btn.primary}>게시물 원문 보기 ↗</a>}
-        {note.title && !note.canonicalUrl.includes('.invalid') && <a href={`https://www.xiaohongshu.com/search_result?keyword=${encodeURIComponent(note.title.slice(0,60))}`} target="_blank" rel="noopener noreferrer" className={btn.secondary}>샤오홍슈에서 제목 검색 ↗</a>}
         {canManage && <Link href={`/app/notes/${id}/enrich`} className={btn.secondary}>정보 업데이트</Link>}
       </div>
       <div className="mt-4 rounded-xl border border-line p-3">

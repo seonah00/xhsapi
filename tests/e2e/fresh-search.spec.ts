@@ -15,7 +15,7 @@ test('hashtag search quotes a fresh query and displays its completed results', a
   await expect(page).not.toHaveURL(/#refresh$/);
 });
 
-test('a thumbnail opens link details and verified original preserves its signed destination', async ({ page, context }) => {
+test('separate original link preserves signed destination and thumbnail is not linked', async ({ page, context }) => {
   const { default: pg } = await import('pg');
   const db = new pg.Pool({connectionString:process.env.DATABASE_URL});
   const original='https://www.xiaohongshu.com/explore/aaaaaaaaaaaaaaaaaaaaaaaa?xsec_token=synthetic';
@@ -30,14 +30,17 @@ test('a thumbnail opens link details and verified original preserves its signed 
     await page.getByRole('button',{name:/student-b@demo\.invalid/}).click();
     await page.waitForURL(/\/app/);
     await page.goto('/app/discover?q=thumbnaillinkfixture');
-    const link=page.getByRole('link',{name:'thumbnaillinkfixture 상세 보기'});
+    const card=page.locator('article',{hasText:'thumbnaillinkfixture'});
+    await expect(card.locator('img')).toBeVisible();
+    await expect(card.locator('a:has(img)')).toHaveCount(0);
+    await expect(card.getByRole('link',{name:'게시물 원문 보기 ↗'})).toHaveAttribute('href',`/app/notes/${row.id}/original`);
+    const link=card.getByRole('link',{name:'게시물 상세 보기',exact:true});
     await expect(link).toHaveAttribute('href',`/app/notes/${row.id}`);
-    await expect(link.locator('img')).toBeVisible();
     await link.click();
     await expect(page).toHaveURL(new RegExp(`/app/notes/${row.id}$`));
     await expect(page.getByRole('heading',{name:'thumbnaillinkfixture'})).toBeVisible();
-    await expect(page.getByRole('link',{name:'샤오홍슈에서 제목 검색 ↗'})).toBeVisible();
-    await expect(page.getByRole('link',{name:'표지로 게시물 원문 보기'})).toHaveAttribute('href',`/app/notes/${row.id}/original`);
+    await expect(page.getByRole('link',{name:'샤오홍슈에서 제목 검색 ↗'})).toHaveCount(0);
+    await expect(page.locator('a:has(img)')).toHaveCount(0);
     const originalLink=page.getByRole('link',{name:'게시물 원문 보기 ↗'});
     await expect(originalLink).toHaveAttribute('href',`/app/notes/${row.id}/original`);
     await expect(originalLink).toHaveAttribute('target','_blank');
@@ -49,7 +52,7 @@ test('a thumbnail opens link details and verified original preserves its signed 
     await db.query(`update note_access_links set expires_at=now()-interval '1 second' where note_id=$1`,[row.id]);
     await page.reload();
     await expect(page.getByRole('link',{name:'게시물 원문 보기 ↗'})).toHaveCount(0);
-    await expect(page.getByRole('link',{name:'샤오홍슈에서 제목 검색 ↗'})).toBeVisible();
+    await expect(page.getByRole('link',{name:'샤오홍슈에서 제목 검색 ↗'})).toHaveCount(0);
     await expect(page).toHaveURL(new RegExp(`/app/notes/${row.id}$`));
     await expect(page.getByRole('button',{name:'원문 링크 연결'})).toHaveCount(0);
     await expect(page.getByText(/현재 유효한 원문 공유 링크가 없습니다/)).toBeVisible();
