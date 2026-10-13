@@ -96,18 +96,24 @@ export function supportedLanguageOutput(raw:unknown,input:LanguageInput):Languag
   return validateLanguageOutput({translations:[],expressions},input);
 }
 export function languageFailureCode(error:unknown):string {
-  if(error instanceof z.ZodError) return 'AI_OUTPUT_SCHEMA_INVALID';
+  if(error instanceof z.ZodError) {
+    // Never persist provider values, unknown property names, or Zod messages.
+    const fields=new Set(['keywords','translations','expressions','term','group','meaningKo','reasonKo','zh','usageKo','cautionKo','confidence','evidence','alias','quote']);
+    const issue=error.issues[0];
+    const path=issue?.path.map(part=>typeof part==='number'?'item':fields.has(String(part))?String(part):'field').slice(0,5).join('.')||'root';
+    return `AI_OUTPUT_SCHEMA_INVALID:${path}:${issue?.code??'invalid'}`;
+  }
   const known=['AI_RESPONSE_UNAVAILABLE','AI_INCOMPLETE','AI_TRANSLATION_INVALID','AI_TASK_MISMATCH','AI_DUPLICATE_TERM','AI_EVIDENCE_INVALID','AI_TARGET_CHANGED'];
   return error instanceof Error && known.includes(error.message) ? error.message : 'AI_RESULT_NEEDS_REVIEW';
 }
 export async function callLanguageAi(input:LanguageInput,config:{key:string;model:string},fetchImpl:typeof fetch=fetch) {
-  const string={type:'string'};
+  const string={type:'string',minLength:1,maxLength:500};
   const object=(properties:Record<string,unknown>)=>({type:'object',additionalProperties:false,properties,required:Object.keys(properties)});
-  const fields={translations:{type:'array',items:object({zh:string,meaningKo:string})},expressions:{type:'array',items:object({term:string,meaningKo:string,usageKo:string,cautionKo:string,confidence:{type:'string',enum:['low','medium','high']},evidence:{type:'array',items:object({alias:string,quote:string})}})}};
+  const fields={translations:{type:'array',minItems:1,maxItems:3,items:object({zh:{type:'string',minLength:1,maxLength:50},meaningKo:string})},expressions:{type:'array',maxItems:15,items:object({term:{type:'string',minLength:2,maxLength:40},meaningKo:string,usageKo:string,cautionKo:string,confidence:{type:'string',enum:['low','medium','high']},evidence:{type:'array',minItems:1,maxItems:3,items:object({alias:string,quote:{type:'string',minLength:2,maxLength:250}})}})}};
   const keywordField={type:'array',minItems:3,maxItems:12,items:object({term:{type:'string',minLength:2,maxLength:40},group:{type:'string',enum:['core','related','longTail']},meaningKo:{type:'string',minLength:1,maxLength:200},reasonKo:{type:'string',minLength:1,maxLength:200}})};
   const schema=object(input.task==='expand'?{keywords:keywordField}:input.task==='translate'?{translations:fields.translations}:{expressions:fields.expressions});
   const taskInstruction=input.task==='expand'
-    ? '주제 제한 없이 사용자 검색 의도와 제공된 사전/게시물 문맥을 참고해 중국어 검색 후보 6~12개를 제안하세요. core 핵심, related 연관, longTail 대상·상황·고민이 구체적인 검색어를 각각 1개 이상 포함하세요. longTail은 단순히 긴 단어가 아니라 구체적 검색 의도입니다. 원래 장소와 제품 조건을 유지하세요. 새 대상·상황은 사용자가 사실로 말한 것이 아닌 선택 가능한 가설임을 reasonKo에 설명하세요. term은 # 없이 2~40자 중국어, meaningKo 한국어 뜻, reasonKo 한국어 추천 이유 각 200자 이내입니다. 실사용·인기·빈도·효능을 주장하지 마세요. 비슷한 후보를 중복하지 마세요.'
+    ? '주제 제한 없이 사용자 검색 의도와 제공된 사전/게시물 문맥을 참고해 중국어 검색 후보 6~12개를 제안하세요. core 핵심, related 연관, longTail 대상·상황·고민이 구체적인 검색어를 각각 1개 이상 포함하세요. longTail은 단순히 긴 단어가 아니라 구체적 검색 의도입니다. 원래 장소와 제품 조건을 유지하세요. 새 대상·상황은 사용자가 사실로 말한 것이 아닌 선택 가능한 가설임을 reasonKo에 설명하세요. term은 #·구두점·줄바꿈 없이 한자/영문/숫자/공백만 사용하는 2~40자 중국어, meaningKo 한국어 뜻, reasonKo 한국어 추천 이유 각 200자 이내입니다. 실사용·인기·빈도·효능을 주장하지 마세요. 비슷한 후보를 중복하지 마세요.'
     : input.task==='translate'
     ? '한국어 자유문장의 검색 의도를 보존한 간결한 샤오홍슈 중국어 검색어 1~3개와 한국어 뜻 meaningKo를 작성하세요. 새로운 장소·효능·조건을 만들어 넣지 마세요.'
     : '제공된 제목·본문·태그에서 실제 발견한 중국어 신조어·줄임말·관용 표현 최대 8개만 골라 한국어 뜻, 사용 문맥, 주의사항, 확신도를 설명하세요. 일반 단어나 브랜드를 억지로 유행어로 분류하지 마세요. 모호하면 low와 뜻 불확실을 표시하세요. evidence는 제공된 alias와 term을 포함하는 원문 그대로의 짧은 구절입니다. 사례가 없으면 expressions 빈 배열입니다. 각 설명은 80자 이내, 인용문은 80자 이내.';

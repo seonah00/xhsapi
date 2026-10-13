@@ -2,7 +2,7 @@ import { describe,it,expect,vi } from 'vitest';
 import { FactSheet, PlanContent, sectionsOf, validateContextualAi, validatePlanAi, validateReflectionAi, reflectionMeasurements, callTextWorkflow, type PlanAiInput, type ReflectionAiRow } from '@xhs/core';
 import { validateRegister } from '../../scripts/price.ts';
 const input:PlanAiInput={facts:FactSheet.parse({subject:'散步',confirmedFacts:['走过公园'],shootableScenes:['公园入口'],sponsorship:'no'}),profile:{mainTopic:'travel',tone:'plain',formats:['vlog'],audience:'散步爱好者'},references:[{id:'ref1',title:'路线',tags:['散步'],insights:['설명한 순서대로 전개']} ]};
-const proposal=()=>({candidates:[{angle:'산책 순서',difference:'내 동선',neededFacts:[],difficulty:'low'}],titleOptions:['公园散步','散步记录'],content:PlanContent.parse({title:'公园散步',body:'走过公园',shots:[{scene:'公园入口',note:'입구 촬영 제안'}]}),evidenceRefs:['ref1'],missingFacts:[],notes:[]});
+const proposal=()=>({candidates:[{angle:'산책 순서',difference:'내 동선',neededFacts:[],difficulty:'low'}],titleOptions:['公园散步','散步记录'],content:PlanContent.parse({title:'公园散步',cover:'公园散步',body:'走过公园',shots:[{scene:'公园入口',note:'입구 촬영 제안'}]}),evidenceRefs:['ref1'],missingFacts:[],notes:[]});
 const rows:ReflectionAiRow[]=[{id:'post1',title:'산책',topic:'travel',format:'vlog',metrics:{likes:8,saves:2},paid:'unknown',sponsorship:'unknown',publishedAt:null,observedAt:'2026-10-07T00:00:00Z'}];
 const reflection=()=>({hypotheses:[{textKo:'같은 경과 시간에 수치를 기록해 보세요.',evidenceIds:['post1'],uncertainty:'하나의 게시물로 원인을 알 수 없습니다.'}],experiments:[{change:'제목에 주제 먼저 넣기',keepConstant:'게시 주제',measure:'저장 수',when:'발행 후 같은 경과 시간',evidenceIds:['post1']}]});
 describe('paid text workflows (fake API only)',()=>{
@@ -25,6 +25,7 @@ describe('paid text workflows (fake API only)',()=>{
     const fetch=vi.fn(async()=>Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(proposal())}}]}));
     await callTextWorkflow({...input,profile:{...input.profile,audience:'person@example.com'}},'plan_generation',{key:'fake',model:'fixture'},fetch);
     const request=JSON.parse(String((fetch.mock.calls as unknown[][])[0]?.[1] && ((fetch.mock.calls as unknown[][])[0]![1] as RequestInit).body));
+    expect(request.response_format.json_schema.schema.properties.content.properties.shots.items.properties.scene.enum).toEqual(['公园入口']);
     expect(request.max_completion_tokens).toBe(6000);expect(request.store).toBe(false);
     expect(JSON.stringify(request)).not.toContain('person@example.com');
     const fail=vi.fn(async()=>new Response('',{status:500}));
@@ -56,3 +57,17 @@ it('calculates reflection measurements from the same snapshot without inventing 
  for(const metrics of [{views:0,saves:2},{saves:2},{views:100}]) expect(reflectionMeasurements({...base,metrics}).saveRatePercent).toBeNull();
  expect(reflectionMeasurements(rows[0]!).elapsedHours).toBeNull();
 });
+
+ it('rejects unsupported product claims, non-copy covers and new shooting scenes',()=>{
+  for(const body of ['塑料瓶身','轻松携带','防水设计']) {
+   const p=proposal();p.content.body=body;
+   expect(()=>validatePlanAi(p,input)).toThrow('AI_UNSUPPORTED_ATTRIBUTE');
+  }
+  const cover=proposal();cover.content.cover='흰 배경의 제품 클로즈업';
+  expect(()=>validatePlanAi(cover,input)).toThrow('AI_COVER_COPY_INVALID');
+  const shot=proposal();shot.content.shots=[{scene:'旅行箱旁边',note:''}];
+  expect(()=>validatePlanAi(shot,input)).toThrow('AI_SHOT_OUTSIDE_INPUT');
+  const p=proposal();p.content.body='塑料瓶身';
+  expect(()=>validatePlanAi(p,{...input,facts:{...input.facts,confirmedFacts:['플라스틱 재질 미확인']}})).toThrow('AI_UNSUPPORTED_ATTRIBUTE');
+  expect(validatePlanAi(p,{...input,facts:{...input.facts,confirmedFacts:['플라스틱 재질']}})).toMatchObject({kind:'proposal'});
+ });

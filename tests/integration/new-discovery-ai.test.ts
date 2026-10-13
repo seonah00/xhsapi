@@ -98,7 +98,7 @@ it('uses owned reference analysis for live planning, preserves references on aut
   await expect(user(student,ctx=>reserveJob(ctx,args),'live')).rejects.toMatchObject({code:'VALIDATION_FAILED'});
   const {jobId}=await user(student,ctx=>reserveJob(ctx,{...args,consent:true}),'live');
   let sent='';
-  const aiFetch:typeof fetch=async(_url,init)=>{sent=String(init?.body);return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify({candidates:[{angle:'산책 순서',difference:'내 동선',neededFacts:[],difficulty:'low'}],titleOptions:['公园散步','散步记录'],content:PlanContent.parse({title:'公园散步',body:'走过公园',shots:[{scene:'公园入口',note:'촬영 제안'}]}),evidenceRefs:['ref1'],missingFacts:[],notes:[]})}}]});};
+  const aiFetch:typeof fetch=async(_url,init)=>{sent=String(init?.body);return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify({candidates:[{angle:'산책 순서',difference:'내 동선',neededFacts:[],difficulty:'low'}],titleOptions:['公园散步','散步记录'],content:PlanContent.parse({title:'公园散步',cover:'公园散步',body:'走过公园',shots:[{scene:'公园入口',note:'촬영 제안'}]}),evidenceRefs:['ref1'],missingFacts:[],notes:[]})}}]});};
   expect(await runJob({service,provider:new MockXhsProvider(),env:aiEnv,aiFetch},jobId,'test')).toMatchObject({state:'succeeded'});
   expect(sent).toContain('산책 순서대로 정보를 설명하세요.');expect(sent).not.toContain(refId);
   const after=await user(student,ctx=>getPlan(ctx,planId));

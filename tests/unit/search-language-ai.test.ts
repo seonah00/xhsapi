@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { describe, expect, it, vi } from 'vitest';
 import { callLanguageAi, validateLanguageOutput, supportedLanguageOutput, languageFailureCode, LanguageScope, type LanguageInput } from '@xhs/core';
 const input:LanguageInput={task:'interpret',notes:[{alias:'n1',title:'这家店绝绝子',body:'雨天遛娃YYDS',tags:['亲子游']}]};
@@ -42,4 +43,11 @@ describe('search language AI',()=>{
   expect(body.store).toBe(false);expect(body.response_format.json_schema.strict).toBe(true);
   await expect(callLanguageAi(input,{key:'synthetic',model:'fixture'},async()=>new Response(JSON.stringify({choices:[{finish_reason:'length',message:{content:JSON.stringify({expressions:output.expressions})}}]})))).rejects.toThrow('AI_INCOMPLETE');
  });
+});
+
+it('records only allowlisted schema paths and codes, never values or arbitrary field names',()=>{
+ const error=new z.ZodError([{code:'custom',path:['keywords',0,'term'],message:'private output'}]);
+ expect(languageFailureCode(error)).toBe('AI_OUTPUT_SCHEMA_INVALID:keywords.item.term:custom');
+ const privatePath=new z.ZodError([{code:'custom',path:['secret@example.com'],message:'private output'}]);
+ expect(languageFailureCode(privatePath)).toBe('AI_OUTPUT_SCHEMA_INVALID:field:custom');
 });
