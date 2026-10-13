@@ -1,13 +1,15 @@
+import { KeywordRecommendations } from './keyword-recommendations';
 import { previewLanguage } from '@/app/app/discover/language/actions';
 import { PendingButton } from './pending-button';
 import Link from 'next/link';
-import { analyzeSearchLanguage, type NoteCard, type SharedDictionaryEntry } from '@xhs/core';
+import { analyzeSearchLanguage, recommendKeywords, type NoteCard, type SharedDictionaryEntry } from '@xhs/core';
 import { CopyButton } from './copy-button';
 import { fmtDate } from './labels';
 
-export function SearchLanguage({ notes, dictionary }: { notes: NoteCard[]; dictionary: SharedDictionaryEntry[] }) {
+export function SearchLanguage({ query, notes, dictionary }: { query: string; notes: NoteCard[]; dictionary: SharedDictionaryEntry[] }) {
   const analysis = analyzeSearchLanguage(notes, dictionary);
   return <section aria-labelledby="search-language-title" className="mb-4 rounded-2xl border border-line bg-surface p-4">
+    <KeywordRecommendations key={query} result={recommendKeywords(query, notes, dictionary)}/>
     <h2 id="search-language-title" className="font-semibold">이 검색에서 발견한 해시태그·표현</h2>
     <p className="mt-1 text-sm text-muted">현재 페이지의 중복 제외 {analysis.sampleSize}개 게시물 기준 · 수집 관찰 {fmtDate(analysis.from)} ~ {fmtDate(analysis.to)}</p>
     <p className="mt-1 text-xs text-muted">샤오홍슈 전체 인기 순위나 작성자 국적을 뜻하지 않습니다. 정렬·필터·페이지에 따라 표본이 달라지며, 수집된 제목·본문 일부·태그만 분석합니다. 뜻과 주의사항은 공용사전 설명입니다.</p>

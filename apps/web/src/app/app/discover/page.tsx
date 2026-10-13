@@ -2,7 +2,7 @@ import { SearchLanguage } from '@/components/search-language';
 import { AutoSearchStatus } from '@/components/auto-search-status';
 import Link from 'next/link';
 import { categorySearch } from '@/components/category-search';
-import { chineseSearchCandidate, observedDictionary, autoCoverPolicy, autoSearchPolicy, discover, DiscoverQuery, getQuote, requestHash } from '@xhs/core';
+import { chineseSearchCandidate, listSharedDictionary, observedDictionary, autoCoverPolicy, autoSearchPolicy, discover, DiscoverQuery, getQuote, requestHash } from '@xhs/core';
 import { withPageCtx } from '@/server/ctx';
 import { searchAutomatically, confirmRefresh, getCompareIds, quoteRefresh } from './actions';
 import { JobStatus } from '@/components/job-status';
@@ -30,6 +30,8 @@ export default async function Discover({ searchParams }: { searchParams: Promise
   ]);
   const dictionary = result.notes.length ? await withPageCtx(ctx => observedDictionary(ctx,result.notes)) : [];
   const candidate = chineseSearchCandidate(sp.q ?? '');
+  const dictionaryMatches = sp.q ? await withPageCtx(ctx => listSharedDictionary(ctx, { query: (candidate.text || sp.q!).replace(/推荐|攻略/g, '').slice(0,100), entryType: 'tag', pageSize: 100 })) : null;
+  const keywordDictionary = [...new Map([...dictionary, ...(dictionaryMatches?.items ?? [])].map(d => [d.id, d])).values()];
   const qs = new URLSearchParams(Object.entries({ q: sp.q ?? '', topic: sp.topic ?? '', format: sp.format ?? '', days: sp.days ?? '', sort: sp.sort ?? '', job: sp.job ?? '' }).filter(([, v]) => v));
   const searchQuery = categorySearch(sp.q, sp.topic);
   const targetCount = sp.targetCount === '100' ? '100' : '50';
@@ -65,7 +67,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
           <PendingButton className={btn.primary} pendingText="검색 중…">이 중국어로 검색</PendingButton>
         </form>
       </section>}
-      {(sp.q || sp.topic) && result.notes.length > 0 && <SearchLanguage notes={result.notes} dictionary={dictionary}/>}
+      {(sp.q || sp.topic) && <SearchLanguage query={searchQuery} notes={result.notes} dictionary={keywordDictionary}/>}
 
       {!canManage && automatic.enabled && <p className="mb-3 text-xs text-muted">검색어로 외부 공개 게시물을 찾아옵니다. 최근에 검색한 결과는 재사용합니다.</p>}
       {sp.auto && <AutoSearchStatus requestId={sp.auto}/>}

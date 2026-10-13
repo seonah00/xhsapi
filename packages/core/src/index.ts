@@ -48,3 +48,5 @@ export * from './dictionary-plan.ts';
 export * from "./search-language.ts";
 
 export * from './search-language-ai.ts';
+
+export * from "./keyword-recommendations.ts";

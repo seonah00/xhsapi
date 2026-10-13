@@ -44,3 +44,18 @@ test('free Korean sentence follows AI preview, consent and worker completion wit
  await expect(page.getByRole('heading',{name:'旅行攻略'})).toBeVisible();
  await expect(page.getByRole('button',{name:'이 중국어로 게시물 검색'})).toBeVisible();
 });
+
+ test('keyword suggestions separate unverified long tails and allow selection without running searches', async ({page}) => {
+  await page.goto('/login');
+  await page.getByRole('button', {name: /student-b@demo\.invalid/}).click();
+  await page.waitForURL(/\/app/);
+  await page.goto('/app/discover?q=' + encodeURIComponent('防晒霜推荐'));
+  await expect(page.getByRole('heading', {name: '사전과 검색 결과로 키워드 정리'})).toBeVisible();
+  await page.getByRole('checkbox', {name: '#敏感肌防晒霜推荐', exact: true}).check();
+  await expect(page.getByRole('button', {name: '선택한 1개 태그 복사'})).toBeVisible();
+  await expect(page).not.toHaveURL(/auto=/);
+  await page.getByLabel('대상 (예: 敏感肌)').fill('敏感肌');
+  await expect(page.getByRole('button', {name: '조합한 키워드로 게시물 찾기'})).toBeEnabled();
+  await page.getByLabel('대상 (예: 敏感肌)').fill('민감성');
+  await expect(page.getByRole('button', {name: '조합한 키워드로 게시물 찾기'})).toBeDisabled();
+ });
