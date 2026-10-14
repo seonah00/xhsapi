@@ -34,7 +34,7 @@ test('separate original link preserves signed destination and thumbnail is not l
     await expect(card.locator('img')).toBeVisible();
     await expect(card.locator('a:has(img)')).toHaveCount(0);
     await expect(card.getByRole('link',{name:'게시물 원문 보기 ↗'})).toHaveAttribute('href',`/app/notes/${row.id}/original`);
-    const link=card.getByRole('link',{name:'게시물 상세 보기',exact:true});
+    const link=card.getByRole('link',{name:/^(영상·상세 보기|게시물 상세 보기)$/});
     await expect(link).toHaveAttribute('href',`/app/notes/${row.id}`);
     await link.click();
     await expect(page).toHaveURL(new RegExp(`/app/notes/${row.id}$`));

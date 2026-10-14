@@ -5,6 +5,8 @@ export type ProviderNote = {
   canonicalUrl: string;
   /** Public share URL; stored separately with TTL, excluded from provenance/AI/logs. */
   accessUrl?: string | null;
+  /** Transcoded H.264 playback URL; TTL storage only, excluded from AI inputs. */
+  videoStreamUrl?: string | null;
   title: string | null;
   bodyExcerpt: string | null;
   /** null when the provider does not say (e.g. RF01 search has no type field); never guessed. */

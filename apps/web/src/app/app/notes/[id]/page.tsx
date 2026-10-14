@@ -1,3 +1,4 @@
+import { NoteVideo } from '@/components/note-video';
 import { AutoSearchStatus } from '@/components/auto-search-status';
 import { PendingButton } from '@/components/pending-button';
 import { CopyButton } from '@/components/copy-button';
@@ -5,7 +6,7 @@ import Link from 'next/link';
 import { connectOriginal, refreshOriginal } from './actions';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
-import { getNotes, autoSearchStatus } from '@xhs/core';
+import { getNotes, autoSearchStatus, noteVideoStream } from '@xhs/core';
 import { withPageCtx, service } from '@/server/ctx';
 import { CoverThumb } from '@/components/cover-thumb';
 import { Metric } from '@/components/metric';
@@ -16,7 +17,7 @@ export default async function NoteDetail({params,searchParams}:{params:Promise<{
   const {id}=await params;
   const sp=await searchParams;
   if(!z.string().uuid().safeParse(id).success) notFound();
-  const {note,canManage,mode}=await withPageCtx(async ctx=>({note:(await getNotes(ctx,[id]))[0],canManage:ctx.role==='org_admin',mode:ctx.mode}));
+  const {note,canManage,mode,videoSrc}=await withPageCtx(async ctx=>({note:(await getNotes(ctx,[id]))[0],canManage:ctx.role==='org_admin',mode:ctx.mode,videoSrc:await noteVideoStream(ctx,id)}));
   const refresh=z.string().uuid().safeParse(sp.refresh);
   const status=refresh.success ? await withPageCtx(ctx=>autoSearchStatus(ctx,service,refresh.data)) : null;
   if(!note || note.dataMode!==mode) notFound();
@@ -30,6 +31,7 @@ export default async function NoteDetail({params,searchParams}:{params:Promise<{
     <Card>
 
       {note.coverUrl ? <CoverThumb src={note.coverUrl} alternateSrc={note.fallbackCoverUrl} alt={note.title ?? '게시물 표지'} fallback={<Thumb seed={note.platformNoteId} type={note.noteType}/>}/> : <Thumb seed={note.platformNoteId} type={note.noteType}/>}
+      {videoSrc ? <NoteVideo key={videoSrc} src={videoSrc}/> : note.noteType === 'video' && <p id="video" className="my-3 text-sm text-muted">현재 재생 가능한 영상 주소가 수집되지 않았습니다.</p>}
       <p className="mt-3 text-sm text-muted">{note.authorName ?? '작성자 미확인'}</p>
       {note.bodyExcerpt && <p lang="zh-CN" className="zh mt-3 whitespace-pre-wrap">{note.bodyExcerpt}</p>}
       <dl className="my-4 grid grid-cols-3 gap-2"><Metric label="좋아요" value={note.metrics.likes}/><Metric label="저장" value={note.metrics.saves}/><Metric label="댓글" value={note.metrics.comments}/></dl>

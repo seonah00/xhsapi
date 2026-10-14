@@ -50,8 +50,8 @@ export function NoteCard({ note, back, inCompare, reasons, cons, canManage = fal
           <button className={btn.small} aria-pressed={!!inCompare}>{inCompare ? '비교에서 빼기' : '비교 추가'}</button></form>
         {href && (demoLink
           ? <span className={`${btn.ghost} cursor-not-allowed`} title="데모 노트는 실제 원문이 없습니다">원문(데모)</span>
-          : note.hasOriginalLink ? <a href={`/app/notes/${note.id}/original`} target="_blank" rel="noopener noreferrer" className={btn.ghost} title="공급자가 제공한 공유 링크로 이동합니다.">게시물 원문 보기 ↗</a> : <a href={href} target="_blank" rel="noopener noreferrer" className={btn.ghost} title="기본 게시물 주소입니다. 로그인 또는 공유 링크가 필요할 수 있습니다.">게시물 원문 보기 ↗</a>)}
-        <Link href={`/app/notes/${note.id}`} className={btn.ghost}>게시물 상세 보기</Link>
+          : note.hasOriginalLink ? <a href={`/app/notes/${note.id}/original`} target="_blank" rel="noopener noreferrer" className={btn.ghost} title="공급자가 제공한 공유 링크로 이동합니다.">게시물 원문 보기 ↗</a> : <span className="text-xs text-muted">원문 공유 링크 없음</span>)}
+        <Link href={`/app/notes/${note.id}`} className={btn.ghost}>{note.noteType === 'video' ? '영상·상세 보기' : '게시물 상세 보기'}</Link>
       </div>
     </article>
   );

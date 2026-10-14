@@ -2883,3 +2883,11 @@ insert into public.provider_capabilities(provider,endpoint,path,params_status,ve
 values ('apify','AP02','/v2/actors/zen-studio~rednote-search-scraper/run-sync-get-dataset-items','documented','documented','unknown','P0','Zen keyword search; pinned APIFY_SEARCH_BUILD and verified USD/run required');
 
 insert into app.applied_migrations (version, name) values ('20261012000028', '20261012000028_apify_search.sql');
+
+-- ==== 20261014000029_note_video_stream.sql ====
+
+-- Shares the existing enrichment RLS, permission and expiry boundary. No media bytes stored.
+alter table public.note_enrichments add column video_stream_url text
+  check (video_stream_url is null or length(video_stream_url)<=4000);
+
+insert into app.applied_migrations (version, name) values ('20261014000029', '20261014000029_note_video_stream.sql');

@@ -1,3 +1,4 @@
+import { safeVideoStreamUrl } from '@xhs/security';
 import { storeNoteAccessLink } from './note-links.ts';
 import { AppError, EnrichmentScope, canonicalJson, enrichmentIds, type AppEnv } from '@xhs/domain';
 import { apifyNoteTarget, APIFY_ACTOR, APIFY_DETAIL_CAPABILITY, ApifyBuild, evaluateLiveGate, ProviderNotReadyError,
@@ -80,11 +81,11 @@ export async function storeEnrichment(db: Db, orgId: string, noteId: string, n: 
   const ops = await orgOps(db, orgId);
   if (!ops.provider.live || ops.provider.kill || !ops.features.provider_search) throw new Error('APIFY_STOPPED');
   await storeNoteAccessLink(db, orgId, noteId, n.platformNoteId, n.accessUrl);
-  await db.query(`insert into note_enrichments(note_id,org_id,permission_id,title,body_excerpt,cover_url,note_type,provider_tags,metrics_json,actor_build,job_id,expires_at)
-    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now()+make_interval(secs=>$12))
-    on conflict(note_id) do update set permission_id=excluded.permission_id,title=excluded.title,body_excerpt=excluded.body_excerpt,cover_url=excluded.cover_url,
+  await db.query(`insert into note_enrichments(note_id,org_id,permission_id,title,body_excerpt,cover_url,note_type,provider_tags,metrics_json,actor_build,job_id,expires_at,video_stream_url)
+    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now()+make_interval(secs=>$12),$13)
+    on conflict(note_id) do update set video_stream_url=excluded.video_stream_url,permission_id=excluded.permission_id,title=excluded.title,body_excerpt=excluded.body_excerpt,cover_url=excluded.cover_url,
       note_type=excluded.note_type,provider_tags=excluded.provider_tags,metrics_json=excluded.metrics_json,actor_build=excluded.actor_build,job_id=excluded.job_id,fetched_at=now(),expires_at=excluded.expires_at`,
-    [noteId,orgId,meta.permissionId,n.title,n.bodyExcerpt,n.coverUrl??null,n.noteType,n.providerTags,Object.fromEntries(Object.entries(n.metrics).filter(([, v]) => v.precision !== 'unknown')),meta.build,meta.jobId,Math.min(meta.ttl,86400)]);
+    [noteId,orgId,meta.permissionId,n.title,n.bodyExcerpt,n.coverUrl??null,n.noteType,n.providerTags,Object.fromEntries(Object.entries(n.metrics).filter(([, v]) => v.precision !== 'unknown')),meta.build,meta.jobId,Math.min(meta.ttl,86400),safeVideoStreamUrl(n.videoStreamUrl)]);
 }
 
 export type EnrichmentProviderFactory = (options: ApifyDetailOptions) => ApifyNoteDetailProvider;

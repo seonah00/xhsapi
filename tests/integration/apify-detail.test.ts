@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import { createReference, getReference, prepareReferenceAi, createQuote, reserveJob, runJob, getNotes, purgeExpired, cancelJob, type Ctx, type Runner, type JobDeps } from '@xhs/core';
+import { noteVideoStream, createReference, getReference, prepareReferenceAi, createQuote, reserveJob, runJob, getNotes, purgeExpired, cancelJob, type Ctx, type Runner, type JobDeps } from '@xhs/core';
 import { ApifyNoteDetailProvider, MockXhsProvider } from '@xhs/providers';
 import { loadEnv } from '@xhs/domain';
 import { pool, asUser as asOtherUser, U } from './db.ts';
@@ -59,8 +59,12 @@ describe('Apify enrichment alongside RedFox (fake fetch only)', () => {
     const stored = (await pool.query(`select * from note_enrichments where note_id=$1`,[note])).rows[0];
     expect(JSON.stringify(stored)).not.toMatch(/xsec_token|video_video_url|points|ip_location/);
     expect(stored.permission_id).toBeNull();
+    expect(await asUser(ctx=>noteVideoStream(ctx,note))).toBe('https://sns-v11.rednotecdn.com/stream/1/synthetic.mp4');
+    expect(await asUser(ctx=>noteVideoStream({...ctx,mode:'mock'},note))).toBeNull();
+    expect(await asOtherUser(U.studentC,db=>noteVideoStream({db,orgId:org,uid:U.studentC,role:'student',mode:'live'},note))).toBeNull();
     await pool.query(`update note_enrichments set expires_at=now()-interval '1 second' where note_id=$1`,[note]);
     expect((await asUser(ctx => getNotes(ctx,[note])))[0]?.title).toBe('Original RedFox');
+    expect(await asUser(ctx=>noteVideoStream(ctx,note))).toBeNull();
   });
   it('purges expired enrichment content', async () => {
     expect((await service(purgeExpired)).noteEnrichments).toBeGreaterThanOrEqual(1);

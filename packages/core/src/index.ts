@@ -54,3 +54,5 @@ export * from "./keyword-recommendations.ts";
 export * from "./keyword-research.ts";
 
 export * from "./keyword-plan.ts";
+
+export * from './note-video.ts';
