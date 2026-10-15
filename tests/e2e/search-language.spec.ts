@@ -21,7 +21,7 @@ test('Korean search previews a composed Chinese query; result evidence counts di
     await expect(section).toContainText('1/1개 게시물에서 발견');
     await expect(section).toContainText('yyds');
     await expect(section).toContainText('실제 사용 빈도가 아닙니다');
-    await section.locator('summary').first().click();
+    await section.locator('summary').filter({hasText:'근거 게시물·사용 문맥'}).first().click();
     await expect(section.getByRole('link',{name:'圣水洞 咖啡店 合成测试'}).first()).toHaveAttribute('href',`/app/notes/${row.id}`);
     await page.getByRole('textbox',{name:'검색어',exact:true}).fill('알수없는단어 카페');
     await page.getByRole('button',{name:'검색',exact:true}).click();
@@ -63,7 +63,7 @@ test('free Korean sentence follows AI preview, consent and worker completion wit
   await expect(page.getByRole('button', {name: '조합한 키워드로 게시물 찾기'})).toBeDisabled();
  });
 
-test('general expansion flows through consent and copy without retired planning link',async({page})=>{
+test('general AI expansion keeps unverified suggestions out of tag copy',async({page})=>{
  await page.goto('/login');
  await page.getByRole('button',{name:/student-a@demo\.invalid/}).click();
  await page.waitForURL(/\/app/);
@@ -75,8 +75,11 @@ test('general expansion flows through consent and copy without retired planning 
  await page.getByRole('button',{name:'AI 실행',exact:true}).click();
  await expect(page.getByRole('status')).toContainText('완료',{timeout:20000});
  await expect(page.getByText('고정 데모 예시이며 실제 번역·분석 결과가 아닙니다.')).toBeVisible();
- await page.getByRole('checkbox',{name:'#雨天亲子旅行',exact:true}).check();
- await expect(page.getByRole('button',{name:'선택한 1개 태그 복사'})).toBeVisible();
+ await page.getByText(/검증 전 검색 후보 .*개 · AI·사전·대상 조합/).click();
+ const unverified=page.getByRole('checkbox',{name:'#雨天亲子旅行',exact:true});
+ await expect(unverified).toBeDisabled();
+ await expect(unverified.locator('..').locator('..').getByRole('button',{name:'실제 게시물로 검증'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'선택한 1개 태그 복사'})).toHaveCount(0);
  await expect(page.getByRole('link',{name:/선택 키워드로 기획하기/})).toHaveCount(0);
 });
 
