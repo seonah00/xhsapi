@@ -50,6 +50,7 @@ export * from "./search-language.ts";
 export * from './search-language-ai.ts';
 
 export * from "./keyword-recommendations.ts";
+export * from "./keyword-evidence.ts";
 
 export * from "./keyword-research.ts";
 
