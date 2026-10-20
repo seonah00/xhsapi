@@ -1,3 +1,4 @@
+import {pageWindow} from './library-page.ts';
 import { z } from 'zod';
 import { AppError,canonicalTerm } from '@xhs/domain';
 import type { Ctx } from './context.ts';
@@ -41,9 +42,9 @@ export async function savePersonalDictionary(ctx:Ctx,raw:unknown) {
  do update set deleted_at=null returning id`,[ctx.orgId,ctx.uid,ctx.mode,entryType,term,canonicalTerm(term),meaning,JSON.stringify(cautions),source.kind,usage,JSON.stringify(examples)])).rows[0].id as string;
 }
 export async function personalDictionaryEntries(ctx:Ctx,ids?:string[],query='') :Promise<PersonalDictionaryEntry[]> {
- if(ids) z.array(z.string().uuid()).max(11).parse(ids);
+ if(ids) z.array(z.string().uuid()).max(20).parse(ids);
  const rows=(await ctx.db.query(`select * from personal_dictionary where org_id=$1 and owner_user_id=$2 and data_mode=$3 and deleted_at is null
- and ($4::uuid[] is null or id=any($4)) and (strpos(lower(term||' '||meaning||' '||note||' '||folder||' '||usage),lower($5))>0) order by favorite desc,saved_at desc limit 200`,[ctx.orgId,ctx.uid,ctx.mode,ids??null,query.slice(0,100)])).rows;
+ and ($4::uuid[] is null or id=any($4)) and (strpos(lower(term||' '||meaning||' '||note||' '||folder||' '||usage),lower($5))>0) order by favorite desc,saved_at desc,id limit 200`,[ctx.orgId,ctx.uid,ctx.mode,ids??null,query.slice(0,100)])).rows;
  return rows.map(r=>({id:r.id,entryType:r.entry_type,term:r.term,meaning:r.meaning||'뜻 미입력',note:r.note,folder:r.folder,favorite:r.favorite,usage:r.usage,examples:r.examples,revision:r.revision,type:'내 사전',categories:[],cautions:r.cautions,groups:[],observedCount:null,unknownTrendNote:({manual:'직접 등록한 항목 · 실사용 미검증',shared:'공용사전에서 저장한 항목',observed:'저장 당시 검색 표본에서 확인 · 현재 인기 지표 아님',interpret:'AI 문맥 해석에서 저장 · 해석 검토 필요'} as Record<string,string>)[r.source_kind]??null}));
 }
 export async function composerEntries(ctx:Ctx,ids:string[]) {
@@ -66,4 +67,19 @@ export async function editPersonalDictionary(ctx:Ctx,raw:unknown){
  where id=$1 and org_id=$2 and owner_user_id=$3 and data_mode=$4 and revision=$11 and deleted_at is null returning revision`,[input.id,ctx.orgId,ctx.uid,ctx.mode,input.meaning,input.note,input.folder,input.favorite,input.usage,JSON.stringify(input.examples),input.revision]);
  if(!result.rowCount)throw new AppError('CONFLICT','항목이 변경되었거나 접근할 수 없습니다. 다시 열어 확인해 주세요.');
  return result.rows[0].revision as number;
+}
+
+/** Filter before pagination; selection resolution remains independent of the current page. */
+export async function personalDictionaryPage(ctx:Ctx,raw:{q?:string;folder?:string;favorite?:boolean;page?:number}={}){
+ const filter=z.object({q:z.string().trim().max(100).default(''),folder:z.string().max(60).default(''),favorite:z.boolean().default(false),page:z.number().catch(1).optional()}).parse(raw);
+ const params=[ctx.orgId,ctx.uid,ctx.mode,filter.q,filter.folder,filter.favorite];
+ const where=`org_id=$1 and owner_user_id=$2 and data_mode=$3 and deleted_at is null
+ and strpos(lower(term||' '||meaning||' '||note||' '||folder||' '||usage||' '||examples::text),lower($4))>0
+ and ($5='' or folder=$5) and (not $6::boolean or favorite)`;
+ const total=Number((await ctx.db.query(`select count(*) as total from personal_dictionary where ${where}`,params)).rows[0].total);
+ const paging=pageWindow(total,filter.page,12);
+ const ids=(await ctx.db.query(`select id from personal_dictionary where ${where} order by favorite desc,saved_at desc,id limit $7 offset $8`,[...params,paging.limit,paging.offset])).rows.map(r=>r.id as string);
+ const items=ids.length?await personalDictionaryEntries(ctx,ids):[];
+ const folders=(await ctx.db.query(`select distinct folder from personal_dictionary where org_id=$1 and owner_user_id=$2 and data_mode=$3 and deleted_at is null and folder<>'' order by folder`,[ctx.orgId,ctx.uid,ctx.mode])).rows.map(r=>r.folder as string);
+ return {...paging,items,folders};
 }

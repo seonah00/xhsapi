@@ -35,3 +35,10 @@ jobs:
           path: |
             test-results/
             .tmp/e2e/
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: student-library-ui
+          path: test-results/student-library/
+          if-no-files-found: ignore

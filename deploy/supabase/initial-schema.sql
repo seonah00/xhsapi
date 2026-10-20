@@ -3012,3 +3012,12 @@ grant select,insert,update on writing_temporary to authenticated;
 grant all on writing_temporary to service_role;
 
 insert into app.applied_migrations (version, name) values ('20261020044224', '20261020044224_writing_recovery_personal_details.sql');
+
+-- ==== 20261020122138_writing_library_management.sql ====
+
+alter table public.writing_drafts add column archived_at timestamptz;
+alter table public.writing_versions add column restored_from integer check(restored_from>0);
+create index writing_drafts_owner_archive on public.writing_drafts(org_id,owner_user_id,data_mode,archived_at,updated_at desc,id);
+create index personal_dictionary_owner_paging on public.personal_dictionary(org_id,owner_user_id,data_mode,favorite desc,saved_at desc,id) where deleted_at is null;
+
+insert into app.applied_migrations (version, name) values ('20261020122138', '20261020122138_writing_library_management.sql');

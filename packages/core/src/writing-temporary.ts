@@ -20,7 +20,8 @@ export async function saveTemporaryWriting(ctx:Ctx,raw:unknown){
  if(current.version!==input.version)throw new AppError('CONFLICT','다른 창에서 임시 저장이 변경됐습니다. 현재 내용을 복사한 뒤 다시 열어 주세요.');
  if(input.content){
   if(input.scope!=='new'&&input.scope!==`draft:${input.content.id}`)throw new AppError('VALIDATION_FAILED','작성물과 임시 저장 위치가 다릅니다.');
-  const draft=(await ctx.db.query('select revision from writing_drafts where id=$1 and org_id=$2 and owner_user_id=$3 and data_mode=$4',[input.content.id,ctx.orgId,ctx.uid,ctx.mode])).rows[0];
+  const draft=(await ctx.db.query('select revision,archived_at from writing_drafts where id=$1 and org_id=$2 and owner_user_id=$3 and data_mode=$4',[input.content.id,ctx.orgId,ctx.uid,ctx.mode])).rows[0];
+  if(draft?.archived_at)throw new AppError('CONFLICT','보관한 글입니다. 보관함에서 꺼낸 뒤 작성하세요.');
   if((draft?.revision??0)!==input.content.revision)throw new AppError('CONFLICT','저장본이 변경됐습니다. 현재 내용을 복사한 뒤 최신 저장본을 열어 주세요.');
   const entries=await composerEntries(ctx,input.content.entryIds);
   if(entries.length!==new Set(input.content.entryIds).size)throw new AppError('VALIDATION_FAILED','사용한 사전 항목이 숨겨졌거나 접근할 수 없습니다. 선택을 다시 확인하세요.');

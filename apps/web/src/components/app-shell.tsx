@@ -4,6 +4,7 @@ import { readSession } from '@/server/session';
 import { currentUserEmail, myMemberships } from '@/server/ctx';
 import { env } from '@/server/env';
 import { logout } from '@/app/login/actions';
+import {AppNav} from './app-nav';
 import { MockBanner } from './ui';
 
 const ROLE: Record<string, string> = { student: '학생', reviewer: '강사', org_admin: '관리자' };
@@ -42,11 +43,7 @@ export async function AppShell({ children, area }: { children: React.ReactNode; 
         </div>
         {org && (
           <nav aria-label={area === 'admin' ? '관리자 메뉴' : '주 메뉴'} className="mx-auto max-w-6xl overflow-x-auto px-2">
-            <ul className="flex gap-1 whitespace-nowrap pb-2">
-              {nav.map(([href, label]) => (
-                <li key={href}><Link href={href} className={`block rounded-lg px-3 py-1.5 text-sm ${area === 'admin' ? 'hover:bg-bg/10' : 'hover:bg-bg'}`}>{label}</Link></li>
-              ))}
-            </ul>
+            <AppNav items={nav} admin={area==='admin'}/>
           </nav>
         )}
       </header>
