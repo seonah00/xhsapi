@@ -9,7 +9,7 @@ export type TemporaryWriting={version:number;content:z.infer<typeof WritingInput
 export async function getTemporaryWriting(ctx:Ctx,scope:string):Promise<TemporaryWriting>{
  const row=(await ctx.db.query(`select revision,content,updated_at from writing_temporary where org_id=$1 and owner_user_id=$2 and data_mode=$3 and scope=$4`,[ctx.orgId,ctx.uid,ctx.mode,Scope.parse(scope)])).rows[0];
  if(!row)return {version:0,content:null,updatedAt:null,terms:[]};
- const content=new Date(row.updated_at).getTime()>Date.now()-30*86400000?row.content:null;
+ const content=new Date(row.updated_at).getTime()>Date.now()-30*86400000?row.content?WritingInput.parse(row.content):null:null;
  const entries=content?await composerEntries(ctx,WritingInput.parse(content).entryIds):[];
  return {version:row.revision,content,updatedAt:new Date(row.updated_at).toISOString(),terms:entries.map(e=>e.term)};
 }
