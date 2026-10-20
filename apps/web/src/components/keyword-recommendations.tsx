@@ -26,7 +26,7 @@ export function KeywordRecommendations({ result, source }: { result: ReturnType<
     const enough=Number(b.performance?.strength==='comparable')-Number(a.performance?.strength==='comparable');
     return enough || (b.performance?.[order].median??-1)-(a.performance?.[order].median??-1) || b.noteCount-a.noteCount || a.term.localeCompare(b.term,'zh-CN');
   });
-  const candidates=result.items.filter(item=>item.noteCount===0);
+  const candidates=result.items.filter(item=>item.noteCount===0).sort((a,b)=>Number(!!b.aiReason)-Number(!!a.aiReason));
   const searched=result.items.find(item=>item.term===result.zh);
   const selectedVerified=selected.filter(term=>observed.some(item=>item.term===term));
   function card(item:KeywordRecommendation,verified:boolean) {
