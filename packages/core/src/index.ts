@@ -64,3 +64,6 @@ export * from "./keyword-tracking.ts";
 
 export * from "./personal-dictionary.ts";
 export * from "./writing.ts";
+
+export * from './writing-temporary.ts';
+export * from './expression-guides.ts';

@@ -5,6 +5,8 @@ import { notFound, type Ctx } from './context.ts';
 
 export type DictionaryEntryType = 'tag' | 'expression';
 export type SharedDictionaryEntry = {
+  usage?: string;
+  examples?: {zh:string;ko:string}[];
   id: string;
   entryType: DictionaryEntryType;
   term: string;

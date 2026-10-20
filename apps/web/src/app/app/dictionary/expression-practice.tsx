@@ -12,7 +12,7 @@ export function ExpressionPractice({ entries }: { entries: SharedDictionaryEntry
     {entries.filter(e => e.entryType === 'expression').map(entry => {
       const guide = expressionGuide(entry.term);
       return <details key={entry.id}><summary>{entry.term} 활용 보기</summary>
-        <p>{entry.meaning}</p>
+        <p>{entry.meaning}</p>{entry.usage&&<p>내 사전 사용법: {entry.usage}</p>}{entry.examples?.map((example,index)=><div key={index}><p lang="zh-CN">{example.zh}</p><p>{example.ko}</p><button type="button" onClick={()=>setSentence(example.zh)} className="underline">저장한 예문 {index+1}로 연습</button></div>)}
         {guide ? <><p>사용 상황: {guide.situation}</p><p>뉘앙스: {guide.nuance}</p><p>주의: {guide.avoid}</p><p lang="zh-CN">{guide.zh}</p><p>{guide.ko}</p><p className="text-xs text-muted">학습용 창작 예문입니다. 실제 게시물 인용이 아닙니다.</p><button type="button" onClick={() => setSentence(guide.zh)} className="underline">이 예문으로 연습</button></> : <p>공개 사전 설명과 실제 게시물 문맥을 참고해 문장을 작성하세요.</p>}
       </details>;
     })}

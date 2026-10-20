@@ -4,7 +4,7 @@ const id='40000000-0000-4000-8000-000000000001';
 describe('private working copy validation',()=>{
  it('accepts partial writing but limits payloads and scopes',()=>{
   const input={scope:'new',version:0,content:{id,revision:0,title:'',cover:'',body:'未完成',meaningKo:'',tags:[],entryIds:[]}};
-  expect(TemporaryWritingInput.parse(input).content.body).toBe('未完成');
+  expect(TemporaryWritingInput.parse(input).content?.body).toBe('未完成');
   expect(()=>TemporaryWritingInput.parse({...input,scope:'another-user'})).toThrow();
   expect(()=>TemporaryWritingInput.parse({...input,content:{...input.content,body:'x'.repeat(10001)}})).toThrow();
  });
