@@ -67,5 +67,5 @@ export function useWritingRecovery(scope:string,content:Content,manualPending:bo
    }catch{setError('임시 저장 정리에 실패했습니다. 새로고침 후 다시 확인하세요.');}
   }
  }
- return {ready,recovery,status,error,resolve,busy:status==='임시 저장 중…'||!ready};
+ return {ready,recovery,status,error,resolve,unprotected,busy:status==='임시 저장 중…'||!ready};
 }
