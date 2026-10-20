@@ -115,3 +115,28 @@ test('verified hashtag reactions use exact medians and unverified candidates can
   await expect(page.getByRole('region',{name:'실사용 검증 결과'})).toContainText('현재 표본에서 확인되지 않았습니다');
  } finally {await db.query('delete from notes where id=any($1::uuid[])',[ids]);await db.end();}
 });
+
+test('candidate batch completes without promoting absent tags and shows publication-cohort limits',async({page})=>{
+ const {default:pg}=await import('pg');
+ const db=new pg.Pool({connectionString:process.env.DATABASE_URL});
+ const org='00000000-0000-4000-b000-000000000001';
+ const old=(await db.query('select settings from organizations where id=$1',[org])).rows[0].settings;
+ const admin=(await db.query("select user_id from memberships where org_id=$1 and role='org_admin' and status='active' limit 1",[org])).rows[0].user_id;
+ try {
+  await db.query("update organizations set settings=jsonb_set(settings,'{auto_search}',$2::jsonb) where id=$1",[org,JSON.stringify({enabled:true,perStudent:90,perMonth:300,provider:'redfox',maxCny:'0.30',cacheHours:24,expiresAt:new Date(Date.now()+86400000).toISOString(),approvedBy:admin})]);
+  await page.goto('/login');await page.getByRole('button',{name:/student-b@demo\.invalid/}).click();await page.waitForURL(/\/app/);
+  await page.goto('/app/discover/language');
+  await page.getByLabel('연관·롱테일 키워드를 찾을 주제').fill('비 오는 날 아이와 여행');
+  await page.getByRole('button',{name:'AI 키워드 확장 준비'}).click();
+  await page.getByRole('checkbox').check();await page.getByRole('button',{name:'AI 실행',exact:true}).click();
+  await expect(page.getByRole('status')).toContainText('완료',{timeout:20000});
+  await page.getByText(/검증 전 검색 후보 .*개 · AI·사전·대상 조합/).click();
+  await page.getByRole('button',{name:'후보 3개 자동 검증'}).click();
+  await expect(page).toHaveURL(/\/discover\/verify\?ids=/);
+  await expect(page.getByRole('heading',{name:'후보 자동 검증',exact:true})).toBeVisible();
+  await expect(page.getByText('실사용 미확인 · 검색 결과에 정확히 같은 해시태그가 없습니다.')).toHaveCount(3,{timeout:30000});
+  await expect(page.getByText(/비교 표본 부족/)).toHaveCount(3);
+  await expect(page.getByRole('button',{name:'확인된 태그 복사'})).toHaveCount(0);
+  await expect(page.getByRole('link',{name:'게시물과 근거 확인'})).toHaveCount(3);
+ } finally {await db.query('update organizations set settings=$2 where id=$1',[org,old]);await db.end();}
+});

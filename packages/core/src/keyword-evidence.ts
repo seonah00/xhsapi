@@ -37,3 +37,25 @@ export function keywordEvidence(term:string,notes:readonly NoteCard[]) {
     observedFrom:dates[0]??null,observedTo:dates.at(-1)??null,publishedFrom:published[0]??null,publishedTo:published.at(-1)??null,
     strength:matching.length>=3 && authorCount>=2 && saves.sampleSize>=3?'comparable' as const:'limited' as const};
 }
+
+/** Compare publication cohorts in the same collected sample, not platform-wide search volume.
+ * Excludes the incomplete current Korean calendar day and missing/future publication dates. */
+export function keywordTrend(term:string,notes:readonly NoteCard[],now=new Date()) {
+  const day=86400_000;
+  const end=Math.floor((now.getTime()+9*3600_000)/day)*day-9*3600_000;
+  const recentStart=end-7*day,previousStart=end-14*day;
+  const sample=uniqueKeywordNotes(notes);
+  const cohort=(start:number,stop:number)=>sample.filter(n=>{
+    const time=n.publishedAt?Date.parse(n.publishedAt):NaN;
+    return Number.isFinite(time) && time>=start && time<stop;
+  });
+  const recent=keywordEvidence(term,cohort(recentStart,end));
+  const previous=keywordEvidence(term,cohort(previousStart,recentStart));
+  const enough=recent.sampleSize>=10 && previous.sampleSize>=10 && recent.noteCount>=3 && previous.noteCount>=3;
+  const recentShare=recent.sampleSize?recent.noteCount/recent.sampleSize:null;
+  const previousShare=previous.sampleSize?previous.noteCount/previous.sampleSize:null;
+  const changePoints=enough?(recentShare!-previousShare!)*100:null;
+  return {recent:{count:recent.noteCount,total:recent.sampleSize,share:recentShare},previous:{count:previous.noteCount,total:previous.sampleSize,share:previousShare},
+    previousStart:new Date(previousStart).toISOString(),recentStart:new Date(recentStart).toISOString(),end:new Date(end).toISOString(),
+    changePoints,status:!enough?'insufficient' as const:Math.abs(changePoints!)<0.01?'stable' as const:changePoints!>0?'increase' as const:'decrease' as const};
+}

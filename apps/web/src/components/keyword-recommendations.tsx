@@ -9,6 +9,8 @@ import { searchAutomatically } from '@/app/app/discover/actions';
 import { PendingButton } from './pending-button';
 import { CopyButton } from './copy-button';
 import { fmtDate } from './labels';
+import { KeywordTrend } from './keyword-trend';
+import { verifyCandidates } from '@/app/app/discover/verify/actions';
 
 type Order='saves'|'likes'|'usage';
 const number=(n:number)=>new Intl.NumberFormat('ko-KR',{maximumFractionDigits:1}).format(n);
@@ -40,6 +42,7 @@ export function KeywordRecommendations({ result, source }: { result: ReturnType<
         <p>{p.views.median===null?'조회수 미제공':`게시물 조회수 중앙값 ${number(p.views.median)} · 정확한 수치 ${p.views.sampleSize}/${p.noteCount}건`}</p>
         <p className="text-xs text-muted">확인 {fmtDate(p.observedFrom)} ~ {fmtDate(p.observedTo)} · 게시 {fmtDate(p.publishedFrom)} ~ {fmtDate(p.publishedTo)}</p>
       </div>}
+      {verified && item.trend && <KeywordTrend trend={item.trend}/>}
       {item.meaning && <p className="text-sm">{item.meaning}</p>}
       {item.aiReason && <p className="text-xs text-muted">AI 제안 이유: {item.aiReason}</p>}
       {item.cautions.map((c,i)=><p key={i} className="text-xs text-warn">{c}</p>)}
@@ -65,6 +68,13 @@ export function KeywordRecommendations({ result, source }: { result: ReturnType<
     <details className="mt-5 rounded-xl border border-line p-3">
       <summary className="cursor-pointer font-medium">검증 전 검색 후보 {candidates.length}개 · AI·사전·대상 조합</summary>
       <p className="my-2 text-sm">후보는 실사용 추천에 포함되지 않습니다. 실제 게시물로 검증을 누르면 기존 검색 한도 안에서 조회하고, 검색 화면에 태그 사용 근거와 반응을 표시합니다. 최근 검색은 재사용할 수 있습니다.</p>
+      {!!candidates.length && <form action={verifyCandidates} className="my-3 rounded border border-line p-3">
+        <input type="hidden" name="source" value={JSON.stringify(source)}/>
+        {candidates.slice(0,3).map(item=><input key={item.term} type="hidden" name="term" value={item.term}/>)}
+        <p>검증 대상: {candidates.slice(0,3).map(item=>`#${item.term}`).join(' · ')}</p>
+        <PendingButton className="mt-2 rounded border border-line px-3 py-2">후보 {Math.min(3,candidates.length)}개 자동 검증</PendingButton>
+        <p className="text-xs text-muted">한 번 누르면 후보별 검색과 실사용 확인을 진행합니다. 기존 검색 한도와 최근 결과 재사용이 적용됩니다.</p>
+      </form>}
       {(['core','related','longTail'] as const).map(group=><section key={group} className="mt-4">
         <h3 className="font-medium">{{core:'핵심 키워드',related:'연관 키워드',longTail:'롱테일 키워드 · 대상과 상황을 구체화'}[group]}</h3>
         <ul className="mt-2 grid gap-2 md:grid-cols-2">{candidates.filter(item=>item.group===group).map(item=>card(item,false))}</ul>
