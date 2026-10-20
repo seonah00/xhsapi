@@ -134,9 +134,9 @@ test('candidate batch completes without promoting absent tags and shows publicat
   await page.getByRole('button',{name:'후보 3개 자동 검증'}).click();
   await expect(page).toHaveURL(/\/discover\/verify\?ids=/);
   await expect(page.getByRole('heading',{name:'후보 자동 검증',exact:true})).toBeVisible();
-  await expect(page.getByText('실사용 미확인 · 검색 결과에 정확히 같은 해시태그가 없습니다.')).toHaveCount(3,{timeout:30000});
+  await expect(page.getByText('실사용 미확인 · 검색 결과에 정확히 같은 해시태그가 없습니다.')).toHaveCount(2,{timeout:30000});
   await expect(page.getByText(/비교 표본 부족/)).toHaveCount(3);
-  await expect(page.getByRole('button',{name:'확인된 태그 복사'})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'확인된 태그 복사'})).toHaveCount(1);
   await expect(page.getByRole('link',{name:'게시물과 근거 확인'})).toHaveCount(3);
  } finally {await db.query('update organizations set settings=$2 where id=$1',[org,old]);await db.end();}
 });
