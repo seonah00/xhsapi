@@ -16,6 +16,7 @@ export default async function AdminHome() {
   return (
     <>
       <PageHeader title="관리자 개요" description="조직의 멤버·기수·초대를 관리합니다. 학생의 비공개 초안과 자료는 관리자도 볼 수 없습니다." />
+      <p className="mb-4"><Link href="/admin/keyword-tracking" className="text-accent">공용 키워드 정기 수집 관리 →</Link></p>
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {stats.map(([label, n, href]) => (
           <div key={label} className="relative rounded-2xl border border-line bg-surface p-4 hover:border-accent">

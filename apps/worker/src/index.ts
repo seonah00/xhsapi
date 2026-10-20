@@ -8,7 +8,7 @@ import { ApifyNoteDetailProvider, createXhsProvider, MockXhsProvider, RedfoxXhsP
 import { resolve } from 'node:path';
 import { hostsFromUrl, installMockNetworkGuard } from '@xhs/security/network-guard';
 import { redactString } from '@xhs/security';
-import { claimableJobIds, LocalPrivateStorage, pgConfig, purgeExpired, runJob, SupabaseStorage, type Runner } from '@xhs/core';
+import { tickKeywordTracking, claimableJobIds, LocalPrivateStorage, pgConfig, purgeExpired, runJob, SupabaseStorage, type Runner } from '@xhs/core';
 
 /**
  * Worker: polls `app_jobs` (the domain source of truth) and claims rows with a
@@ -74,6 +74,7 @@ async function main() {
     ? new SupabaseStorage(env.NEXT_PUBLIC_SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, env.SUPABASE_STORAGE_BUCKET)
     : new LocalPrivateStorage(process.env.ASSET_STORAGE_DIR ?? resolve(process.cwd(), '.data/assets'));
   let lastPurge = 0;
+  let lastKeywordTick = 0;
   let stopping = false;
   process.on('SIGTERM', () => { stopping = true; });
   process.on('SIGINT', () => { stopping = true; });
@@ -82,6 +83,10 @@ async function main() {
       for (const id of await claimableJobIds(service)) {
         const outcome = await runJob({ service, provider, storage, env, apifyDetailProvider, pollBaseMs: live ? 30_000 : 2000, ...(liveProvider ? { liveProvider } : {}) }, id, workerId);
         if (outcome) console.info('job', id, outcome.state);
+      }
+      if (Date.now() - lastKeywordTick > 60_000) {
+        await tickKeywordTracking(service, env);
+        lastKeywordTick = Date.now();
       }
       if (Date.now() - lastPurge > 3600_000) {
         lastPurge = Date.now();

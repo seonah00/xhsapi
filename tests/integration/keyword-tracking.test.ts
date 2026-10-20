@@ -1,0 +1,63 @@
+import { beforeAll,afterAll,it,expect } from 'vitest';
+import { randomUUID } from 'node:crypto';
+import { loadEnv } from '@xhs/domain';
+import { saveKeywordTracking,tickKeywordTracking,keywordTrackingHistory,setAutoSearchPolicy,runJob,type Ctx,type Runner } from '@xhs/core';
+import { MockXhsProvider } from '@xhs/providers';
+import { pool,asUser } from './db.ts';
+const org=randomUUID(),admin=randomUUID(),student=randomUUID(),outsider=randomUUID();
+const service:Runner=async fn=>{const db=await pool.connect();try{await db.query('begin');const result=await fn(db);await db.query('commit');return result;}catch(e){await db.query('rollback');throw e;}finally{db.release();}};
+const user=<T>(uid:string,fn:(ctx:Ctx)=>Promise<T>)=>asUser(uid,db=>fn({db,uid,orgId:org,mode:'mock',role:uid===admin?'org_admin':'student'}));
+const env=loadEnv({});
+const until=new Date(Date.now()+7*86400000).toISOString();
+const save=(term:string,enabled=true)=>user(admin,ctx=>saveKeywordTracking(ctx,service,{term,enabled,intervalDays:7,approvedUntil:until}));
+beforeAll(async()=>{
+ await pool.query(`insert into auth.users(id,email) values($1,$2),($3,$4),($5,$6)`,[admin,admin+'@demo.invalid',student,student+'@demo.invalid',outsider,outsider+'@demo.invalid']);
+ await pool.query(`insert into organizations(id,name) values($1,'tracking fixture')`,[org]);
+ await pool.query(`insert into memberships(org_id,user_id,role) values($1,$2,'org_admin'),($1,$3,'student')`,[org,admin,student]);
+ await user(admin,ctx=>setAutoSearchPolicy(ctx,{enabled:true,perStudent:30,perMonth:30,expiresAt:until}));
+});
+afterAll(()=>pool.end());
+it('requires admin and bounded approval; RLS rejects direct client writes',async()=>{
+ await expect(user(student,ctx=>saveKeywordTracking(ctx,service,{term:'防晒',enabled:true,intervalDays:7,approvedUntil:until}))).rejects.toThrow();
+ await expect(user(admin,ctx=>saveKeywordTracking(ctx,service,{term:'防晒',enabled:true,intervalDays:7,approvedUntil:'2099-01-01T00:00:00Z'}))).rejects.toThrow();
+ await expect(asUser(admin,db=>db.query(`insert into keyword_tracking(org_id,data_mode,term,approved_by,approved_until) values($1,'mock','绕过',$2,$3)`,[org,admin,until]))).rejects.toThrow();
+});
+it('deduplicates concurrent ticks, snapshots once and keeps aggregates after source expiry',async()=>{
+ const id=await save('韩国旅行');
+ await Promise.all([tickKeywordTracking(service,env),tickKeywordTracking(service,env)]);
+ const row=(await pool.query('select pending_request_id from keyword_tracking where id=$1',[id])).rows[0];
+ const job=(await pool.query('select job_id from search_requests where id=$1',[row.pending_request_id])).rows[0];
+ expect((await pool.query('select count(*)::int as n from app_jobs where org_id=$1',[org])).rows[0].n).toBe(1);
+ await runJob({service,provider:new MockXhsProvider(),env},job.job_id,'tracking-fixture');
+ await tickKeywordTracking(service,env);
+ const history=await user(student,keywordTrackingHistory);
+ expect(history[0]!.snapshots).toHaveLength(1);
+ expect(history[0]!.snapshots[0]!.evidence.sampleSize).toBeGreaterThan(0);
+ expect(await user(outsider,keywordTrackingHistory)).toHaveLength(0);
+ await asUser(admin,db=>keywordTrackingHistory({db,uid:admin,orgId:org,role:'org_admin',mode:'live'})).then(rows=>expect(rows).toHaveLength(0));
+ await pool.query(`update notes set expires_at=now()-interval '1 day' where org_id=$1`,[org]);
+ await tickKeywordTracking(service,env);
+ expect((await user(student,keywordTrackingHistory))[0]!.snapshots).toEqual(history[0]!.snapshots);
+});
+it('pauses uncertain, expired and disabled schedules without retrying or creating false zero history',async()=>{
+ const id=await save('敏感肌');
+ await tickKeywordTracking(service,env);
+ const job=(await pool.query(`select r.job_id from keyword_tracking k join search_requests r on r.id=k.pending_request_id where k.id=$1`,[id])).rows[0];
+ await pool.query(`update app_jobs set state='unknown_outcome' where id=$1`,[job.job_id]);
+ await tickKeywordTracking(service,env);
+ expect((await pool.query('select enabled,last_state from keyword_tracking where id=$1',[id])).rows[0]).toEqual({enabled:false,last_state:'unknown_outcome'});
+ await save('敏感肌');
+ await tickKeywordTracking(service,env);await tickKeywordTracking(service,env);
+ expect((await pool.query(`select count(*)::int as n from app_jobs where org_id=$1 and input_ref->>'query'='敏感肌'`,[org])).rows[0].n).toBe(1);
+ const expired=await save('过期');
+ await pool.query(`update keyword_tracking set approved_until=now()-interval '1 day' where id=$1`,[expired]);
+ await tickKeywordTracking(service,env);
+ expect((await pool.query('select last_state from keyword_tracking where id=$1',[expired])).rows[0].last_state).toBe('approval_expired');
+ const off=await save('未启用',false);await tickKeywordTracking(service,env);
+ expect((await pool.query('select pending_request_id from keyword_tracking where id=$1',[off])).rows[0].pending_request_id).toBeNull();
+});
+it('pauses quota failures and retains no reservation from a rejected enqueue',async()=>{
+ await user(admin,ctx=>setAutoSearchPolicy(ctx,{enabled:true,perStudent:1,perMonth:1,expiresAt:until}));
+ const id=await save('配额');await tickKeywordTracking(service,env);
+ expect((await pool.query('select enabled,last_state,pending_request_id from keyword_tracking where id=$1',[id])).rows[0]).toEqual({enabled:false,last_state:'RATE_LIMITED',pending_request_id:null});
+});
