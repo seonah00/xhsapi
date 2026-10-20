@@ -19,8 +19,8 @@ export function WritingEditor({entries,draft,suggestion}:{entries:SharedDictiona
  <form action={action} className="mt-3 space-y-3"><input type="hidden" name="id" value={id}/><input type="hidden" name="revision" value={state.revision??draft?.revision??0}/>{entries.map(e=><input key={e.id} type="hidden" name="entryIds" value={e.id}/>)}
  <label className="block">중국어 제목<input name="title" maxLength={200} value={title} onChange={e=>setTitle(e.target.value)} className={input}/></label>
  <label className="block">표지 문구<input name="cover" maxLength={100} value={cover} onChange={e=>setCover(e.target.value)} className={input}/></label>
- <label className="block">중국어 본문<textarea name="body" rows={8} maxLength={10000} value={body} onChange={e=>setBody(e.target.value)} className={input}/></label>
- <label className="block">한국어 확인본<textarea name="meaningKo" rows={4} maxLength={10000} value={meaning} onChange={e=>setMeaning(e.target.value)} className={input}/></label>
+ <label className="block">중국어 본문<textarea aria-label="중국어 본문" name="body" rows={8} maxLength={10000} value={body} onChange={e=>setBody(e.target.value)} className={input}/></label>
+ <label className="block">한국어 확인본<textarea aria-label="한국어 확인본" name="meaningKo" rows={4} maxLength={10000} value={meaning} onChange={e=>setMeaning(e.target.value)} className={input}/></label>
  <label className="block">해시태그 (공백으로 구분)<input name="tags" value={tags} onChange={e=>{setTags(e.target.value);setTagsEdited(true);}} className={input}/></label>
  <button disabled={pending||!id} className={btn.primary}>{pending?'저장 중…':'작성 이력에 저장'}</button>{state.id&&<p role="status">버전 {state.revision} 저장 완료 · <Link className="underline" href={`/app/write/history/${state.id}`}>저장본·이력 열기</Link></p>}{state.error&&<p role="alert">{state.error}</p>}
  </form><div className="mt-3"><CopyButton text={[title,body,tags.split(/[\s,#，]+/).filter(Boolean).map(t=>'#'+t).join(' ')].filter(Boolean).join('\n\n')} label="현재 제목·본문·태그 복사"/></div></section>;
