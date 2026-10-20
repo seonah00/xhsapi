@@ -1,4 +1,5 @@
 'use client';
+import { SavePersonal } from './save-personal';
 import { useState } from 'react';
 import Link from 'next/link';
 import type { recommendKeywords, KeywordRecommendation } from '@xhs/core';
@@ -51,6 +52,7 @@ export function KeywordRecommendations({ result, source }: { result: ReturnType<
         {!!item.dictionaryIds.length && <Link href={`/app/dictionary?q=${encodeURIComponent(item.term)}`} className="underline">사전에서 활용하기</Link>}
         {item.evidence.map((e,i)=><Link key={e.noteId} href={`/app/notes/${e.noteId}`} className="underline">근거 게시물 {i+1}</Link>)}
       </div>
+      {verified && <SavePersonal source={{kind:"observed",source,term:item.term}}/>}
     </li>;
   }
   return <div className="mb-6 border-b border-line pb-5">

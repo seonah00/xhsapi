@@ -61,3 +61,6 @@ export * from './note-video.ts';
 export * from './keyword-verification.ts';
 
 export * from "./keyword-tracking.ts";
+
+export * from "./personal-dictionary.ts";
+export * from "./writing.ts";

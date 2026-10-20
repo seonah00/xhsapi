@@ -5,6 +5,8 @@ import type { DictionaryAiInput, DictionaryAiStatus, SharedDictionaryEntry } fro
 import { Badge, btn, Card } from '@/components/ui';
 import { dictionaryAiAction, type DictionaryAiState } from './actions';
 import { ExpressionPractice } from './expression-practice';
+import { WritingEditor } from '@/components/writing-editor';
+import { SavePersonal } from '@/components/save-personal';
 import { CopyButton } from '@/components/copy-button';
 import { dictionaryAiFormFingerprint } from './dictionary-ai-form-fingerprint';
 
@@ -87,7 +89,7 @@ function AiComposer({
   return (
     <Card>
       <h2 className="font-semibold">AI 초안제시</h2>
-      <p className="mt-1 text-xs text-muted">선택한 공용 항목과 직접 적은 조건만 사용합니다. 개인 초안과 결과는 공용 사전에 공유되지 않으며, 생성 결과는 게시 전에 직접 검토해야 합니다.</p>
+      <p className="mt-1 text-xs text-muted">선택한 공용사전·내 사전 항목과 직접 적은 조건만 사용합니다. 개인 초안과 결과는 공용 사전에 공유되지 않으며, 생성 결과는 게시 전에 직접 검토해야 합니다.</p>
       <p className="mt-3 text-sm">태그 {tags.length}/8 · 표현 {expressions.length}/3</p>
       <p className="mt-1 text-xs text-muted">이번 달 생성 가능 {status.userMonthlyRemaining}/{status.userMonthlyLimit}회{canManage && <> · 월간 전체 상한 {status.globalMonthlyUsdLimit} USD</>}</p>
       {!status.enabled && status.disabledReason && <p role="status" className="mt-2 rounded-lg bg-warn-soft px-3 py-2 text-xs text-warn">{canManage ? DISABLED_REASON[status.disabledReason] : '현재 AI 생성을 이용할 수 없습니다. 관리자에게 문의해 주세요.'} 미리보기는 가능하지만 실제 결과를 만들지는 않습니다.</p>}
@@ -148,7 +150,7 @@ function AiComposer({
             </details>
             <label className="mt-3 flex items-start gap-2 text-xs">
               <input type="checkbox" name="externalConsent" checked={externalConsent} onChange={(event) => setExternalConsent(event.target.checked)} className="mt-0.5" />
-              <span>위 내용이 Google Gemini로 전송되는 데 동의합니다.{canManage && <> 조직 예산에서 최대 {status.reservationMaxCostUsd} USD가 예약됩니다. 호출 실패 시에도 예약·사용 기록이 남을 수 있으며 실제 청구서가 아닙니다.</>} 선택한 공개 사전 항목, 카테고리, 내 메모, 작성 방식, 말투, 광고 표시 외의 사전 원문·출처·인용문·URL은 보내지 않습니다.</span>
+              <span>위 내용이 Google Gemini로 전송되는 데 동의합니다.{canManage && <> 조직 예산에서 최대 {status.reservationMaxCostUsd} USD가 예약됩니다. 호출 실패 시에도 예약·사용 기록이 남을 수 있으며 실제 청구서가 아닙니다.</>} 선택한 공용사전·내 사전 항목, 카테고리, 내 메모, 작성 방식, 말투, 광고 표시 외의 사전 원문·출처·인용문·URL은 보내지 않습니다.</span>
             </label>
             <input type="hidden" name="token" value={state.preview.token} />
             <button type="submit" name="intent" value="generate" disabled={pending || !status.enabled || !externalConsent} className={`${btn.primary} mt-3 w-full`}>{pending ? '생성 중…' : '동의하고 1회 생성'}</button>
@@ -172,6 +174,7 @@ function AiComposer({
       )}
       {chosen.length > 0 && <ExpressionPractice entries={chosen}/>}
       {output && !previewIsCurrent && <p role="status" className="mt-3 text-sm text-warn">생성 후 입력이 변경되었습니다. 현재 선택으로 새 미리보기를 만들거나 원래 결과를 복사해 보관하세요.</p>}
+      <WritingEditor entries={chosen} suggestion={output}/>
     </Card>
   );
 }
@@ -223,6 +226,7 @@ export function DictionaryWorkspace({ items, aiStatus, canManage = false }: { ca
                     </span>
                   </span>
                 </label>
+                <SavePersonal source={{kind:"shared",id:item.id}}/>
               </li>
             );
           })}
@@ -233,4 +237,9 @@ export function DictionaryWorkspace({ items, aiStatus, canManage = false }: { ca
       </aside>
     </div>
   );
+}
+
+export function DirectWriter({items,aiStatus,canManage}:{items:SharedDictionaryEntry[];aiStatus:DictionaryAiStatus;canManage:boolean}) {
+ const [chosen,setChosen]=useState(items);const [version,setVersion]=useState(0);
+ return <AiComposer chosen={chosen} canManage={canManage} status={aiStatus} selectionVersion={version} onRemove={item=>{setChosen(current=>current.filter(e=>e.id!==item.id));setVersion(v=>v+1);}}/>;
 }

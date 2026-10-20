@@ -16,6 +16,7 @@ export const LanguageScope = z.discriminatedUnion('task',[
 ]);
 const text=z.string().trim().min(1).max(500);
 export const LanguageOutput = z.object({
+  omittedExpressions:z.number().int().min(0).max(15).optional(),
   keywords:ExpandedKeywords.optional(),
   translations:z.array(z.object({zh:z.string().trim().min(1).max(50),meaningKo:text}).strict()).max(3),
   expressions:z.array(z.object({term:z.string().trim().min(2).max(40),meaningKo:text,usageKo:text,cautionKo:text,confidence:z.enum(['low','medium','high']),evidence:z.array(z.object({alias:z.string(),quote:z.string().min(2).max(250)}).strict()).min(1).max(3)}).strict()).max(15),
@@ -78,8 +79,15 @@ export function validateLanguageOutput(raw:unknown,input:LanguageInput):Language
 }
 /** Keep only exact, independently supported candidates; never repair an invented quote. */
 export function supportedLanguageOutput(raw:unknown,input:LanguageInput):LanguageOutput {
-  const parsed=LanguageOutput.parse(raw);
-  if(input.task!=='interpret') return validateLanguageOutput(parsed,input);
+  if(input.task!=='interpret') return validateLanguageOutput(raw,input);
+  // Validate the envelope first, then isolate malformed candidates. Never coerce invented evidence.
+  const envelope=z.object({translations:z.array(z.unknown()).max(3),expressions:z.array(z.unknown()).max(15)}).strict().parse(raw);
+  const candidates=envelope.expressions.map(candidate=>LanguageOutput.shape.expressions.element.safeParse(candidate));
+  const parsed={translations:envelope.translations,expressions:candidates.flatMap(candidate=>candidate.success?[candidate.data]:[])};
+  if(envelope.expressions.length && !parsed.expressions.length) {
+    const invalid=candidates.find(candidate=>!candidate.success);
+    if(invalid && !invalid.success) throw invalid.error;
+  }
   if(parsed.translations.length) throw new Error('AI_TASK_MISMATCH');
   const expressions:LanguageOutput['expressions']=[];
   const seen=new Set<string>();
@@ -93,7 +101,7 @@ export function supportedLanguageOutput(raw:unknown,input:LanguageInput):Languag
     if(evidence.length) {expressions.push({...candidate,evidence});seen.add(key);}
   }
   if(parsed.expressions.length && !expressions.length) throw new Error('AI_EVIDENCE_INVALID');
-  return validateLanguageOutput({translations:[],expressions},input);
+  return validateLanguageOutput({translations:[],expressions,...(envelope.expressions.length>expressions.length?{omittedExpressions:envelope.expressions.length-expressions.length}:{})},input);
 }
 export function languageFailureCode(error:unknown):string {
   if(error instanceof z.ZodError) {
@@ -109,7 +117,7 @@ export function languageFailureCode(error:unknown):string {
 export async function callLanguageAi(input:LanguageInput,config:{key:string;model:string},fetchImpl:typeof fetch=fetch) {
   const string={type:'string',minLength:1,maxLength:500};
   const object=(properties:Record<string,unknown>)=>({type:'object',additionalProperties:false,properties,required:Object.keys(properties)});
-  const fields={translations:{type:'array',minItems:1,maxItems:3,items:object({zh:{type:'string',minLength:1,maxLength:50},meaningKo:string})},expressions:{type:'array',maxItems:15,items:object({term:{type:'string',minLength:2,maxLength:40},meaningKo:string,usageKo:string,cautionKo:string,confidence:{type:'string',enum:['low','medium','high']},evidence:{type:'array',minItems:1,maxItems:3,items:object({alias:string,quote:{type:'string',minLength:2,maxLength:250}})}})}};
+  const fields={translations:{type:'array',minItems:1,maxItems:3,items:object({zh:{type:'string',minLength:1,maxLength:50},meaningKo:string})},expressions:{type:'array',maxItems:15,items:object({term:{type:'string',minLength:2,maxLength:40},meaningKo:string,usageKo:string,cautionKo:string,confidence:{type:'string',enum:['low','medium','high']},evidence:{type:'array',minItems:1,maxItems:3,items:object({alias:{type:'string',enum:input.notes.map(n=>n.alias)},quote:{type:'string',minLength:2,maxLength:250}})}})}};
   const keywordField={type:'array',minItems:3,maxItems:12,items:object({term:{type:'string',minLength:2,maxLength:40},group:{type:'string',enum:['core','related','longTail']},meaningKo:{type:'string',minLength:1,maxLength:200},reasonKo:{type:'string',minLength:1,maxLength:200}})};
   const schema=object(input.task==='expand'?{keywords:keywordField}:input.task==='translate'?{translations:fields.translations}:{expressions:fields.expressions});
   const taskInstruction=input.task==='expand'
@@ -126,7 +134,7 @@ export async function callLanguageAi(input:LanguageInput,config:{key:string;mode
     ? {...z.object({keywords:ExpandedKeywords}).strict().parse(raw),translations:[],expressions:[]}
     : input.task==='translate'
     ? {...z.object({translations:LanguageOutput.shape.translations}).strict().parse(raw),expressions:[]}
-    : {...z.object({expressions:LanguageOutput.shape.expressions}).strict().parse(raw),translations:[]};
+    : {...z.object({expressions:z.array(z.unknown()).max(15)}).strict().parse(raw),translations:[]};
   return supportedLanguageOutput(output,input);
 }
 export async function runLanguageAi(deps:JobDeps,job:JobRow):Promise<JobOutcome> {

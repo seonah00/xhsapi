@@ -21,7 +21,7 @@ describe('search language AI',()=>{
  });
  it('keeps independently grounded candidates and never fabricates evidence',()=>{
   const unsupported={...output.expressions[0],term:'假的',evidence:[{alias:'n1',quote:'假的文句'}]};
-  expect(supportedLanguageOutput({...output,expressions:[unsupported,...output.expressions,output.expressions[0]]},input)).toEqual(output);
+  expect(supportedLanguageOutput({...output,expressions:[unsupported,...output.expressions,output.expressions[0]]},input)).toEqual({...output,omittedExpressions:2});
   expect(()=>supportedLanguageOutput({...output,expressions:[unsupported]},input)).toThrow('AI_EVIDENCE_INVALID');
   expect(languageFailureCode(new Error('AI_INCOMPLETE'))).toBe('AI_INCOMPLETE');
   expect(languageFailureCode(new Error('private provider response'))).toBe('AI_RESULT_NEEDS_REVIEW');
@@ -50,4 +50,15 @@ it('records only allowlisted schema paths and codes, never values or arbitrary f
  expect(languageFailureCode(error)).toBe('AI_OUTPUT_SCHEMA_INVALID:keywords.item.term:custom');
  const privatePath=new z.ZodError([{code:'custom',path:['secret@example.com'],message:'private output'}]);
  expect(languageFailureCode(privatePath)).toBe('AI_OUTPUT_SCHEMA_INVALID:field:custom');
+});
+
+it('isolates malformed expression candidates and constrains provider aliases',async()=>{
+ const valid={term:'绝绝子',meaningKo:'감탄',usageKo:'칭찬',cautionKo:'문맥 확인',confidence:'medium',evidence:[{alias:'n1',quote:'这家店绝绝子'}]};
+ const malformed={...valid,meaningKo:null};
+ const fetcher=vi.fn(async()=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify({expressions:[malformed,valid]})}}]})));
+ const result=await callLanguageAi(input,{key:'synthetic',model:'fixture'},fetcher as typeof fetch);
+ expect(result.expressions).toEqual([valid]);expect(result.omittedExpressions).toBe(1);
+ const args=fetcher.mock.calls as unknown as [string,RequestInit][];
+ expect(JSON.parse(String(args[0]![1].body)).response_format.json_schema.schema.properties.expressions.items.properties.evidence.items.properties.alias.enum).toEqual(['n1']);
+ expect(()=>supportedLanguageOutput({translations:[],expressions:[malformed]},input)).toThrow();
 });

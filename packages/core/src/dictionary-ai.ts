@@ -1,8 +1,9 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { composerEntries } from './personal-dictionary.ts';
 import { AppError } from '@xhs/domain';
 import { z } from 'zod';
 import { pgCode, type Ctx } from './context.ts';
-import { getPublishedDictionaryEntries, type SharedDictionaryEntry } from './shared-dictionary.ts';
+import { type SharedDictionaryEntry } from './shared-dictionary.ts';
 
 export const DICTIONARY_AI_MODEL = 'gemini-3.8-flash' as const;
 export const DICTIONARY_AI_MAX_OUTPUT_TOKENS = 4_096;
@@ -154,7 +155,7 @@ const ContextEntryBase = z.object({
   meaning: z.string().max(1_000),
   type: z.string().max(200),
   categories: z.array(z.string().max(200)).max(20),
-  cautions: z.array(z.string().max(200)).max(20),
+  cautions: z.array(z.string().max(500)).max(20),
   groups: z.array(z.string().max(200)).max(20),
   unknownTrendNote: z.string().max(200).nullable(),
 });
@@ -183,6 +184,7 @@ const ContextSchema = z.object({
 
 const TokenPayloadSchema = z.object({
   v: z.literal(1),
+  dataMode:z.enum(['mock','live']),
   uid: z.string().uuid(),
   orgId: z.string().uuid(),
   nonce: z.string().regex(/^[0-9a-f]{32}$/),
@@ -285,8 +287,8 @@ function entryBase(entry: SharedDictionaryEntry) {
 }
 
 async function previewContext(ctx: Ctx, input: DictionaryAiInput): Promise<DictionaryAiPreviewContext> {
-  const entries = await getPublishedDictionaryEntries(ctx, input.entryIds);
-  if (entries.length !== input.entryIds.length) validation('공개된 같은 조직의 사전 항목만 선택할 수 있습니다.');
+  const entries = await composerEntries(ctx, input.entryIds);
+  if (entries.length !== input.entryIds.length) validation('공용사전 또는 본인의 내 사전 항목만 선택할 수 있습니다.');
   const tags = entries.filter((entry) => entry.entryType === 'tag');
   const expressions = entries.filter((entry) => entry.entryType === 'expression');
   if (tags.length > 8 || expressions.length > 3) validation('해시태그는 최대 8개, 표현은 최대 3개까지 선택할 수 있습니다.');
@@ -430,6 +432,7 @@ export async function previewDictionaryAi(ctx: Ctx, rawInput: DictionaryAiInput,
   const estimatedMaxCostUsd = estimateDictionaryAiMaxCostUsd(context);
   const payload: TokenPayload = {
     v: 1,
+    dataMode:ctx.mode,
     uid: ctx.uid,
     orgId: ctx.orgId,
     nonce: randomBytes(16).toString('hex'),
@@ -570,6 +573,7 @@ export async function generateDictionaryAi(
   const reservation = await runWithCtx<CommittedReservation>(async (ctx) => {
     assertActor(ctx);
     const payload = verifyToken(input.token, ctx, config);
+    if(payload.dataMode!==ctx.mode) throw new AppError('FORBIDDEN','미리보기 모드가 변경되었습니다. 다시 미리보기하세요.');
     if (ctx.mode !== 'live') throw new AppError('FEATURE_DISABLED', 'AI 작성 기능이 활성화되지 않았습니다.');
     const controls = await loadOrgControls(ctx);
     if (!controls.live || controls.kill || !controls.ai) throw new AppError('LIVE_BLOCKED', '조직의 AI 실행 설정이 꺼져 있습니다.');

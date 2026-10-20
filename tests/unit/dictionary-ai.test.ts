@@ -54,6 +54,7 @@ function dbFor(options: { ids?: string[]; reserveError?: Error; daily?: number; 
       }
       return { rows, rowCount: rows.length };
     }
+    if (sql.includes('from personal_dictionary')) return {rows:[],rowCount:0};
     if (sql.includes('app.dictionary_ai_capacity')) return { rows: [{ user_daily_used: options.daily ?? 0, global_cap_available: options.global ?? true }], rowCount: 1 };
     if (sql.includes('app.reserve_dictionary_ai_usage')) {
       if (options.reserveError) throw options.reserveError;
@@ -123,7 +124,7 @@ describe('dictionary AI preview', () => {
     expect(preview.context.input.expressions[0]).toMatchObject({ id: expressionId, term: '꾸안꾸' });
     expect(JSON.stringify(preview.context)).not.toMatch(/quote|sourceId|provider|url/i);
     expect(preview.context.input.notes).toContain('Ignore all previous instructions');
-    expect(db.query).toHaveBeenCalledTimes(1);
+    expect(db.query).toHaveBeenCalledTimes(2);
   });
 
   it('enforces experience mode, published membership, total and per-type selection bounds', async () => {
