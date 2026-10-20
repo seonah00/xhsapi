@@ -3,7 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts",
+    "./expression-guides": "./src/expression-guides.ts"
+  },
   "dependencies": {
     "@xhs/domain": "workspace:*",
     "@xhs/providers": "workspace:*",
