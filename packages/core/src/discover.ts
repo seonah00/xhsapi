@@ -50,6 +50,13 @@ const ORDER: Record<'popular' | 'saves' | 'recent', string> = { popular: metricO
 
 const HAS_ORIGINAL_LINK = `exists (select 1 from notes linked where linked.org_id=n.org_id and linked.platform_note_id=n.platform_note_id and linked.data_mode=n.data_mode and (linked.expires_at is null or linked.expires_at>now()) and app.has_note_access_link(linked.id))`;
 
+// A retained address alone is not evidence that its original page opens. Apply this
+// before ordering/limiting so hidden or unverified live posts cannot consume a page.
+// Detail/history access is intentionally unchanged; no content is deleted.
+const DISCOVERY_VISIBLE = `(n.data_mode = 'mock' or (exists (
+  select 1 from note_link_checks c where c.org_id=n.org_id and c.note_id=n.id and c.status='opened'
+) and ${HAS_ORIGINAL_LINK}))`;
+
 const NOTE_SELECT = `
   select ${HAS_ORIGINAL_LINK} as has_original_link, n.id, n.platform_note_id, coalesce(e.title,n.title) as title, coalesce(e.body_excerpt,n.body_excerpt) as body_excerpt, n.canonical_url, coalesce(e.note_type,n.note_type) as note_type,
          coalesce(e.cover_url, case when n.cover_url is not null and app.org_allows_media_display(n.org_id) then n.cover_url end) as cover_url, case when app.org_allows_media_display(n.org_id) then n.cover_url end as source_cover_url, n.author_display_name, n.author_ref,
@@ -110,7 +117,7 @@ export async function discover(ctx: Ctx, input: z.input<typeof DiscoverQuery>): 
     }
   }
   const offset = q.cursor ? Number.parseInt(Buffer.from(q.cursor, 'base64url').toString(), 10) || 0 : 0;
-  const where: string[] = ['n.org_id = $2', 'n.data_mode = $3', 'not n.is_fallback'];
+  const where: string[] = ['n.org_id = $2', 'n.data_mode = $3', 'not n.is_fallback', DISCOVERY_VISIBLE];
   const params: unknown[] = [ctx.uid, ctx.orgId, ctx.mode];
   const postFilters: string[] = [];
 
@@ -166,7 +173,7 @@ export async function discover(ctx: Ctx, input: z.input<typeof DiscoverQuery>): 
 }
 
 async function latestHot(ctx: Ctx): Promise<NoteCard[]> {
-  return (await ctx.db.query<NoteRow>(`${NOTE_SELECT} where n.org_id = $2 and n.data_mode = $3 and n.is_fallback order by n.observed_at desc limit 3`, [ctx.uid, ctx.orgId, ctx.mode])).rows.map(toCard);
+  return (await ctx.db.query<NoteRow>(`${NOTE_SELECT} where n.org_id = $2 and n.data_mode = $3 and ${DISCOVERY_VISIBLE} and n.is_fallback order by n.observed_at desc limit 3`, [ctx.uid, ctx.orgId, ctx.mode])).rows.map(toCard);
 }
 
 export async function lastFetched(ctx: Ctx): Promise<string | null> {
@@ -189,7 +196,7 @@ export type Recommendation = { note: NoteCard; reasons: string[]; cons: string[]
 /** Home recommendations: up to 6 explainable picks from stored data (spec 4.1). */
 export async function recommend(ctx: Ctx, profile: AccountProfile, now = new Date()): Promise<{ items: Recommendation[]; rankingVersion: string; sampleSize: number }> {
   const rows = (await ctx.db.query<NoteRow>(
-    `${NOTE_SELECT} where n.org_id = $2 and n.data_mode = $3 and not n.is_fallback order by n.published_at desc nulls last limit 300`,
+    `${NOTE_SELECT} where n.org_id = $2 and n.data_mode = $3 and not n.is_fallback and ${DISCOVERY_VISIBLE} order by n.published_at desc nulls last limit 300`,
     [ctx.uid, ctx.orgId, ctx.mode],
   )).rows.map(toCard);
   const ranked = rankForProfile(

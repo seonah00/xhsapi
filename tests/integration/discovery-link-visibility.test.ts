@@ -5,7 +5,7 @@ import {pool,asUser} from './db.ts';
 
 const org=randomUUID(),student=randomUUID(),outsider=randomUUID();
 const visible:string[]=[],hidden:string[]=[];
-let unknown:string,expired:string,fallback:string,mock:string;
+let unknown:string,expired:string,fallback:string,mock:string,topic:string;
 const user=<T>(uid:string,fn:(ctx:Ctx)=>Promise<T>,mode:'live'|'mock'='live')=>asUser(uid,db=>fn({db,uid,orgId:org,role:'student',mode}));
 async function add(index:number,status?:'opened'|'not_found',mode:'live'|'mock'='live',isFallback=false){
  const pid=index.toString(16).padStart(24,'0');
@@ -22,6 +22,8 @@ beforeAll(async()=>{
  for(let i=53;i<=71;i++)hidden.push(await add(i,'not_found'));
  unknown=await add(72);expired=await add(73,'opened');fallback=await add(74,'not_found','live',true);mock=await add(75,undefined,'mock');
  await pool.query(`update note_access_links set expires_at=now()-interval '1 second' where note_id=$1`,[expired]);
+ const term=(await pool.query(`select id,slug from taxonomy_terms where org_id is null and kind='topic' order by slug limit 1`)).rows[0];topic=term.slug;
+ await pool.query(`insert into note_taxonomy(note_id,taxonomy_id,classifier_version,confidence) select id,$2,'fixture','high' from notes where org_id=$1`,[org,term.id]);
 });
 afterAll(async()=>{await pool.end();});
 
@@ -37,7 +39,7 @@ it('filters before pagination and retains every stored note and sharing link',as
 });
 it('applies visibility to every stored search and sort including original-only results',async()=>{
  for(const sort of ['popular','saves','recent'] as const){
-  const result=await user(student,ctx=>discover(ctx,{q:'可见性测试',original:'1',sort}));
+  const result=await user(student,ctx=>discover(ctx,{q:'可见性测试',original:'1',sort,topic}));
   expect(result.notes).toHaveLength(50);
   expect(result.notes.every(n=>visible.includes(n.id)&&n.hasOriginalLink)).toBe(true);
  }
