@@ -13,6 +13,7 @@ test('focused navigation and separate post links',async({page})=>{
  await expect(card.getByRole('link',{name:'샤오홍슈에서 제목 검색 ↗'})).toHaveCount(0);
  await card.getByRole('link',{name:/^(영상·상세 보기|게시물 상세 보기)$/}).click();
  await expect(page.getByRole('heading',{name:'게시물 링크',exact:true})).toBeVisible();
+ await page.getByText('게시물 기본 주소 확인',{exact:true}).click();
  await expect(page.getByRole('button',{name:'게시물 기본 주소 복사'})).toBeVisible();
  await expect(page.getByRole('button',{name:'원문 링크 다시 찾기'})).toBeVisible();
  await expect(page.getByText(/USD|Apify 제목 검색/)).toHaveCount(0);

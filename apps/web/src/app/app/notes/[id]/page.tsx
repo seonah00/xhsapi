@@ -13,7 +13,7 @@ import { Metric } from '@/components/metric';
 import { PageHeader, Card, Thumb, btn } from '@/components/ui';
 
 export const metadata = { title: '게시물 상세' };
-export default async function NoteDetail({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{error?:string;connected?:string;refresh?:string}>}) {
+export default async function NoteDetail({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{error?:string;connected?:string;refresh?:string;link?:string}>}) {
   const {id}=await params;
   const sp=await searchParams;
   if(!z.string().uuid().safeParse(id).success) notFound();
@@ -25,6 +25,7 @@ export default async function NoteDetail({params,searchParams}:{params:Promise<{
   return <>
     <PageHeader title={note.title ?? '게시물 상세'} description="수집된 게시물 정보입니다. 전체 내용은 샤오홍슈에서 확인하세요."
       actions={<Link href="/app/discover" className={btn.secondary}>탐색으로</Link>}/>
+    {sp.link==='unavailable' && <p role="alert" className="mb-3 rounded-xl bg-warn-soft p-3 text-sm text-warn">이 원문 공유 링크는 현재 사용할 수 없습니다. 보관 기한이 끝났거나 연결 정보가 없어 새로 확인해야 합니다.</p>}
     {sp.error && <p role="alert" className="text-warn">{sp.error}</p>}
     {sp.connected && <p role="status">원문 링크를 연결했습니다. 아래 버튼으로 게시물을 여세요.</p>}
     {refresh.success && status && <AutoSearchStatus requestId={refresh.data} original/>}
@@ -39,11 +40,19 @@ export default async function NoteDetail({params,searchParams}:{params:Promise<{
         {note.hasOriginalLink && <a href={`/app/notes/${id}/original`} target="_blank" rel="noopener noreferrer" className={btn.primary}>게시물 원문 보기 ↗</a>}
         {canManage && <Link href={`/app/notes/${id}/enrich`} className={btn.secondary}>정보 업데이트</Link>}
       </div>
-      <div className="mt-4 rounded-xl border border-line p-3">
+      <div className="mt-4 space-y-3 rounded-xl border border-line p-3">
         <h2 className="font-semibold">게시물 링크</h2>
-        <p className="my-2 break-all text-sm">{note.hasOriginalLink ? <a href={`/app/notes/${id}/original`} target="_blank" rel="noopener noreferrer" className="underline">{note.canonicalUrl}</a> : note.canonicalUrl}</p>
-        <CopyButton text={note.canonicalUrl} label="게시물 기본 주소 복사"/>
-        <p className="mt-2 text-xs text-muted">위 기본 주소에는 접근용 공유 정보가 없습니다. 원문 보기 버튼은 현재 보관 중인 공유 주소를 사용합니다. 로그인 후 멈추면 이 화면으로 돌아와 원문 보기 버튼을 다시 눌러 보세요.</p>
+        {note.hasOriginalLink ? <>
+          <a href={`/app/notes/${id}/original`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center break-all text-sm underline">원문 연결 주소 열기 ↗</a>
+          <div><CopyButton text={`/app/notes/${id}/original`} appRelative label="원문 연결 링크 복사"/></div>
+          <p className="text-xs text-muted">복사한 스튜디오 링크는 로그인 후 현재 보관된 샤오홍슈 공유 주소로 이동합니다. 공유 주소 보관 기한이 끝나면 새 연결이 필요합니다. 로그인 후 멈추면 이 화면에서 원문 보기 버튼을 다시 눌러 보세요.</p>
+        </> : <p className="text-sm text-muted">현재 제공할 수 있는 유효한 원문 공유 링크가 없습니다. 아래 기본 주소는 접근이 보장되는 공유 링크가 아닙니다.</p>}
+        <details className="text-sm">
+          <summary className="cursor-pointer py-3">게시물 기본 주소 확인</summary>
+          <p className="my-2 break-all">{note.canonicalUrl}</p>
+          <CopyButton text={note.canonicalUrl} label="게시물 기본 주소 복사"/>
+          <p className="mt-2 text-xs text-muted">이 주소에는 접근용 공유 정보가 없어 샤오홍슈에서 열리지 않을 수 있습니다.</p>
+        </details>
       </div>
       {!note.hasOriginalLink && <div className="mt-3 space-y-2">
         <p role="status">현재 유효한 원문 공유 링크가 없습니다. 다시 검색해 동일한 게시물이 발견되면 원문 보기 버튼이 나타납니다.</p>

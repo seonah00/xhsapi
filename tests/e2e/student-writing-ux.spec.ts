@@ -15,7 +15,9 @@ test('shared selections lead to writing without losing manual or AI input @mobil
  await page.getByRole('checkbox',{name:prefix+'00 선택',exact:true}).check();
  const go=page.getByRole('button',{name:'선택한 1개로 글쓰기',exact:true});await expect(go).toBeVisible();
  if(info.project.name==='mobile'){const r=await go.boundingBox();expect(r!.height).toBeGreaterThanOrEqual(44);expect(r!.y+r!.height).toBeLessThanOrEqual(780);}
- await go.click();await expect(page.getByRole('tab',{name:'직접 작성',exact:true})).toHaveAttribute('aria-selected','true');
+ await go.click();
+ await page.getByRole('tab',{name:'직접 작성',exact:true}).focus();await page.keyboard.press('ArrowRight');await expect(page.getByRole('tab',{name:'AI 도움',exact:true})).toBeFocused();await page.keyboard.press('Home');
+ await expect(page.getByRole('tab',{name:'직접 작성',exact:true})).toHaveAttribute('aria-selected','true');
  if(await page.getByRole('button',{name:'임시 저장 지우고 새로 작성',exact:true}).isVisible())await page.getByRole('button',{name:'임시 저장 지우고 새로 작성',exact:true}).click();
  await page.getByLabel('중국어 제목',{exact:true}).fill('수동 초안 유지');await expect(page.getByText('임시 저장 완료',{exact:false})).toBeVisible();
  await page.getByRole('tab',{name:'AI 도움',exact:true}).click();await page.getByLabel(/내 조건과 사실/).fill('실제 산책 경험');
@@ -44,7 +46,8 @@ test('copyable original connection preserves valid shares and handles expiry wit
  const id=(await db.query(`insert into notes(org_id,provider,platform_note_id,data_mode,canonical_url,title,provenance) values($1,'mock',$2,'mock',$3,'공유주소 UX 합성 예시','{}') returning id`,[org,pid,share.split('?')[0]])).rows[0].id;
  try{
   await db.query(`insert into note_access_links(note_id,org_id,access_url,expires_at) values($1,$2,$3,now()+interval '1 hour')`,[id,org,share]);await login(page,'student-a@demo.invalid');await page.goto('/app/notes/'+id);
-  await expect(page.getByRole('button',{name:'원문 연결 링크 복사',exact:true})).toBeVisible();await expect(page.getByText('synthetic-ux-only',{exact:false})).toHaveCount(0);
+  await page.context().grantPermissions(['clipboard-read','clipboard-write']);
+  await page.getByRole('button',{name:'원문 연결 링크 복사',exact:true}).click();expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(new URL(`/app/notes/${id}/original`,page.url()).href);await expect(page.getByText('synthetic-ux-only',{exact:false})).toHaveCount(0);
   const redirect=await page.request.get(`/app/notes/${id}/original`,{maxRedirects:0});expect(redirect.status()).toBe(302);expect(redirect.headers().location).toBe(share);expect(redirect.headers()['cache-control']).toContain('no-store');
   await db.query(`update note_access_links set expires_at=now()-interval '1 second' where note_id=$1`,[id]);
   const expired=await page.request.get(`/app/notes/${id}/original`,{maxRedirects:0});expect(expired.headers().location).toContain('link=unavailable');await page.goto(expired.headers().location!);

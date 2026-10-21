@@ -82,6 +82,7 @@ test('admin stages, reviews and publishes a private JSON import; students browse
   await expect(page.getByText('https://private.invalid/source')).toHaveCount(0);
   await page.getByLabel('水光肌 선택').check();
   await expect(page.getByText('태그 1/8 · 표현 0/3')).toBeVisible();
+  await page.getByRole('tab', {name:'AI 도움',exact:true}).click();
   const originalNotes = '집에서 저녁 스킨케어 뒤 촬영한 실제 기록';
   await page.getByLabel(/내 조건과 사실/).fill(originalNotes);
   await page.getByLabel(/내가 실제로 경험한 사실/).check();

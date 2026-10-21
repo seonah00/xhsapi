@@ -1,6 +1,7 @@
 'use client';
 
-import { useActionState, useMemo, useState, useTransition, type FormEvent } from 'react';
+import { useActionState, useId, useMemo, useRef, useState, useTransition, type FormEvent, type KeyboardEvent } from 'react';
+import Link from 'next/link';
 import type { DictionaryAiInput, DictionaryAiStatus, SharedDictionaryEntry } from '@xhs/core';
 import { Badge, btn, Card } from '@/components/ui';
 import { dictionaryAiAction, type DictionaryAiState } from './actions';
@@ -32,13 +33,24 @@ function AiComposer({
   status,
   selectionVersion,
   onRemove,
+  standalone = false,
 }: {
+  standalone?: boolean;
   chosen: SharedDictionaryEntry[];
   canManage: boolean;
   status: DictionaryAiStatus;
   selectionVersion: number;
   onRemove: (item: SharedDictionaryEntry) => void;
 }) {
+  const panelId = useId();
+  const [panel, setPanel] = useState<'write'|'ai'>('write');
+  function navigateTabs(event: KeyboardEvent<HTMLButtonElement>) {
+    if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === 'Home' ? 'write' : event.key === 'End' ? 'ai' : panel === 'write' ? 'ai' : 'write';
+    setPanel(next);
+    event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(`[data-panel="${next}"]`)?.focus();
+  }
   const [state, action, actionPending] = useActionState<DictionaryAiState, FormData>(dictionaryAiAction, {});
   const [transitionPending, startTransition] = useTransition();
   const [category, setCategory] = useState<DictionaryAiInput['category']>('뷰티');
@@ -88,24 +100,32 @@ function AiComposer({
 
   return (
     <Card>
-      <h2 className="font-semibold">AI 초안제시</h2>
+      <h2 className="font-semibold">작성 도구</h2>
       <p className="mt-1 text-xs text-muted">선택한 공용사전·내 사전 항목과 직접 적은 조건만 사용합니다. 개인 초안과 결과는 공용 사전에 공유되지 않으며, 생성 결과는 게시 전에 직접 검토해야 합니다.</p>
       <p className="mt-3 text-sm">태그 {tags.length}/8 · 표현 {expressions.length}/3</p>
-      <p className="mt-1 text-xs text-muted">이번 달 생성 가능 {status.userMonthlyRemaining}/{status.userMonthlyLimit}회{canManage && <> · 월간 전체 상한 {status.globalMonthlyUsdLimit} USD</>}</p>
-      {!status.enabled && status.disabledReason && <p role="status" className="mt-2 rounded-lg bg-warn-soft px-3 py-2 text-xs text-warn">{canManage ? DISABLED_REASON[status.disabledReason] : '현재 AI 생성을 이용할 수 없습니다. 관리자에게 문의해 주세요.'} 미리보기는 가능하지만 실제 결과를 만들지는 않습니다.</p>}
-      {chosen.length === 0 ? <p className="mt-3 text-sm text-muted">왼쪽 목록에서 항목을 선택하세요.</p> : (
+      {chosen.length === 0 ? <p className="mt-3 text-sm text-muted">{standalone ? <><Link href="/app/dictionary/mine" className="inline-flex min-h-11 items-center text-accent underline">내 사전에서 항목 선택</Link> · 항목 없이 직접 작성할 수도 있습니다.</> : '목록에서 항목을 선택하거나 바로 직접 작성하세요.'}</p> : (
         <ul className="mt-3 flex flex-wrap gap-1" aria-label="선택한 항목">
           {chosen.map((item) => (
             <li key={item.id}>
               <Badge tone={item.entryType === 'tag' ? 'info' : 'accent'}>
                 <span className="zh" lang="zh-CN">{item.term}</span>
-                <button type="button" onClick={() => onRemove(item)} aria-label={`${item.term} 선택 해제`} className="ml-1 rounded px-1 font-bold">×</button>
+                <button type="button" onClick={() => onRemove(item)} aria-label={`${item.term} 선택 해제`} className="ml-1 inline-flex min-h-11 min-w-11 items-center justify-center rounded font-bold">×</button>
               </Badge>
             </li>
           ))}
         </ul>
       )}
 
+      <div role="tablist" aria-label="글쓰기 방식" className="mt-4 flex gap-2">
+        {(['write','ai'] as const).map(value=><button key={value} id={`${panelId}-${value}-tab`} type="button" role="tab" data-panel={value} aria-selected={panel===value} aria-controls={`${panelId}-${value}-panel`} tabIndex={panel===value?0:-1} onKeyDown={navigateTabs} onClick={()=>setPanel(value)} className={`${panel===value?btn.primary:btn.secondary} min-h-11`}>{value==='write'?'직접 작성':'AI 도움'}</button>)}
+      </div>
+      <div id={`${panelId}-write-panel`} role="tabpanel" aria-labelledby={`${panelId}-write-tab`} hidden={panel!=='write'}>
+        <WritingEditor entries={chosen} suggestion={output}/>
+      </div>
+      <div id={`${panelId}-ai-panel`} role="tabpanel" aria-labelledby={`${panelId}-ai-tab`} hidden={panel!=='ai'}>
+      <h3 className="mt-4 font-semibold">AI 초안제시</h3>
+      <p className="mt-1 text-xs text-muted">이번 달 생성 가능 {status.userMonthlyRemaining}/{status.userMonthlyLimit}회{canManage && <> · 월간 전체 상한 {status.globalMonthlyUsdLimit} USD</>}</p>
+      {!status.enabled && status.disabledReason && <p role="status" className="mt-2 rounded-lg bg-warn-soft px-3 py-2 text-xs text-warn">{canManage ? DISABLED_REASON[status.disabledReason] : '현재 AI 생성을 이용할 수 없습니다. 관리자에게 문의해 주세요.'} 미리보기는 가능하지만 실제 결과를 만들지는 않습니다.</p>}
       <form onSubmit={submit} className="mt-4 space-y-3">
         {chosen.map((item) => <input key={item.id} type="hidden" name="entryIds" value={item.id} />)}
         <label className="block text-sm">카테고리
@@ -172,14 +192,17 @@ function AiComposer({
           <p className="text-xs text-muted">{canManage && <>모델 {state.generation?.model} · 예약 최대 비용 {state.generation?.usage.reservedMaxCostUsd} USD. 표시 비용은 실제 청구서가 아닌 상한 추정치입니다. </>} 이 결과는 내 비공개 초안이며 공용 사전에 추가되지 않습니다.</p>
         </section>
       )}
-      {chosen.length > 0 && <ExpressionPractice entries={chosen}/>}
+      {output && <button type="button" className={`${btn.secondary} mt-3`} onClick={()=>setPanel('write')}>결과를 직접 편집하기</button>}
       {output && !previewIsCurrent && <p role="status" className="mt-3 text-sm text-warn">생성 후 입력이 변경되었습니다. 현재 선택으로 새 미리보기를 만들거나 원래 결과를 복사해 보관하세요.</p>}
-      <WritingEditor entries={chosen} suggestion={output}/>
+      </div>
+      {chosen.length > 0 && <ExpressionPractice entries={chosen}/>}
     </Card>
   );
 }
 
 export function DictionaryWorkspace({ items, aiStatus, canManage = false }: { canManage?: boolean; items: SharedDictionaryEntry[]; aiStatus: DictionaryAiStatus }) {
+  const composer = useRef<HTMLElement>(null);
+  const composerId = useId();
   const [selectedItems, setSelectedItems] = useState<Map<string, SharedDictionaryEntry>>(() => new Map());
   const [selectionVersion, setSelectionVersion] = useState(0);
   const [limitMessage, setLimitMessage] = useState<string>();
@@ -203,8 +226,13 @@ export function DictionaryWorkspace({ items, aiStatus, canManage = false }: { ca
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <div>
+    <div className="pb-24 lg:pb-0">
+      <div className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-between gap-2 border-t border-line bg-surface p-3 shadow-lg lg:static lg:mb-4 lg:rounded-xl lg:border lg:shadow-none">
+        <span aria-live="polite" className="text-sm">{chosen.length}개 선택됨</span>
+        <button type="button" aria-controls={composerId} disabled={chosen.length===0} className={`${btn.primary} min-h-11`} onClick={()=>{composer.current?.focus({preventScroll:true});composer.current?.scrollIntoView({block:'start',behavior:'auto'});}}>선택한 {chosen.length}개로 글쓰기</button>
+      </div>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="min-w-0">
         {limitMessage && <p role="alert" className="mb-3 rounded-xl bg-warn-soft px-3 py-2 text-sm text-warn">{limitMessage}</p>}
         <ul className="grid gap-3 sm:grid-cols-2">
           {items.map((item) => {
@@ -232,14 +260,15 @@ export function DictionaryWorkspace({ items, aiStatus, canManage = false }: { ca
           })}
         </ul>
       </div>
-      <aside aria-label="선택한 사전 항목" className="lg:sticky lg:top-4 lg:self-start">
+      <aside ref={composer} id={composerId} tabIndex={-1} aria-label="선택한 사전 항목" className="min-w-0 scroll-mt-28 lg:sticky lg:top-4 lg:self-start">
         <AiComposer canManage={canManage} chosen={chosen} status={aiStatus} selectionVersion={selectionVersion} onRemove={(item) => toggle(item, false)} />
       </aside>
+      </div>
     </div>
   );
 }
 
 export function DirectWriter({items,aiStatus,canManage}:{items:SharedDictionaryEntry[];aiStatus:DictionaryAiStatus;canManage:boolean}) {
  const [chosen,setChosen]=useState(items);const [version,setVersion]=useState(0);
- return <AiComposer chosen={chosen} canManage={canManage} status={aiStatus} selectionVersion={version} onRemove={item=>{setChosen(current=>current.filter(e=>e.id!==item.id));setVersion(v=>v+1);}}/>;
+ return <AiComposer standalone chosen={chosen} canManage={canManage} status={aiStatus} selectionVersion={version} onRemove={item=>{setChosen(current=>current.filter(e=>e.id!==item.id));setVersion(v=>v+1);}}/>;
 }

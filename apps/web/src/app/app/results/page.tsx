@@ -37,7 +37,7 @@ export default async function Results({ searchParams }: { searchParams: Promise<
         </nav>
       )}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <Card>
             <h2 className="font-semibold">발행한 게시물</h2>
             {d.pubs.length === 0 ? <div className="mt-2"><Empty title="기록한 게시물이 없습니다">오른쪽에서 게시물을 등록하세요.</Empty></div> : (
@@ -87,7 +87,7 @@ export default async function Results({ searchParams }: { searchParams: Promise<
           </Card>
         </div>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <Card>
             <h2 className="font-semibold">게시물 등록</h2>
             <p className="mt-1 text-xs text-muted">발행·관찰 시각은 한국 시간 기준입니다.</p>
