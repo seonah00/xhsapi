@@ -3050,3 +3050,23 @@ alter table public.app_jobs add constraint app_jobs_kind_check check(kind in (
   'results_reflection','trend_aggregation','data_expiry','user_deletion','transcript_submit','transcript_result','ocr','comment_submit','comment_result','csv_import'));
 
 insert into app.applied_migrations (version, name) values ('20261021034058', '20261021034058_note_link_recovery_jobs.sql');
+
+-- ==== 20261021092936_verified_discovery_links.sql ====
+
+-- Observed page availability, separate from retained content and sharing credentials.
+create table public.note_link_checks (
+  note_id uuid primary key,
+  org_id uuid not null,
+  status text not null check (status in ('opened', 'not_found')),
+  checked_at timestamptz not null,
+  method text not null check (method = 'browser_rednote'),
+  foreign key (org_id, note_id) references public.notes(org_id, id) on delete cascade
+);
+alter table public.note_link_checks enable row level security;
+revoke all on public.note_link_checks from public, anon, authenticated;
+grant select on public.note_link_checks to authenticated;
+grant all on public.note_link_checks to service_role;
+create policy via_note on public.note_link_checks for select to authenticated
+  using (app.is_member(org_id) and exists (select 1 from public.notes n where n.id = note_id and n.org_id = note_link_checks.org_id));
+
+insert into app.applied_migrations (version, name) values ('20261021092936', '20261021092936_verified_discovery_links.sql');
