@@ -6,6 +6,7 @@ import { discover,saveVersion,runCheck,getCheck,markContextualRequested,updateRe
 import { MockXhsProvider } from '@xhs/providers';
 import { loadEnv } from '@xhs/domain';
 import { purgeExpired } from '@xhs/core';
+import { requestNoteLinkRecovery } from '@xhs/core';
 const org=randomUUID(),admin=randomUUID(),student=randomUUID(),other=randomUUID();
 const service:Runner=async fn=>{const c=await pool.connect();try {await c.query('begin');const r=await fn(c);await c.query('commit');return r;}catch(e){await c.query('rollback');throw e;}finally{c.release();}};
 const user=<T>(uid:string,fn:(ctx:Ctx)=>Promise<T>,mode:'mock'|'live'='mock')=>asUser(uid,db=>fn({db,uid,orgId:org,role:uid===admin?'org_admin':'student',mode}));
@@ -23,6 +24,28 @@ afterAll(async()=>{
   await pool.query(`update provider_capabilities set price_status='unknown' where provider='openai'`);
   // The isolated test database is discarded by with-test-db; keep the last-admin guard intact.
   await pool.end();
+});
+it('runs archive recovery on the keyed worker without a quote, reservation or paid submission',async()=>{
+ const pid='d'.repeat(24),url=`https://www.xiaohongshu.com/explore/${pid}?xsec_token=synthetic-archive`;
+ const id=(await pool.query(`insert into notes(org_id,provider,platform_note_id,data_mode,canonical_url,provenance) values($1,'apify',$2,'live',$3,'{}') returning id`,[org,pid,url.split('?')[0]])).rows[0].id;
+ const job=await user(admin,ctx=>requestNoteLinkRecovery(ctx,service,{source:'search',offset:0}),'live');
+ expect(await user(admin,ctx=>requestNoteLinkRecovery(ctx,service,{source:'search',offset:0}),'live')).toBe(job);
+ await expect(user(student,ctx=>requestNoteLinkRecovery(ctx,service,{source:'search'}),'live')).rejects.toMatchObject({code:'FORBIDDEN'});
+ let calls=0;
+ const read:typeof fetch=async(_url,options)=>{
+   expect(options?.method).toBe('GET');calls++;
+   return calls===1?Response.json({data:{items:[{status:'SUCCEEDED',finishedAt:'2026-01-01T00:00:00.000Z',defaultDatasetId:'fixtureArchive'}],total:1}}):Response.json([{id:pid,url}]);
+ };
+ const result=await runJob({service,provider:new MockXhsProvider(),env:{...mock,APP_DATA_MODE:'live',APIFY_TOKEN:'fake'},apifySearchFetch:read},job,'archive-fixture');
+ expect(result).toMatchObject({state:'succeeded',result:{linked:1,matched:1}});
+ expect(calls).toBe(2);
+ expect(await user(student,ctx=>originalNoteLink(ctx,service,id),'live')).toBe(url);
+ expect((await pool.query(`select reserved_usage_id from app_jobs where id=$1`,[job])).rows[0].reserved_usage_id).toBeNull();
+ expect((await pool.query(`select count(*)::int as n from usage_ledger where job_id=$1`,[job])).rows[0].n).toBe(0);
+ const forged=await user(admin,ctx=>requestNoteLinkRecovery(ctx,service,{source:'search',offset:10}),'live');
+ await pool.query('update app_jobs set owner_user_id=$2 where id=$1',[forged,student]);
+ expect(await runJob({service,provider:new MockXhsProvider(),env:{...mock,APP_DATA_MODE:'live',APIFY_TOKEN:'fake'},apifySearchFetch:read},forged,'archive-fixture')).toMatchObject({state:'failed',errorCode:'admin_revoked'});
+ expect(calls).toBe(2);
 });
 it('stores signed URLs separately, rejects cross-org access and honors explicit withdrawal without exposing tokens in note rows',async()=>{
   const signed='https://www.xiaohongshu.com/explore/'+'a'.repeat(24)+'?xsec_token=synthetic';

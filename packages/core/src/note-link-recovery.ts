@@ -11,6 +11,21 @@ const Id=z.string().regex(/^[a-f0-9]{24}$/i);
 const StorageId=z.string().regex(/^[a-zA-Z0-9]{1,100}$/);
 const Run=z.object({status:z.literal('SUCCEEDED'),finishedAt:z.string().datetime({offset:true}),defaultDatasetId:StorageId});
 
+/** Queue a bounded, zero-reservation archive read where the existing worker key lives. */
+export async function requestNoteLinkRecovery(ctx:Ctx,service:ServiceRunner,input:unknown) {
+  requireAdmin(ctx);
+  const scope=RecoveryInput.parse(input);
+  if(ctx.mode!=='live') throw new AppError('FEATURE_DISABLED','운영 모드에서만 기존 Apify 결과를 복구할 수 있습니다.');
+  return service(async db=>{
+    const member=await db.query(`select 1 from memberships m join organizations o on o.id=m.org_id where m.org_id=$1 and m.user_id=$2 and m.role='org_admin' and m.status='active' and o.status='active'`,[ctx.orgId,ctx.uid]);
+    if(!member.rowCount) throw new AppError('FORBIDDEN','현재 관리자 권한이 필요합니다.');
+    const row=(await db.query(`insert into app_jobs(org_id,owner_user_id,kind,data_mode,input_ref,dedupe_key)
+      values($1,$2,'note_link_recovery',$3,$4,$5) on conflict(org_id,dedupe_key) do update set dedupe_key=excluded.dedupe_key returning id`,
+      [ctx.orgId,ctx.uid,ctx.mode,scope,`link-recovery:${ctx.uid}:${ctx.mode}:${scope.source}:${scope.offset}`])).rows[0];
+    return row.id as string;
+  });
+}
+
 /** Fixed GET-only endpoints. No Actor submit/retry, media retrieval or raw response logging. */
 async function readJson(path:string,token:string,fetchImpl:typeof fetch) {
   let response:Response;

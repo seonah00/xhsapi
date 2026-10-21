@@ -17,6 +17,7 @@ import { findInventedNumbers, generatePlan } from './generation.ts';
 import { mockContextual } from './checks.ts';
 import { reflect, type ResultMetrics } from './results.ts';
 import { processDeletion } from './deletion.ts';
+import { recoverStoredNoteLinks } from './note-link-recovery.ts';
 
 export type Runner = <T>(fn: (db: Db) => Promise<T>) => Promise<T>;
 
@@ -80,7 +81,7 @@ export async function runJob(deps: JobDeps, jobId: string, workerId: string): Pr
     const blocked = await deps.service(async (db) => {
       const s = (await db.query(`select settings from organizations where id = $1`, [job.org_id])).rows[0]?.settings ?? {};
       const feature = ({ transcript_submit: 'transcript', transcript_result: 'transcript', provider_search: 'provider_search', note_enrichment: 'provider_search', reference_analysis: 'ai',
-        query_expansion: 'ai', plan_generation: 'ai', contextual_check: 'ai', results_reflection: 'ai' } as Record<string, string>)[job.kind];
+        query_expansion: 'ai', plan_generation: 'ai', contextual_check: 'ai', results_reflection: 'ai', note_link_recovery:'provider_search' } as Record<string, string>)[job.kind];
       // Housekeeping (deletion, expiry) is never blocked by the kill switch.
       if (!feature) return null;
       if (s.provider_switches?.kill === true) return 'kill_switch';
@@ -92,6 +93,13 @@ export async function runJob(deps: JobDeps, jobId: string, workerId: string): Pr
       outcome = { state: 'failed', errorCode: 'membership_revoked', sent: false };
     } else if (blocked) {
       outcome = { state: 'failed', errorCode: blocked, sent: false };
+    } else if (job.kind === 'note_link_recovery') {
+      outcome=await deps.service(async db=>{
+        const member=(await db.query(`select m.role from memberships m join organizations o on o.id=m.org_id where m.org_id=$1 and m.user_id=$2 and m.status='active' and o.status='active'`,[job.org_id,job.owner_user_id])).rows[0];
+        if(member?.role!=='org_admin'||!job.owner_user_id) return {state:'failed',errorCode:'admin_revoked',sent:false} as const;
+        const result=await recoverStoredNoteLinks({db,orgId:job.org_id,uid:job.owner_user_id,role:'org_admin',mode:job.data_mode},deps.service,job.input_ref,deps.env?.APIFY_TOKEN,deps.apifySearchFetch);
+        return {state:'succeeded',result} as const;
+      });
     } else if (job.kind === 'query_expansion') {
       outcome = await runLanguageAi(deps,job);
     } else if (job.kind === 'reference_analysis' && job.data_mode === 'live') {
