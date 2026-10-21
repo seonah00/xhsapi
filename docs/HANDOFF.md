@@ -1,9 +1,11 @@
-## 2026-10-21 학생 글쓰기 UI·원문 연결 표시 수정 (검증 중)
+## 2026-10-21 학생 글쓰기 UI·원문 연결 표시 수정 (검증 완료·배포 대기)
 
 - ADR0045. 공용사전 고정 선택CTA/활용패널 이동·포커스, 직접작성 기본/AI도움 탭과 상태 유지, 독립글쓰기 오안내 수정. 성과grid자식min-width:0, 페이지네비하단여백.
 - 유효 링크만 인증된 원문 연결 주소 복사 제공. 기본주소는 보조펼침, 만료리디렉션안내·복사실패표시. 실제공유토큰HTML노출/TTL연장없음.
 - 운영조회1857건/유효공유링크0/잔여USD0.0112·CNY0.64. 과거불명예약USD0.0704유지. Apify검색상한USD0.325보다USD잔액작아새수집실행없음. 이확인시점기준이며새링크확보완료아님.
-- 예산증액·정기수집활성화·유료API실행계속보류. 모의학생UI회귀tests/e2e/student-writing-ux.spec.ts와TDD0045추가. 최종결과후속기록예정.
+- 예산증액·정기수집활성화·유료API실행계속보류. 모의학생UI회귀tests/e2e/student-writing-ux.spec.ts와TDD0045추가. 최종31c017c/CI39533865480: 타입·린트·단위230/DB201/E2E45=476개통과, 모의외부연결0. 로컬웹빌드통과. PC/모바일선택·탭입력유지·키보드·axe·클립보드/302/만료, 성과375/768/1440px 넘침검사통과. 최초실패의테스트격리/빈상태중복/페이지대비수정기록TDD0045참조.
+
+- 검증된31c017c운영브랜치푸시완료. Railway Limited Access/Deploys have been paused temporarily가유지되어새배포미확인. 이전web31b42868-3952-4964-baec-a7eae98d0e31 ACTIVE. 배포제한해제후31c017c반영/운영조회재확인필요. 예산증액이나과금설정변경으로해제하지말것. 결과·자체평가 outputs/student-writing-ui-fixes-20261021.md 및 student-writing-flow-mobile-20261021.png, student-results-fixed-mobile-20261021.png, railway-deploy-paused-20261021.png.
 
 ## 2026-10-20 남은 기능·학생 UI 재점검 (조회 전용)
 
