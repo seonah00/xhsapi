@@ -85,9 +85,9 @@ export default async function SharedDictionary({ searchParams }: { searchParams:
 
       {totalPages > 1 && (
         <nav aria-label="사전 페이지" className="mt-5 flex items-center justify-center gap-2 pb-24 lg:pb-0">
-          {result.page > 1 ? <Link className={btn.secondary} href={hrefFor(sp, { page: String(result.page - 1) })}>이전</Link> : <span className={`${btn.secondary} pointer-events-none opacity-40`}>이전</span>}
+          {result.page > 1 ? <Link className={btn.secondary} href={hrefFor(sp, { page: String(result.page - 1) })}>이전</Link> : <span aria-disabled="true" className={`${btn.secondary} pointer-events-none text-muted`}>이전</span>}
           <Badge>{result.page} / {totalPages}</Badge>
-          {result.page < totalPages ? <Link className={btn.secondary} href={hrefFor(sp, { page: String(result.page + 1) })}>다음</Link> : <span className={`${btn.secondary} pointer-events-none opacity-40`}>다음</span>}
+          {result.page < totalPages ? <Link className={btn.secondary} href={hrefFor(sp, { page: String(result.page + 1) })}>다음</Link> : <span aria-disabled="true" className={`${btn.secondary} pointer-events-none text-muted`}>다음</span>}
         </nav>
       )}
     </>
