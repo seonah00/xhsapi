@@ -16,6 +16,7 @@ test('shared selections lead to writing without losing manual or AI input @mobil
  const go=page.getByRole('button',{name:'선택한 1개로 글쓰기',exact:true});await expect(go).toBeVisible();
  if(info.project.name==='mobile'){const r=await go.boundingBox();expect(r!.height).toBeGreaterThanOrEqual(44);expect(r!.y+r!.height).toBeLessThanOrEqual(780);}
  await go.click();await expect(page.getByRole('tab',{name:'직접 작성',exact:true})).toHaveAttribute('aria-selected','true');
+ if(await page.getByRole('button',{name:'임시 저장 지우고 새로 작성',exact:true}).isVisible())await page.getByRole('button',{name:'임시 저장 지우고 새로 작성',exact:true}).click();
  await page.getByLabel('중국어 제목',{exact:true}).fill('수동 초안 유지');await expect(page.getByText('임시 저장 완료',{exact:false})).toBeVisible();
  await page.getByRole('tab',{name:'AI 도움',exact:true}).click();await page.getByLabel(/내 조건과 사실/).fill('실제 산책 경험');
  await page.getByRole('tab',{name:'직접 작성',exact:true}).click();await expect(page.getByLabel('중국어 제목',{exact:true})).toHaveValue('수동 초안 유지');
@@ -46,7 +47,7 @@ test('copyable original connection preserves valid shares and handles expiry wit
   await expect(page.getByRole('button',{name:'원문 연결 링크 복사',exact:true})).toBeVisible();await expect(page.getByText('synthetic-ux-only',{exact:false})).toHaveCount(0);
   const redirect=await page.request.get(`/app/notes/${id}/original`,{maxRedirects:0});expect(redirect.status()).toBe(302);expect(redirect.headers().location).toBe(share);expect(redirect.headers()['cache-control']).toContain('no-store');
   await db.query(`update note_access_links set expires_at=now()-interval '1 second' where note_id=$1`,[id]);
-  const expired=await page.request.get(`/app/notes/${id}/original`,{maxRedirects:0});expect(expired.headers().location).toContain('link=unavailable');await page.goto(expired.headers().location);
-  await expect(page.getByRole('alert').filter({hasText:'共有リンク'.replace('共有リンク','공유 링크')})).toBeVisible();await expect(page.getByRole('button',{name:'원문 연결 링크 복사',exact:true})).toHaveCount(0);
+  const expired=await page.request.get(`/app/notes/${id}/original`,{maxRedirects:0});expect(expired.headers().location).toContain('link=unavailable');await page.goto(expired.headers().location!);
+  await expect(page.getByRole('alert').filter({hasText:'공유 링크'})).toBeVisible();await expect(page.getByRole('button',{name:'원문 연결 링크 복사',exact:true})).toHaveCount(0);
  }finally{await db.query('delete from notes where id=$1',[id]);await db.end();}
 });
