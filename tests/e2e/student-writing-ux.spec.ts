@@ -6,6 +6,15 @@ async function login(page:import('@playwright/test').Page,email:string){
  await page.context().clearCookies();await page.goto('/login');await page.getByRole('button',{name:new RegExp(email.replaceAll('.','\\.'))}).click();await page.waitForURL(/\/app/);
 }
 
+// Keep this spec's recoverable mock draft from blocking later students' journeys.
+test.afterEach(async({page},info)=>{
+ if(!info.title.startsWith('shared selections'))return;
+ if(!process.env.DATABASE_URL?.includes('.tmp/pg'))throw new Error('local mock database required');
+ await page.close();
+ const db=new pg.Client({connectionString:process.env.DATABASE_URL});await db.connect();
+ try{await db.query(`delete from writing_temporary where org_id='00000000-0000-4000-b000-000000000001' and owner_user_id='00000000-0000-4000-a000-000000000002' and data_mode='mock' and scope='new' and (content->>'title'='수동 초안 유지' or content::text like '%动线词%')`);}finally{await db.end();}
+});
+
 test('shared selections lead to writing without losing manual or AI input @mobile',async({page},info)=>{
  const prefix='动线词'+info.project.name;
  await login(page,'admin@demo.invalid');await page.goto('/admin/dictionary');await page.getByLabel('가져오기 이름').fill(prefix);
