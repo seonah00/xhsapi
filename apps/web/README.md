@@ -19,3 +19,7 @@ collect new posts.
 
 Deployment recovery does not authorize changes to provider budgets, recurring
 collection, subscription plans, or payment settings.
+# 기존 공유주소 복구
+
+관리자 `/admin/original-links`는 기존 결과를 읽는 작업만 접수합니다. Apify 키는 기존 worker에 유지하며 웹에 복사하지 않습니다. 검색/상세 결과 종류별로 시작 위치0부터 진행하고, 표시된 다음 위치로 이어갑니다. 수집 실행·예산 예약·정기 수집 설정 변경은 하지 않습니다. 소스가 CI를 통과했어도 Railway의 Infrastructure Error로 빌더 시작 전에 실패하면 동일 검증 소스를 다시 배포하고 web/worker가 모두 최신 ACTIVE인지 확인합니다.
+
