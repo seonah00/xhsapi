@@ -58,7 +58,10 @@ test('copyable original connection preserves valid shares and handles expiry wit
   await db.query(`insert into note_access_links(note_id,org_id,access_url,expires_at,observed_at) values($1,$2,$3,null,now()-interval '7 days')`,[id,org,share]);await login(page,'student-a@demo.invalid');await page.goto('/app/notes/'+id);
   await page.context().grantPermissions(['clipboard-read','clipboard-write']);
   await page.getByRole('button',{name:'원문 연결 링크 복사',exact:true}).click();expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(new URL(`/app/notes/${id}/original`,page.url()).href);await expect(page.getByText('synthetic-ux-only',{exact:false})).toHaveCount(0);
-  const redirect=await page.request.get(`/app/notes/${id}/original`,{maxRedirects:0});expect(redirect.status()).toBe(302);expect(redirect.headers().location).toBe(share);expect(redirect.headers()['cache-control']).toContain('no-store');
+  const redirect=await page.request.get(`/app/notes/${id}/original`,{maxRedirects:0});expect(redirect.status()).toBe(302);expect(redirect.headers().location).toBe(`https://www.rednote.com/discovery/item/${pid}?xsec_token=synthetic-ux-only`);expect(redirect.headers()['cache-control']).toContain('no-store');expect(redirect.headers()['referrer-policy']).toBe('no-referrer');
+  await expect(page.getByRole('link',{name:'중국 사이트에서 열기 ↗',exact:true})).toHaveAttribute('href',`/app/notes/${id}/original?site=xiaohongshu`);
+  const fallback=await page.request.get(`/app/notes/${id}/original?site=xiaohongshu`,{maxRedirects:0});expect(fallback.headers().location).toBe(share);
+  const invalid=await page.request.get(`/app/notes/${id}/original?site=https://evil.invalid`,{maxRedirects:0});expect(invalid.status()).toBe(400);
   await db.query(`update note_access_links set expires_at=now()-interval '1 second' where note_id=$1`,[id]);
   const expired=await page.request.get(`/app/notes/${id}/original`,{maxRedirects:0});expect(expired.headers().location).toContain('link=unavailable');await page.goto(expired.headers().location!);
   await expect(page.getByRole('alert').filter({hasText:'공유 링크'})).toBeVisible();await expect(page.getByRole('button',{name:'원문 연결 링크 복사',exact:true})).toHaveCount(0);

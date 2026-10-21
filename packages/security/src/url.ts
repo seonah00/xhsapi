@@ -141,3 +141,17 @@ export function safeXhsAccessUrl(input: unknown, expectedId: string, token?: unk
     return out.toString();
   } catch { return null; }
 }
+
+/** Browser navigation only: retain sharing credentials and identity, use the international site's note route. */
+export function originalBrowserUrl(input: string, site: string = 'rednote'): string | null {
+  if(site !== 'rednote' && site !== 'xiaohongshu') return null;
+  let id: string | undefined;
+  try { id=NOTE_PATH.exec(new URL(input).pathname)?.[1]; } catch { return null; }
+  if(!id) return null;
+  const validated=safeXhsAccessUrl(input,id);
+  if(!validated || site==='xiaohongshu') return validated;
+  const url=new URL(validated);
+  url.hostname='www.rednote.com';
+  url.pathname=`/discovery/item/${id.toLowerCase()}`;
+  return url.toString();
+}

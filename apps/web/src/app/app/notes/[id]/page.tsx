@@ -45,7 +45,8 @@ export default async function NoteDetail({params,searchParams}:{params:Promise<{
         {note.hasOriginalLink ? <>
           <a href={`/app/notes/${id}/original`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center break-all text-sm underline">원문 연결 주소 열기 ↗</a>
           <div><CopyButton text={`/app/notes/${id}/original`} appRelative label="원문 연결 링크 복사"/></div>
-          <p className="text-xs text-muted">복사한 스튜디오 링크는 로그인 후 현재 보관된 샤오홍슈 공유 주소로 이동합니다. 주소는 게시물과 함께 보관하지만, 샤오홍슈에서 주소가 변경되거나 게시물이 삭제되면 열리지 않을 수 있습니다. 로그인 후 멈추면 이 화면에서 원문 보기 버튼을 다시 눌러 보세요.</p>
+          <p className="text-xs text-muted">원문은 샤오홍슈의 국제 사이트 rednote에서 엽니다. 로그인이 필요하면 원문을 연 같은 사이트에서 로그인해 주세요. 주소는 게시물과 함께 보관하며, 게시물 삭제나 공유 링크 만료 시 열리지 않을 수 있습니다.</p>
+          <a href={`/app/notes/${id}/original?site=xiaohongshu`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-sm underline">중국 사이트에서 열기 ↗</a>
         </> : <p className="text-sm text-muted">제공할 원문 공유 주소가 아직 없습니다. 아래 기본 주소는 접근이 보장되는 공유 링크가 아닙니다.</p>}
         <details className="text-sm">
           <summary className="cursor-pointer py-3">게시물 기본 주소 확인</summary>

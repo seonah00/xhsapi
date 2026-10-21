@@ -2,13 +2,17 @@ import { toAppError } from '@/server/api';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { originalNoteLink } from '@xhs/core';
+import { originalBrowserUrl } from '@xhs/security';
 import { service, withApiCtx } from '@/server/ctx';
 
 export async function GET(request: Request, { params }: { params: Promise<{id: string}> }) {
   try {
   const {id}=await params;
   if(!z.string().uuid().safeParse(id).success) return new Response(null,{status:404});
-  const url=await withApiCtx(ctx=>originalNoteLink(ctx,service,id));
+  const site=new URL(request.url).searchParams.get('site') ?? 'rednote';
+  if(site!=='rednote' && site!=='xiaohongshu') return new Response(null,{status:400,headers:{'Cache-Control':'no-store'}});
+  const stored=await withApiCtx(ctx=>originalNoteLink(ctx,service,id));
+  const url=stored ? originalBrowserUrl(stored,site) : null;
   const response=NextResponse.redirect(url ?? new URL(`/app/notes/${id}?link=unavailable`,request.url),302);
   response.headers.set('Cache-Control','private, no-store');
   response.headers.set('Referrer-Policy','no-referrer');
