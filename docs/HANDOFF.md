@@ -1,3 +1,12 @@
+## 2026-10-21 원문 404 숨김·검증된 탐색 (코드/DB 완료, Railway 장애로 배포 미반영)
+
+- 사용자 요청: 404 19건을 학생 탐색에서 숨기고 정상 열림 확인 자료만 표시, 삭제·예산 증액·유료 수집·정기 수집 활성화 금지.
+- ADR0048/migration20261021092936. service-write 전용 note_link_checks 상태/RLS 추가. live 탐색은 opened + 유효 공유주소를 요구하며 검색·주제·정렬·작업 결과·최신 인기·추천의 LIMIT 이전 필터. mock 및 상세/개인 이력 접근 유지. 새 미확인 수집 자료는 검증 전 탐색에 표시하지 않음.
+- 기존 브라우저 점검 1366개를 조직/live/UUID/플랫폼 ID로 정확히 일치시켜 운영 적용: opened1347/not_found19. 미확인491개도 보관. notes1857/links1366/jobs96 불변. 예산 전체 MD5 2d9bc5daec1abd537e95222874bb6900 및 조직 설정 MD5 c449be4b67243c09444342cd107c361d 불변. 실제 주소/토큰은 점검 테이블·코드·fixture에 없음.
+- RED 2dde295/CI39577469296: DB206통과/2실패(다음 페이지23건 및404검색 노출 재현). GREEN4dedffe/CI39577757415 SUCCESS: 단위244/DB208/E2E46=498, 타입·린트·로컬 프로덕션 빌드 통과. 회귀 및 수동 코드 검토 완료, 신규 유료 호출0. 운영 인증 RLS 조회 opened1347/not_found0, 학생 UPDATE/익명SELECT 불가.
+- 검증된4dedffe를 운영 claude/vigilant-planck-61yogr에 푸시했으나 Railway 장애 QH8L8B3E(대시보드/API/CLI 불가·모든 지역 빌드 중지)로 새 배포 생성 미확인. 마지막 GitHub deployment는4938e78. 운영 새로고침 첫50건 중 원문 없음45건: 아직 이전 코드. 현재 학생 화면 숨김 완료로 보고하지 말 것.
+- 장애 복구 후 4dedffe(또는 문서 후속 포함 동등 코드)를 재배포하고 운영 탐색 목록/검색/주제/페이지 이동 및 404 대상 제외를 읽기 전용 확인할 것. 유료 재수집/예산/수집 설정으로 장애를 해제하지 말 것. 새 자동화 생성 없음. outputs/discovery-visibility-20261021.md 및 discovery-visibility-railway-outage-20261021.png.
+
 ## 2026-10-21 로그인 중단 원문 링크 수정·운영 열림 확인
 
 - ADR0047. 보관된 동일게시물 공유정보를 유지하고 인증 후 기본 브라우저 목적지를 rednote.com/discovery/item으로 변경. 상세에 중국 사이트 보조링크 제공. 목적지2종고정/타사이트400, no-store/no-referrer·RLS·모드·보관주소/TTL유지. 새 유료조회·예산·정기수집변경없음.
