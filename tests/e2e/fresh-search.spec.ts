@@ -47,7 +47,7 @@ test('separate original link preserves signed destination and thumbnail is not l
     // Inspect the redirect without following it. Browser routing does not intercept every redirect hop.
     const response=await page.request.get(`/app/notes/${row.id}/original`,{maxRedirects:0});
     expect(response.status()).toBe(302);
-    expect(response.headers().location).toBe(original);
+    expect(response.headers().location).toBe('https://www.rednote.com/discovery/item/aaaaaaaaaaaaaaaaaaaaaaaa?xsec_token=synthetic');
     expect(response.headers()['cache-control']).toContain('no-store');
     await db.query(`update note_access_links set expires_at=now()-interval '1 second' where note_id=$1`,[row.id]);
     await page.reload();
