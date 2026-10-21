@@ -25,7 +25,7 @@ export default async function NoteDetail({params,searchParams}:{params:Promise<{
   return <>
     <PageHeader title={note.title ?? '게시물 상세'} description="수집된 게시물 정보입니다. 전체 내용은 샤오홍슈에서 확인하세요."
       actions={<Link href="/app/discover" className={btn.secondary}>탐색으로</Link>}/>
-    {sp.link==='unavailable' && <p role="alert" className="mb-3 rounded-xl bg-warn-soft p-3 text-sm text-warn">이 원문 공유 링크는 현재 사용할 수 없습니다. 보관 기한이 끝났거나 연결 정보가 없어 새로 확인해야 합니다.</p>}
+    {sp.link==='unavailable' && <p role="alert" className="mb-3 rounded-xl bg-warn-soft p-3 text-sm text-warn">이 원문 공유 링크는 현재 사용할 수 없습니다. 연결 정보가 없거나 사용할 수 없어 새로 확인해야 합니다.</p>}
     {sp.error && <p role="alert" className="text-warn">{sp.error}</p>}
     {sp.connected && <p role="status">원문 링크를 연결했습니다. 아래 버튼으로 게시물을 여세요.</p>}
     {refresh.success && status && <AutoSearchStatus requestId={refresh.data} original/>}
@@ -45,8 +45,8 @@ export default async function NoteDetail({params,searchParams}:{params:Promise<{
         {note.hasOriginalLink ? <>
           <a href={`/app/notes/${id}/original`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center break-all text-sm underline">원문 연결 주소 열기 ↗</a>
           <div><CopyButton text={`/app/notes/${id}/original`} appRelative label="원문 연결 링크 복사"/></div>
-          <p className="text-xs text-muted">복사한 스튜디오 링크는 로그인 후 현재 보관된 샤오홍슈 공유 주소로 이동합니다. 공유 주소 보관 기한이 끝나면 새 연결이 필요합니다. 로그인 후 멈추면 이 화면에서 원문 보기 버튼을 다시 눌러 보세요.</p>
-        </> : <p className="text-sm text-muted">현재 제공할 수 있는 유효한 원문 공유 링크가 없습니다. 아래 기본 주소는 접근이 보장되는 공유 링크가 아닙니다.</p>}
+          <p className="text-xs text-muted">복사한 스튜디오 링크는 로그인 후 현재 보관된 샤오홍슈 공유 주소로 이동합니다. 주소는 게시물과 함께 보관하지만, 샤오홍슈에서 주소가 변경되거나 게시물이 삭제되면 열리지 않을 수 있습니다. 로그인 후 멈추면 이 화면에서 원문 보기 버튼을 다시 눌러 보세요.</p>
+        </> : <p className="text-sm text-muted">제공할 원문 공유 주소가 아직 없습니다. 아래 기본 주소는 접근이 보장되는 공유 링크가 아닙니다.</p>}
         <details className="text-sm">
           <summary className="cursor-pointer py-3">게시물 기본 주소 확인</summary>
           <p className="my-2 break-all">{note.canonicalUrl}</p>
@@ -55,17 +55,17 @@ export default async function NoteDetail({params,searchParams}:{params:Promise<{
         </details>
       </div>
       {!note.hasOriginalLink && <div className="mt-3 space-y-2">
-        <p role="status">현재 유효한 원문 공유 링크가 없습니다. 다시 검색해 동일한 게시물이 발견되면 원문 보기 버튼이 나타납니다.</p>
+        <p role="status">현재 보관된 원문 공유 링크가 없습니다. 다시 검색해 동일한 게시물이 발견되면 원문 보기 버튼이 나타납니다.</p>
         {status?.state==='succeeded' && <p>검색은 완료됐지만 이 게시물의 유효한 링크를 찾지 못했습니다. 다른 게시물로 대신 연결하지 않습니다.</p>}
         <form action={refreshOriginal}><input type="hidden" name="noteId" value={id}/><PendingButton disabled={!!status && ['queued','running','waiting_external','unknown_outcome'].includes(status.state)} className={btn.secondary}>원문 링크 다시 찾기</PendingButton></form>
         <p className="text-xs text-muted">관리자가 설정한 검색 범위 안에서 실행합니다. 원문 삭제·검색 제외·샤오홍슈 로그인 제한은 해결되지 않을 수 있습니다.</p>
         {canManage && <p className="text-xs text-muted">Apify 제목 검색을 사용하며 기존 승인 예산·검증 단가·캐시·중복 방지를 적용합니다. 검색 성공이 해당 게시물 복구를 보장하지 않습니다.</p>}
       </div>}
-      {note.hasOriginalLink && <p className="mt-3 text-xs text-muted">샤오홍슈에서 로그인이 필요할 수 있습니다. 원문 삭제나 공유 링크 만료 시 열리지 않을 수 있습니다.</p>}
+      {note.hasOriginalLink && <p className="mt-3 text-xs text-muted">샤오홍슈에서 로그인이 필요할 수 있습니다. 보관된 주소의 현재 열림 여부는 확인되지 않았습니다. 원문 삭제나 공유 링크 만료 시 열리지 않을 수 있습니다.</p>}
       {canManage && <form action={connectOriginal} className="mt-5 space-y-2">
         <input type="hidden" name="noteId" value={id}/>
         <label className="block">원문 공유 주소<input name="shareUrl" type="url" required maxLength={4000} className="mt-1 block w-full rounded border border-line p-2" placeholder="https://www.xiaohongshu.com/explore/…?xsec_token=…"/></label>
-        <p className="text-xs text-muted">샤오홍슈에서 실제로 열리는 이 게시물의 전체 공유 주소를 입력하세요. 24시간 보관하며 검색·계정·단축 주소는 받지 않습니다. 별도 API 비용은 없습니다.</p>
+        <p className="text-xs text-muted">샤오홍슈에서 실제로 열리는 이 게시물의 전체 공유 주소를 입력하세요. 게시물을 보관하는 동안 함께 보관하며 검색·계정·단축 주소는 받지 않습니다. 별도 API 비용은 없습니다.</p>
         <button className={btn.secondary}>원문 링크 연결</button>
       </form>}
     </Card>

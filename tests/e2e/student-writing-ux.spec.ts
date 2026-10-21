@@ -55,7 +55,7 @@ test('copyable original connection preserves valid shares and handles expiry wit
  const db=new pg.Client({connectionString:process.env.DATABASE_URL});await db.connect();const org='00000000-0000-4000-b000-000000000001',pid='c'.repeat(24),share=`https://www.xiaohongshu.com/explore/${pid}?xsec_token=synthetic-ux-only`;
  const id=(await db.query(`insert into notes(org_id,provider,platform_note_id,data_mode,canonical_url,title,provenance) values($1,'mock',$2,'mock',$3,'공유주소 UX 합성 예시','{}') returning id`,[org,pid,share.split('?')[0]])).rows[0].id;
  try{
-  await db.query(`insert into note_access_links(note_id,org_id,access_url,expires_at) values($1,$2,$3,now()+interval '1 hour')`,[id,org,share]);await login(page,'student-a@demo.invalid');await page.goto('/app/notes/'+id);
+  await db.query(`insert into note_access_links(note_id,org_id,access_url,expires_at,observed_at) values($1,$2,$3,null,now()-interval '7 days')`,[id,org,share]);await login(page,'student-a@demo.invalid');await page.goto('/app/notes/'+id);
   await page.context().grantPermissions(['clipboard-read','clipboard-write']);
   await page.getByRole('button',{name:'원문 연결 링크 복사',exact:true}).click();expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(new URL(`/app/notes/${id}/original`,page.url()).href);await expect(page.getByText('synthetic-ux-only',{exact:false})).toHaveCount(0);
   const redirect=await page.request.get(`/app/notes/${id}/original`,{maxRedirects:0});expect(redirect.status()).toBe(302);expect(redirect.headers().location).toBe(share);expect(redirect.headers()['cache-control']).toContain('no-store');

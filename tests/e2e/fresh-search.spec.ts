@@ -55,7 +55,7 @@ test('separate original link preserves signed destination and thumbnail is not l
     await expect(page.getByRole('link',{name:'샤오홍슈에서 제목 검색 ↗'})).toHaveCount(0);
     await expect(page).toHaveURL(new RegExp(`/app/notes/${row.id}$`));
     await expect(page.getByRole('button',{name:'원문 링크 연결'})).toHaveCount(0);
-    await expect(page.getByText(/현재 유효한 원문 공유 링크가 없습니다/)).toBeVisible();
+    await expect(page.getByText(/현재 보관된 원문 공유 링크가 없습니다/, {exact:false})).toBeVisible();
     await page.context().clearCookies();
     await page.goto('/login');
     await page.getByRole('button',{name:/student-c@other-org\.demo\.invalid/}).click();

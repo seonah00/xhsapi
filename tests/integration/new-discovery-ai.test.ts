@@ -5,6 +5,7 @@ import { pool,asUser } from './db.ts';
 import { discover,saveVersion,runCheck,getCheck,markContextualRequested,updateReference,prepareReferenceAi,createAccount,createPlan,getPlan,saveDraft,applyProposal,createPublication,addSnapshot,listPublications,listReflections,PlanContent,requestAutoSearch,autoSearchStatus,setAutoSearchPolicy,originalNoteLink,storeNoteAccessLink,createReference,createQuote,reserveJob,runJob,type Ctx,type Runner } from '@xhs/core';
 import { MockXhsProvider } from '@xhs/providers';
 import { loadEnv } from '@xhs/domain';
+import { purgeExpired } from '@xhs/core';
 const org=randomUUID(),admin=randomUUID(),student=randomUUID(),other=randomUUID();
 const service:Runner=async fn=>{const c=await pool.connect();try {await c.query('begin');const r=await fn(c);await c.query('commit');return r;}catch(e){await c.query('rollback');throw e;}finally{c.release();}};
 const user=<T>(uid:string,fn:(ctx:Ctx)=>Promise<T>,mode:'mock'|'live'='mock')=>asUser(uid,db=>fn({db,uid,orgId:org,role:uid===admin?'org_admin':'student',mode}));
@@ -23,7 +24,7 @@ afterAll(async()=>{
   // The isolated test database is discarded by with-test-db; keep the last-admin guard intact.
   await pool.end();
 });
-it('stores signed URLs separately, rejects cross-org access and expires without exposing tokens in note rows',async()=>{
+it('stores signed URLs separately, rejects cross-org access and honors explicit withdrawal without exposing tokens in note rows',async()=>{
   const signed='https://www.xiaohongshu.com/explore/'+'a'.repeat(24)+'?xsec_token=synthetic';
   await service(db=>storeNoteAccessLink(db,org,note,'a'.repeat(24),signed));
   expect(await user(student,ctx=>originalNoteLink(ctx,service,note))).toBe(signed);
@@ -34,6 +35,19 @@ it('stores signed URLs separately, rejects cross-org access and expires without 
   expect(await user(student,ctx=>originalNoteLink(ctx,service,note))).toBe(signed);
   await pool.query(`update note_access_links set expires_at=now()-interval '1 second' where note_id=$1`,[note]);
   expect(await user(student,ctx=>originalNoteLink(ctx,service,note))).toBeNull();
+});
+it('retains links beyond 24 hours through cleanup, resists older recovery and cascades with note deletion',async()=>{
+ const pid='c'.repeat(24),link=`https://www.xiaohongshu.com/explore/${pid}?xsec_token=synthetic-retained`;
+ const id=(await pool.query(`insert into notes(org_id,provider,platform_note_id,data_mode,canonical_url,provenance) values($1,'mock',$2,'mock',$3,'{}') returning id`,[org,pid,link.split('?')[0]])).rows[0].id;
+ const observed=new Date(Date.now()-7*86400000);
+ await service(db=>storeNoteAccessLink(db,org,id,pid,link,observed));
+ await service(db=>purgeExpired(db));
+ expect(await user(student,ctx=>originalNoteLink(ctx,service,id))).toBe(link);
+ expect((await user(student,ctx=>discover(ctx,{original:'1'}))).notes.some(n=>n.id===id)).toBe(true);
+ await service(db=>storeNoteAccessLink(db,org,id,pid,link.replace('retained','older'),new Date(observed.getTime()-86400000)));
+ expect(await user(student,ctx=>originalNoteLink(ctx,service,id))).toBe(link);
+ await pool.query('delete from notes where id=$1',[id]);
+ expect((await pool.query('select count(*)::int as n from note_access_links where note_id=$1',[id])).rows[0].n).toBe(0);
 });
 it('reuses the fresh link for the same platform note across providers without reviving expired links',async()=>{
  const pid='a'.repeat(24),link=`https://www.xiaohongshu.com/explore/${pid}?xsec_token=synthetic-fresh`;

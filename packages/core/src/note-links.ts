@@ -6,12 +6,15 @@ import { requireAdmin } from './admin.ts';
 import { safeXhsAccessUrl } from '@xhs/security';
 import type { Ctx, Db, ServiceRunner } from './context.ts';
 
-export async function storeNoteAccessLink(db: Db, orgId: string, noteId: string, platformId: string, supplied: unknown) {
+export async function storeNoteAccessLink(db: Db, orgId: string, noteId: string, platformId: string, supplied: unknown, observedAt = new Date()) {
   const url = safeXhsAccessUrl(supplied, platformId);
-  if (!url) return; // A tokenless search must not erase a still-valid sharing link.
-  await db.query(`insert into note_access_links(note_id,org_id,access_url,expires_at)
-    values($1,$2,$3,now()+interval '24 hours') on conflict(note_id) do update
-    set access_url=excluded.access_url,expires_at=excluded.expires_at`, [noteId,orgId,url]);
+  if (!url) return false; // Missing sharing information must not erase a stored link.
+  if (!Number.isFinite(observedAt.getTime()) || observedAt.getTime() > Date.now()+60_000) throw new AppError('VALIDATION_FAILED','공유 주소의 수집 시각을 확인하세요.');
+  const result=await db.query(`insert into note_access_links(note_id,org_id,access_url,expires_at,observed_at)
+    values($1,$2,$3,null,$4) on conflict(note_id) do update
+    set access_url=excluded.access_url,expires_at=null,observed_at=excluded.observed_at
+    where note_access_links.observed_at<excluded.observed_at`, [noteId,orgId,url,observedAt.toISOString()]);
+  return (result.rowCount ?? 0)>0;
 }
 
 /** Resolve after RLS/mode checks; never return stored credentials in note JSON or AI inputs. */
@@ -22,8 +25,8 @@ export async function originalNoteLink(ctx: Ctx, service: ServiceRunner, id: str
     const rows=(await db.query(`select l.access_url from note_access_links l
       join notes n on n.id=l.note_id and n.org_id=l.org_id
       where l.org_id=$1 and n.platform_note_id=$2 and n.data_mode=$3
-      and l.expires_at>now() and (n.expires_at is null or n.expires_at>now())
-      order by l.expires_at desc`,[ctx.orgId,note.platform_note_id,ctx.mode])).rows;
+      and (l.expires_at is null or l.expires_at>now()) and (n.expires_at is null or n.expires_at>now())
+      order by l.observed_at desc`,[ctx.orgId,note.platform_note_id,ctx.mode])).rows;
     for(const row of rows) {
       const url=safeXhsAccessUrl(row.access_url,note.platform_note_id);
       if(url) return url;

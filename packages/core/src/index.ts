@@ -69,3 +69,4 @@ export * from './writing-temporary.ts';
 export * from './expression-guides.ts';
 
 export * from './library-page.ts';
+export * from './note-link-recovery.ts';
