@@ -1,3 +1,9 @@
+## 2026-10-21 로그인 중단 원문 링크 수정·운영 열림 확인
+
+- ADR0047. 보관된 동일게시물 공유정보를 유지하고 인증 후 기본 브라우저 목적지를 rednote.com/discovery/item으로 변경. 상세에 중국 사이트 보조링크 제공. 목적지2종고정/타사이트400, no-store/no-referrer·RLS·모드·보관주소/TTL유지. 새 유료조회·예산·정기수집변경없음.
+- 4938e78 운영배포 web ecb27bd2-9e08-4d84-99e4-efe7f5748cbf ACTIVE. CI39547920434 타입·린트·단위244/DB203/E2E46=493개통과·mock외부0. 최초CI39547374010은기존중국주소기대assert1개불일치로실패→기대값갱신후전체통과. 로컬build통과.
+- 로그인에서멈췄던 이미지004c3ea2-6172-4de1-9e93-5d1abcc21b48·영상68562ca2-9da1-45c8-8fe1-496bcfd5f08d를 배포된스튜디오원문버튼으로직접클릭: rednote원문제목/본문일치, 로그인안내없음. 영상ready4/pausedfalse/time0.328623→0.396513/errornull. 기존정상이미지01df272b-09f7-45f9-9cd6-bf5aeb97c555도정상열림. 전체게시물/다른세션열림보장은아님. 증빙 outputs/original-link-rednote-deployed-{image,video}-20261021.png, 보고 outputs/original-link-rednote-fix-20261021.md. 과거원문열림미검증기록은해당시점기록.
+
 ## 2026-10-21 공유주소 장기보관·기존결과 실제복구 (최종 배포·검증 완료)
 
 - 최종841e512(앱코드298b929동일) web a36c9b1c-8bb3-4158-9a42-f5a2a2f2cc97 / worker53e15a85-f79d-41df-bfe9-eb628a0eb572 ACTIVE. 두 migration 모두적용. 두번의빌더인프라오류후정상배포됨. 아래배포지연문장은당시경과.
