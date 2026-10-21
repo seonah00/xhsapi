@@ -34,8 +34,12 @@ function AiComposer({
   selectionVersion,
   onRemove,
   standalone = false,
+  panel,
+  setPanel,
 }: {
   standalone?: boolean;
+  panel: 'write'|'ai';
+  setPanel: (panel: 'write'|'ai') => void;
   chosen: SharedDictionaryEntry[];
   canManage: boolean;
   status: DictionaryAiStatus;
@@ -43,7 +47,6 @@ function AiComposer({
   onRemove: (item: SharedDictionaryEntry) => void;
 }) {
   const panelId = useId();
-  const [panel, setPanel] = useState<'write'|'ai'>('write');
   function navigateTabs(event: KeyboardEvent<HTMLButtonElement>) {
     if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
     event.preventDefault();
@@ -203,6 +206,7 @@ function AiComposer({
 export function DictionaryWorkspace({ items, aiStatus, canManage = false }: { canManage?: boolean; items: SharedDictionaryEntry[]; aiStatus: DictionaryAiStatus }) {
   const composer = useRef<HTMLElement>(null);
   const composerId = useId();
+  const [panel, setPanel] = useState<'write'|'ai'>('write');
   const [selectedItems, setSelectedItems] = useState<Map<string, SharedDictionaryEntry>>(() => new Map());
   const [selectionVersion, setSelectionVersion] = useState(0);
   const [limitMessage, setLimitMessage] = useState<string>();
@@ -229,7 +233,7 @@ export function DictionaryWorkspace({ items, aiStatus, canManage = false }: { ca
     <div className="pb-24 lg:pb-0">
       <div className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-between gap-2 border-t border-line bg-surface p-3 shadow-lg lg:static lg:mb-4 lg:rounded-xl lg:border lg:shadow-none">
         <span aria-live="polite" className="text-sm">{chosen.length}개 선택됨</span>
-        <button type="button" aria-controls={composerId} disabled={chosen.length===0} className={`${btn.primary} min-h-11`} onClick={()=>{composer.current?.focus({preventScroll:true});composer.current?.scrollIntoView({block:'start',behavior:'auto'});}}>선택한 {chosen.length}개로 글쓰기</button>
+        <button type="button" aria-controls={composerId} disabled={chosen.length===0} className={`${btn.primary} min-h-11`} onClick={()=>{setPanel('write');composer.current?.focus({preventScroll:true});composer.current?.scrollIntoView({block:'start',behavior:'auto'});}}>선택한 {chosen.length}개로 글쓰기</button>
       </div>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="min-w-0">
@@ -261,7 +265,7 @@ export function DictionaryWorkspace({ items, aiStatus, canManage = false }: { ca
         </ul>
       </div>
       <aside ref={composer} id={composerId} tabIndex={-1} aria-label="선택한 사전 항목" className="min-w-0 scroll-mt-28 lg:sticky lg:top-4 lg:self-start">
-        <AiComposer canManage={canManage} chosen={chosen} status={aiStatus} selectionVersion={selectionVersion} onRemove={(item) => toggle(item, false)} />
+        <AiComposer panel={panel} setPanel={setPanel} canManage={canManage} chosen={chosen} status={aiStatus} selectionVersion={selectionVersion} onRemove={(item) => toggle(item, false)} />
       </aside>
       </div>
     </div>
@@ -269,6 +273,7 @@ export function DictionaryWorkspace({ items, aiStatus, canManage = false }: { ca
 }
 
 export function DirectWriter({items,aiStatus,canManage}:{items:SharedDictionaryEntry[];aiStatus:DictionaryAiStatus;canManage:boolean}) {
+ const [panel,setPanel]=useState<'write'|'ai'>('write');
  const [chosen,setChosen]=useState(items);const [version,setVersion]=useState(0);
- return <AiComposer standalone chosen={chosen} canManage={canManage} status={aiStatus} selectionVersion={version} onRemove={item=>{setChosen(current=>current.filter(e=>e.id!==item.id));setVersion(v=>v+1);}}/>;
+ return <AiComposer standalone panel={panel} setPanel={setPanel} chosen={chosen} canManage={canManage} status={aiStatus} selectionVersion={version} onRemove={item=>{setChosen(current=>current.filter(e=>e.id!==item.id));setVersion(v=>v+1);}}/>;
 }

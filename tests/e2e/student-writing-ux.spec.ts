@@ -18,10 +18,11 @@ test('shared selections lead to writing without losing manual or AI input @mobil
  await go.click();
  await page.getByRole('tab',{name:'직접 작성',exact:true}).focus();await page.keyboard.press('ArrowRight');await expect(page.getByRole('tab',{name:'AI 도움',exact:true})).toBeFocused();await page.keyboard.press('Home');
  await expect(page.getByRole('tab',{name:'직접 작성',exact:true})).toHaveAttribute('aria-selected','true');
+ await expect(page.getByText('임시 저장 확인 중…',{exact:true})).toHaveCount(0);
  if(await page.getByRole('button',{name:'임시 저장 지우고 새로 작성',exact:true}).isVisible())await page.getByRole('button',{name:'임시 저장 지우고 새로 작성',exact:true}).click();
  await page.getByLabel('중국어 제목',{exact:true}).fill('수동 초안 유지');await expect(page.getByText('임시 저장 완료',{exact:false})).toBeVisible();
  await page.getByRole('tab',{name:'AI 도움',exact:true}).click();await page.getByLabel(/내 조건과 사실/).fill('실제 산책 경험');
- await page.getByRole('tab',{name:'직접 작성',exact:true}).click();await expect(page.getByLabel('중국어 제목',{exact:true})).toHaveValue('수동 초안 유지');
+ await go.click();await expect(page.getByRole('tab',{name:'직접 작성',exact:true})).toHaveAttribute('aria-selected','true');await expect(page.getByLabel('중국어 제목',{exact:true})).toHaveValue('수동 초안 유지');
  await page.getByRole('tab',{name:'AI 도움',exact:true}).click();await expect(page.getByLabel(/내 조건과 사실/)).toHaveValue('실제 산책 경험');
  await page.getByRole('tab',{name:'직접 작성',exact:true}).click();
  expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);
