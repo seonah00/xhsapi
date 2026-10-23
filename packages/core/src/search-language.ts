@@ -53,7 +53,12 @@ export function analyzeSearchLanguage(notes: readonly NoteCard[], dictionary: re
       if (!escaped) continue;
       const match = new RegExp(`(?<![a-zA-Z0-9])${escaped}(?![a-zA-Z0-9])`, 'iu').exec(text);
       if (!match) continue;
-      add(term, 'expression', note, text.slice(Math.max(0, match.index - 35), match.index + term.length + 55));
+      let start = Math.max(0, match.index - 35);
+      let end = Math.min(text.length, match.index + match[0].length + 55);
+      // Expand UTF-16 boundaries so emoji survive HTML encoding and RSC hydration.
+      if (start > 0 && /[\uDC00-\uDFFF]/u.test(text[start]!)) start--;
+      if (end < text.length && /[\uD800-\uDBFF]/u.test(text[end - 1]!)) end++;
+      add(term, 'expression', note, text.slice(start, end));
     }
   }
   const items = [...terms.values()].map(e => ({ ...e.item, noteCount: e.notes.size, authorCount: e.authors.size }))
