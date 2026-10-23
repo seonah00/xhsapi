@@ -32,6 +32,9 @@ test('student discovery prioritizes posts, preserves filters and offers previous
       }
     }
     expect(await page.getByRole('textbox', { name: '검색어', exact: true }).evaluate(e => getComputedStyle(e).fontSize)).toBe('16px');
+    for (const link of [page.getByRole('link', {name:'한국어 자유문장으로 AI 검색어 만들기',exact:true}), page.getByRole('link', {name:/^비교 \(/})]) {
+      expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
     }
     await expect(page.getByRole('link', { name: '원문 링크 있는 게시물만 보기', exact: true })).toHaveCount(0);
     await expect(page.getByRole('link', { name: '키워드 사용 추이 →', exact: true })).toHaveCount(0);
