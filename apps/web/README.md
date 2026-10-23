@@ -36,3 +36,13 @@ ACTIVE before reporting that production discovery excludes unavailable originals
 Check all discovery pages and stored-search/category/sort filters using read-only
 GET navigation. Preserve all notes and stored sharing links. Do not start paid
 collection, change budgets, activate schedules, or retry unknown-outcome jobs.
+
+## Console hydration fix (October 23)
+
+Release validated core change `1fa1cac` together with stable Korean date rendering
+from `84c75d5`. CI39885515498 passed type checks, lint, 249 unit, 208 database and
+48 browser tests with no mock outbound attempts. Expression context clipping now
+preserves emoji surrogate pairs across server HTML and RSC. This release record
+triggers the web-only watch path because core changes alone do not match it.
+Confirm fresh production category loads and reloads have no React418 errors.
+No budget, collection, original-link data or scheduling policy changes.
