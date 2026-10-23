@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fmtDate } from '../../apps/web/src/components/labels';
+import { fmtDate } from '../../apps/web/src/components/labels.ts';
 
 describe('Korean date labels shared by SSR and hydration', () => {
   it('uses Korean afternoon text even when Node ICU returns PM', () => {

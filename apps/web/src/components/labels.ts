@@ -22,5 +22,15 @@ export function formatLabel(s: string) { return FORMAT_LABEL[s] ?? s; }
 export function fmtDate(iso: string | null | undefined, withTime = false): string {
   if (!iso) return '미확인';
   const d = new Date(iso);
-  return new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'short', day: 'numeric', ...(withTime ? { hour: '2-digit', minute: '2-digit' } : {}) }).format(d);
+  // ICU versions disagree on Korean day periods (Node 22: AM/PM, browsers:
+  // 오전/오후). Format numeric Seoul parts, then compose identical SSR/client text.
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: 'numeric', day: 'numeric',
+    ...(withTime ? { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' as const } : {}),
+  }).formatToParts(d);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(p => p.type === type)!.value;
+  const date = `${part('year')}년 ${part('month')}월 ${part('day')}일`;
+  if (!withTime) return date;
+  const hour = Number(part('hour'));
+  return `${date} ${hour < 12 ? '오전' : '오후'} ${String(hour % 12 || 12).padStart(2, '0')}:${part('minute')}`;
 }

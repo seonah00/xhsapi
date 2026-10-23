@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+test.use({ locale: 'en-US', timezoneId: 'America/Los_Angeles' });
+
 test('discovery dates hydrate without React errors in an English browser', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
