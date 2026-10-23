@@ -523,3 +523,5 @@ ADR 0015가 아래 과거 허가 관련 절차보다 우선합니다. 운영자�
 - 학생 자동 검색: 관리자 승인 기간/건당 상한/일일 제한/검색 캐시/동시 중복 방지 구현. 초기 꺼짐, AUTO_REFRESH_ENABLED 및 관리자 설정 필요. 기존 일회성 수집 승인은 반복 승인으로 승계하지 않는다.
 - 실제 OpenAI 텍스트 레퍼런스 분석 구현. 초기 미활성: worker OPENAI_API_KEY, web/worker LLM_MODEL·LIVE_LLM_CALLS_ENABLED, 모델별 AI01 단가와 USD 예산 필요. 단가는 pnpm price --provider openai로 등록하며 임의 가격을 넣지 않는다.
 - 남은 후속 범위: 새 공유 링크의 실제 수집·열림 확인, 자동검색 운영 상한 설정, AI 모델/단가 선택·실응답 검증. 기획 생성·성과 해석 AI, 음성 문안 실운영, OCR·댓글, 백업 자동화는 아직 미구현/미활성이다.
+
+- 콘솔 추가 수정 CI39885515498 SUCCESS: 단위249/DB208/학생E2E48=505개, web/worker mock 외부 연결0. Node22 프로덕션 빌드 PASS. 1fa1cac 앱 수정과 ADR0050 문서 배포 진행.

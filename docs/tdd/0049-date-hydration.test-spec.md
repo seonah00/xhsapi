@@ -26,3 +26,5 @@
 - GREEN: 정규식의 실제 일치 길이를 사용하고, 문맥 시작·끝이 surrogate pair 중간이면 바깥으로 한 코드 단위 확장한다. 기존 길이·문맥은 최대2코드 단위만 늘어나며 근거 내용/빈도는 그대로다.
 - 단위 회귀5개 PASS. 실제 저장 자료를 사용한 로컬 Next22 개발 화면도 새 탭에서 console error0. 실제 자료·임시 진단 경로는 커밋하지 않았다.
 - 학생 E2E에 독립적인 합성 note fixture를 추가했다. 무료 저장자료 GET, 예문 펼치기, client 입력 편집 뒤 오류0을 검사한다. 테스트 note는 로컬/CI DB에서만 만들고 finally로 제거한다. CI 결과는 후속 기록한다.
+
+CI39885515498 SUCCESS (1fa1cac): 타입/린트/단위249/DB208/E2E48 = 총505개. 새 이모지 경계 학생 회귀도 PASS. 모의 web/worker outbound attempts0. Node22 프로덕션 빌드도 로컬 PASS. 운영 반영·fresh tab 재검사는 후속 기록한다.
