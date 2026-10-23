@@ -1,4 +1,26 @@
-## 2026-10-21 원문 404 숨김·검증된 탐색 (코드/DB 완료, Railway 장애로 배포 미반영)
+## 2026-10-23 콘솔 React418 원인 수정 (검증 완료·배포 진행 중)
+
+- 여행·외출 초기 렌더링에서 반복 재현. Node22.23.2 ko-KR 시간표시 PM/AM과 브라우저 오후/오전이 달라 NoteCard 관찰 시각에서 hydration 텍스트가 불일치했다. 격리 SSR/hydrate 화면으로 diff 확인. 날짜만 있는 키워드 통계 단독 재현은 통과했으며 원인은 시각이 포함된 카드였다.
+- ADR0049: fmtDate가 서울 숫자 날짜/24시간 부분을 Intl로 읽고 한국어 날짜/오전·오후를 고정 구성. 경고 숨김 없음. RED04b0118 단위3실패 → GREEN84c75d5 Node22 단위4통과·격리브라우저복구오류0. 전체단위248/타입/린트/Node22빌드 통과. CI39883744411에서 DB208·학생E2E(회귀1추가) 검증 진행. 아직 운영 수정 완료로 보고하지 말 것.
+- 운영 브랜치의 배포 문서7d39814를 검증 브랜치에 병합한 f1b7687의 CI39883744411 SUCCESS: 타입·린트·단위248/DB208/E2E47=503개·mock 외부연결0. 새 영어/미국시간대 학생 hydration 회귀도 통과. 기존 로컬 운영 검증 문서 변경 보존. 유료호출·예산·정기수집·조직설정 변경 없음. 상세 docs/tdd/0049-date-hydration.test-spec.md.
+
+## 2026-10-23 탐색 배포·운영 검증 완료
+
+- 사용자 로그인 후 운영 관리자 세션에서 GET 조회만으로 전체27페이지(50건×26+47건)의 내부UUID1347개를 기존 opened 점검 파일과 대조했다. 고유1347/누락0/중복0/not_found0/미확인0/원문링크없음0. 40419건·미확인491건은 탐색에서 제외되며 notes1857/links1366은 보존했다.
+- 주제6종 첫 페이지, 뷰티 다음 페이지, popular 전체/saves·recent 첫2페이지, 저장자료검색 ootd28건, original=1 첫50건에서 opened 아닌 항목0 및 원문없음0. 선택 조건도 유지. 육아는 정상 확인된13건으로 종료한다. 검색 실행 버튼/유료액션은 누르지 않았다. 실제 학생 계정 대신 기존 관리자 세션이며, 학생 역할은 기존 모의E2E46 증빙과 구분한다.
+- 전후 jobs96/settings MD5 c449be4b67243c09444342cd107c361d/budgets MD5 2d9bc5daec1abd537e95222874bb6900 일치. 예산·유료수집·정기수집·불명예약 변경0. 이미 배포된7d39814/web212a0eb7를 중복 배포하지 않았다.
+- 콘솔에 React418 오류2건 관찰. 목록·필터·페이지 기능은 동작했고 정확한 원인은 미확정이며 별도 후속 점검 대상이다. 콘솔 완전 무오류로 보고하지 말 것. 과거 opened는 현재 모든 원문/영상 재생 보장이 아님.
+- 증빙 outputs/discovery-production-pages-20261023.json, discovery-production-filters-20261023.json, discovery-production-verified-20261023.png, railway-hobby-release-20261023.md. 배포 모니터는 이 검증 완료 후 PAUSED로 전환한다.
+
+## 2026-10-23 Hobby 복구 후 배포 경과 (아래 로그인 대기는 해소됨)
+
+- Railway QH8L8B3E 공식 Hobby 빌드 허용: 10월22일21:08 UTC. 운영 브랜치는 검증된4dedffe와 동일임을 GitHub compare로 확인했다.
+- 최신 커밋 배포 명령은 새 배포를 만들지 않았다. 감시 경로 apps/web/README.md에 배포 기록만 추가한7d39814ef946a858322d4674449339b5b740f35f로 정상 자동 배포를 접수했다. 앱 코드 변경 없음. web212a0eb7-379e-4985-aa4b-ef0035731860 Details Active/Deployment successful, GitHub web status success 확인. 이전4938e78 재배포 아님. worker 재배포 명령 없음.
+- 운영 /api/health 응답 {ok:true}. 인앱 기존 관리자 탭을 탐색으로 이동하자 /login으로 전환되어 로그인 요청/탭 유지. 전체 페이지·검색·카테고리·정렬의 실제 화면 검증은 아직 미완료이며 숨김 전수 검증 완료로 보고하지 말 것. 새 배포 중복 실행 없이 로그인 후 이어서 확인한다.
+- 전후 app_jobs96/settings MD5 c449be4b67243c09444342cd107c361d/budgets MD5 2d9bc5daec1abd537e95222874bb6900 동일. notes1857/links1366/opened1347/not_found19 유지. 자동 표지 정책은 여전히 enabled/10월31일 만료이나 월 사용20/20이므로 requestAutoCover가 견적·예약 전에 반환한다. 이후 월/정책 변경 시 탐색 방문 전 재확인한다. 예산·수집·정기 수집·예약0.0704 변경 없음.
+- 상세 outputs/railway-hobby-release-20261023.md, 증거 railway-verified-discovery-active-20261023.png. heartbeat ACTIVE 유지: 운영 검증 완료 뒤에만 PAUSED.
+
+## 2026-10-21 원문 404 숨김·검증된 탐색 (당시 배포 미반영; 후속 배포는 위 기록)
 
 - 사용자 요청: 404 19건을 학생 탐색에서 숨기고 정상 열림 확인 자료만 표시, 삭제·예산 증액·유료 수집·정기 수집 활성화 금지.
 - ADR0048/migration20261021092936. service-write 전용 note_link_checks 상태/RLS 추가. live 탐색은 opened + 유효 공유주소를 요구하며 검색·주제·정렬·작업 결과·최신 인기·추천의 LIMIT 이전 필터. mock 및 상세/개인 이력 접근 유지. 새 미확인 수집 자료는 검증 전 탐색에 표시하지 않음.
