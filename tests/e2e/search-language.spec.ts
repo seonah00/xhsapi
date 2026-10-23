@@ -16,6 +16,7 @@ test('Korean search previews a composed Chinese query; result evidence counts di
     await expect(page.getByRole('textbox',{name:'중국어 검색어',exact:true})).toHaveValue('圣水洞 咖啡店');
     await expect(page).not.toHaveURL(/auto=/);
     await page.getByRole('button',{name:'이 중국어로 검색'}).click();
+    await expect(page).toHaveURL(url => url.pathname === '/app/discover' && url.searchParams.get('q') === '圣水洞 咖啡店' && !url.searchParams.has('prepare'));
     await page.getByTestId('discovery-analysis').locator('summary').first().click();
     const section=page.getByRole('region',{name:'이 검색에서 발견한 해시태그·표현'});
     await expect(section).toContainText('중복 제외 1개 게시물');
