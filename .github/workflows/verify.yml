@@ -26,7 +26,16 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y postgresql-16
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck && pnpm lint && pnpm test && pnpm test:db
-      - run: pnpm exec playwright install --with-deps chromium
+      - name: Install Chromium and dependencies
+        timeout-minutes: 5
+        run: |
+          # The hosted runner's Azure mirror has stalled on font downloads. Keep
+          # Ubuntu's signed packages and use its official archive over HTTPS.
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            sudo sed -i 's#http://azure.archive.ubuntu.com/ubuntu#https://archive.ubuntu.com/ubuntu#g' /etc/apt/apt-mirrors.txt
+          fi
+          printf 'Acquire::http::Timeout "20";\nAcquire::https::Timeout "20";\nAcquire::Retries "1";\n' | sudo tee /etc/apt/apt.conf.d/99-xhs-download-timeouts
+          pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
