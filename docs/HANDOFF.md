@@ -1,3 +1,10 @@
+## 2026-10-23 홈·성과·계정 모바일 개선 배포 완료
+
+- 소스5c0f589c52eea76a1bb8890a979dd42755069bb0/web da4a2c26-f7b2-42aa-ab2c-23dde9d6f5be Active/Deployment successful 및소스일치확인. GitHub deployment7271995094 success. CI39912491073 타입/린트/단위255/DB208/E2E55=518PASS, 모의외부연결0. Node22빌드PASS.
+- 홈/계정/성과와하위화면 모바일입력16px/44px·링크/버튼/체크라벨44px. 표가로스크롤유지+보이는안내/키보드영역. 잘못된계정홈링크를실제계정성과링크로교체. 버전번호/옛기획연결/미구현CSV·자동연동예고/오른쪽안내정리. 개인정보/AI동의/수치해석안내유지. 권한·버전·비용정책변경없음.
+- 운영관리자읽기전용6화면×360/375/390/768=24조합 overflow0/모바일작은입력·링크0/옛문구0/console0. 선택입력8개16px/44px 및계정성과링크실제도착확인. 학생의성과입력/계정수정재조회는mockE2E증빙과구분. 실휴대폰/Safari/키보드/실제AI생성미검증.
+- 전후 jobs96/settings c449be4b67243c09444342cd107c361d/budgets 2d9bc5daec1abd537e95222874bb6900 동일. 예산/새유료/정기수집/불명예약변경없음. heartbeat PAUSED 유지. ADR0053/tdd0053, outputs/dashboard-mobile-release-20261023.md 및 production-checks.json/production-375.png. 문서후속은로컬보관해중복배포방지.
+
 ## 2026-10-23 사전·글쓰기 모바일 개선 배포 완료
 
 - 앱077179c6148986be7d4c64ca634d6ab7b4a58563/web35f55449-d574-4e50-b4aa-d254415df4d5 ACTIVE·Deployment successful·source확인. GitHub deployment7271482805 success. CI39908823968 타입/린트/단위255/DB208/E2E53=516 PASS, web/worker mock 외부연결0, Node22빌드PASS.
