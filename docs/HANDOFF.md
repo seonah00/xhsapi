@@ -1,3 +1,10 @@
+## 2026-10-23 사전·글쓰기 모바일 개선 배포 완료
+
+- 앱077179c6148986be7d4c64ca634d6ab7b4a58563/web35f55449-d574-4e50-b4aa-d254415df4d5 ACTIVE·Deployment successful·source확인. GitHub deployment7271482805 success. CI39908823968 타입/린트/단위255/DB208/E2E53=516 PASS, web/worker mock 외부연결0, Node22빌드PASS.
+- 공용/내사전/글쓰기/작성 이력의 모바일 입력14px/높이36~38px을16px/44px으로 개선. route layout 범위만 적용, 공용 보조검색 세로배치·바로가기 줄바꿈. 모의학생 모바일 사전뜻/분류/즐겨찾기/사용법/중한예문 저장재조회→글쓰기→임시저장복원 및 기존 버전복원/복제/보관/검색/페이지 검증통과.
+- 운영관리자 읽기전용 4화면×360/375/390/768=16화면 overflow0/작은모바일입력0/console0. 실제 학생저장은 모의E2E 증빙과 구분. 실제휴대폰/Safari/키보드/실제AI생성 미검증.
+- 전후 jobs96/settings c449be4b67243c09444342cd107c361d/budgets 2d9bc5daec1abd537e95222874bb6900 동일. 예산/새유료/새수집/정기수집/불명예약 변경없음. 기존 heartbeat PAUSED 유지. docs ADR0052/tdd0052, outputs/library-mobile-release-20261023.md 및 library-mobile-ci-20261023.
+
 ## 2026-10-23 모바일 탐색 개선 배포·운영 검증 완료
 
 - 운영 d8fcc8b /web ec7935cc-7a88-4573-8c41-c5127c49f4d0 ACTIVE/Deployment successful 및 GitHub source 확인. CI39898915466 /08380da와 앱 동일(문서 후속). 타입/린트/단위255/DB208/E2E50=513 PASS, web/worker mock 외부연결0. 모의학생 desktop/mobile에서 기본접힘·펼침·첫카드<780px·1→2→1·조건유지·16px/44px·axe·console0 PASS.
