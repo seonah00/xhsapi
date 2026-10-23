@@ -41,7 +41,7 @@ export function CoverRepair({ notes, children, canManage = false, automatic = fa
   }, [automatic, router]);
   return <FailureContext.Provider value={report}>
     <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
-      <span>이 페이지에 {notes.length}건 표시 · 페이지당 최대 50건</span>
+      <span>{canManage ? `이 페이지에 ${notes.length}건 표시 · 페이지당 최대 50건` : `${notes.length}개 게시물`}</span>
       {canManage && ids.length > 0 && <Link className={btn.secondary} href={`/app/notes/enrich?ids=${ids.join(',')}`}>이미지 업데이트 ({ids.length}건)</Link>}
       {canManage && ids.length > 0 && <span className="text-xs text-muted">불러오지 못한 이미지를 다시 조회합니다. 실행 전에 비용을 확인합니다.</span>}
     </div>

@@ -35,7 +35,7 @@ export function NoteCard({ note, back, inCompare, reasons, cons, canManage = fal
         <Metric label="저장" value={note.metrics.saves} />
         <Metric label="댓글" value={note.metrics.comments} />
       </dl>
-      <p className="mt-2 text-[11px] text-muted">게시 {fmtDate(note.publishedAt)} · 관찰 {fmtDate(note.observedAt, true)} · 조회수 제공 안 됨</p>
+      <p className="mt-2 text-[11px] text-muted">게시 {fmtDate(note.publishedAt)}{canManage && <> · 관찰 {fmtDate(note.observedAt, true)} · 조회수 제공 안 됨</>}</p>
       {reasons && reasons.length > 0 && (
         <ul className="mt-2 space-y-0.5 text-xs">
           {reasons.map((r) => <li key={r} className="text-ok">✓ {r}</li>)}

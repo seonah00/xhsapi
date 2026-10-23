@@ -1,3 +1,5 @@
+import { DiscoveryPager } from '@/components/discovery-pager';
+import { discoveryPageLinks } from '@/components/discovery-pagination';
 import { SearchLanguage } from '@/components/search-language';
 import { AutoSearchStatus } from '@/components/auto-search-status';
 import Link from 'next/link';
@@ -33,28 +35,30 @@ export default async function Discover({ searchParams }: { searchParams: Promise
   const dictionaryMatches = sp.q ? await withPageCtx(ctx => listSharedDictionary(ctx, { query: (candidate.text || sp.q!).replace(/推荐|攻略/g, '').slice(0,100), entryType: 'tag', pageSize: 100 })) : null;
   const keywordDictionary = [...new Map([...dictionary, ...(dictionaryMatches?.items ?? [])].map(d => [d.id, d])).values()];
   const qs = new URLSearchParams(Object.entries({ q: sp.q ?? '', topic: sp.topic ?? '', format: sp.format ?? '', days: sp.days ?? '', sort: sp.sort ?? '', job: sp.job ?? '', original: sp.original ?? '' }).filter(([, v]) => v));
+  for (const term of ([] as string[]).concat(sp.terms ?? [])) qs.append('terms', term);
+  const pageLinks = discoveryPageLinks(qs, query.cursor, result.nextCursor);
   const searchQuery = categorySearch(sp.q, sp.topic);
   const targetCount = sp.targetCount === '100' ? '100' : '50';
   const quoteScope = {query:searchQuery,targetCount:Number(targetCount),...(sp.topic?{topic:sp.topic}:{}),...(sp.days?{days:Number(sp.days)}:{})};
   const quoteMatches = quote?.operation === 'provider_search' && quote.requestHash === requestHash('provider_search',quoteScope);
   const back = `/app/discover${qs.size ? `?${qs}` : ''}`;
   return (
-    <>
+    <div className="discovery-screen">
       <Link href="/app/discover/language" className={btn.secondary}>한국어 자유문장으로 AI 검색어 만들기</Link>
-      <Link href="/app/discover/trends" className="mb-3 inline-block text-sm text-accent">키워드 사용 추이 →</Link>
-      <PageHeader title="탐색" description={<>검색어·해시태그로 게시물을 찾아보세요. 마지막 갱신 {fmtDate(result.lastFetchedAt, true)}</>}
+      {canManage && <Link href="/app/discover/trends" className="mb-3 inline-block text-sm text-accent">키워드 사용 추이 →</Link>}
+      <PageHeader title="탐색" description={canManage ? <>마지막 갱신 {fmtDate(result.lastFetchedAt, true)}</> : undefined}
         actions={<><Link href="/app/discover/compare" className={btn.secondary}>비교 ({compare.length}/3)</Link></>} />
-      <div className="mb-3 flex gap-2"><Link className={btn.secondary} href={`/app/discover?${new URLSearchParams({...Object.fromEntries(qs),original:'1'})}`}>원문 링크 있는 게시물만 보기</Link>{sp.original && <Link className={btn.secondary} href="/app/discover">전체 게시물 보기</Link>}</div>
+      {canManage && <div className="mb-3 flex gap-2"><Link className={btn.secondary} href={`/app/discover?${new URLSearchParams({...Object.fromEntries(qs),original:'1'})}`}>원문 링크 있는 게시물만 보기</Link>{sp.original && <Link className={btn.secondary} href="/app/discover">전체 게시물 보기</Link>}</div>}
       <ErrorNotice message={sp.error ?? (parsed.success ? undefined : '검색 조건을 확인하세요.')} />
-      <form role="search" className="mb-4 grid gap-2 rounded-2xl border border-line bg-surface p-3 sm:grid-cols-[1fr_auto_auto_auto]">
+      <form role="search" className="mb-4 grid grid-cols-2 gap-2 rounded-2xl border border-line bg-surface p-3 sm:grid-cols-[1fr_auto_auto_auto]">
         <label className="sr-only" htmlFor="q">검색어</label>
-        <input id="q" name="q" defaultValue={sp.q} placeholder="검색어·해시태그 (예: #韩国旅行, 스킨케어)" className={input} />
+        <input id="q" name="q" defaultValue={sp.q} placeholder="검색어·해시태그" className={`${input} col-span-2 sm:col-span-1`} />
         <select name="topic" defaultValue={sp.topic ?? ''} className={input} aria-label="주제"><option value="">모든 주제</option>{Object.entries(TOPIC_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
         <select name="format" defaultValue={sp.format ?? ''} className={input} aria-label="형식"><option value="">모든 형식</option>{Object.entries(FORMAT_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
         <select name="sort" defaultValue={sp.sort ?? 'popular'} className={input} aria-label="정렬"><option value="popular">좋아요 많은 순</option><option value="saves">저장 많은 순</option><option value="recent">최신순</option></select>
         <select name="days" defaultValue={sp.days ?? ''} className={input} aria-label="기간"><option value="">전체 기간</option><option value="7">최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option></select>
         {canManage && <PendingButton formAction={quoteRefresh} className={btn.primary} pendingText="검색 준비 중…">새 게시물 검색</PendingButton>}
-        <button formAction={searchAutomatically} className={canManage ? btn.secondary : btn.primary}>{canManage && !automatic.enabled ? '저장된 게시물 검색' : '검색'}</button>
+        <button formAction={searchAutomatically} className={`${canManage ? btn.secondary : btn.primary} ${canManage ? "" : "col-span-2 sm:col-span-1"}`}>{canManage && !automatic.enabled ? '저장된 게시물 검색' : '검색'}</button>
       </form>
 
       {sp.prepare && <section aria-labelledby="chinese-search-title" className="mb-4 rounded-2xl border border-line bg-surface p-4">
@@ -69,9 +73,12 @@ export default async function Discover({ searchParams }: { searchParams: Promise
           <PendingButton className={btn.primary} pendingText="검색 중…">이 중국어로 검색</PendingButton>
         </form>
       </section>}
-      {(sp.q || sp.topic) && <SearchLanguage query={searchQuery} notes={result.notes} dictionary={keywordDictionary}/>}
+      {(sp.q || sp.topic) && <details data-testid="discovery-analysis" className="my-3 rounded-xl border border-line bg-surface">
+        <summary className="min-h-11 cursor-pointer px-3 py-3 text-sm font-semibold">키워드·표현 분석 <span className="font-normal text-muted">· 펼쳐 보기</span></summary>
+        <div className="p-3"><SearchLanguage query={searchQuery} notes={result.notes} dictionary={keywordDictionary}/></div>
+      </details>}
 
-      {!canManage && automatic.enabled && <p className="mb-3 text-xs text-muted">검색어로 외부 공개 게시물을 찾아옵니다. 최근에 검색한 결과는 재사용합니다.</p>}
+      {!canManage && automatic.enabled && <p className="mb-3 text-xs text-muted">검색하면 새 게시물을 가져올 수 있습니다. 최근 결과는 재사용합니다.</p>}
       {sp.auto && <AutoSearchStatus requestId={sp.auto}/>}
       {result.expansion && (
         <div className="mb-4 rounded-2xl border border-line bg-surface p-3 text-sm">
@@ -92,12 +99,13 @@ export default async function Discover({ searchParams }: { searchParams: Promise
         </div>
       )}
       {canManage && sp.topic && !sp.cursor && result.notes.length < 50 && <p className="mb-3 text-sm text-muted">이 조건에 맞는 게시물 {result.notes.length}건 · 목표 50건. 아래 ‘새 게시물 찾기’에서 해당 주제를 추가 조회할 수 있습니다.</p>}
-      {result.postFilters.length > 0 && <p className="mb-3 text-xs text-muted">기간 조건은 저장 자료에 사후 필터로 적용했습니다. 게시일이 확인되지 않은 자료는 제외됩니다.</p>}
+      {canManage && result.postFilters.length > 0 && <p className="mb-3 text-xs text-muted">기간 조건은 저장 자료에 사후 필터로 적용했습니다. 게시일이 확인되지 않은 자료는 제외됩니다.</p>}
 
-      {(sp.q || sp.topic) && <div className="mb-4 rounded-xl bg-info-soft p-3 text-sm">
+      {canManage && (sp.q || sp.topic) && <div className="mb-4 rounded-xl bg-info-soft p-3 text-sm">
         {sp.job ? '이번 조회의' : '현재 저장된'} “{sp.q || TOPIC_LABEL[sp.topic ?? '']}” 관련 게시물입니다. {canManage && <a href="#refresh" className="font-semibold underline">새 게시물 50건 찾기</a>}
         {sp.job && <div className="mt-2"><JobStatus jobId={sp.job} label="새 게시물 찾기" /></div>}
       </div>}
+      <DiscoveryPager links={pageLinks} position="상단"/>
       {result.notes.length === 0 ? (
         <Empty title={sp.job ? "이번 조회 결과가 아직 없습니다" : "관련 근거가 부족합니다"}>{sp.job ? "조회 상태를 확인하세요. 완료되면 결과가 자동으로 갱신됩니다." : "조건에 맞는 게시물이 없습니다. 검색어나 카테고리·기간을 바꿔 보세요."}</Empty>
       ) : (
@@ -105,7 +113,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
           {result.notes.map((n) => <NoteCard canManage={canManage} key={n.id} note={n} back={back} inCompare={compare.includes(n.id)} />)}
         </div></CoverRepair>
       )}
-      {result.nextCursor && <div className="mt-4 text-center"><Link className={btn.secondary} href={`${back}${qs.size ? '&' : '?'}cursor=${result.nextCursor}`}>더 보기</Link></div>}
+      <DiscoveryPager links={pageLinks} position="하단"/>
 
       {canManage && <div className="mt-8">
         <section id="refresh" aria-labelledby="refresh-title" className="rounded-2xl border border-line bg-surface p-4">
@@ -127,13 +135,13 @@ export default async function Discover({ searchParams }: { searchParams: Promise
           {sp.job && <div className="mt-3"><p className="mt-1 text-xs text-muted">완료되면 <Link href={back} className="underline">검색 결과 새로고침</Link></p></div>}
         </section>
       </div>}
-      {result.latestHot.length > 0 && (
+      {canManage && result.latestHot.length > 0 && (
         <section aria-labelledby="hot" className="mt-6">
           <h2 id="hot" className="text-sm font-semibold">공급자 최신 인기 글 <Badge tone="warn">검색어와 무관</Badge></h2>
           <p className="mb-2 text-xs text-muted">검색 결과가 아니며 추천·집계에서 제외됩니다.</p>
           <ul className="space-y-1 text-sm">{result.latestHot.map((n) => <li key={n.id} className="zh text-muted" lang="zh-CN">{n.title}</li>)}</ul>
         </section>
       )}
-    </>
+    </div>
   );
 }
