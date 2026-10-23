@@ -21,10 +21,10 @@ export default async function AccountSettings({ params, searchParams }: { params
   const account = await withPageCtx((ctx) => getAccount(ctx, id));
   return (
     <div className="max-w-2xl">
-      <PageHeader title={`${account.display_name} 설정`} description={`현재 프로필 버전 ${account.profile_version}. 저장하면 새 버전이 만들어지고, 이전 기획은 당시 버전을 유지합니다.`} />
+      <PageHeader title={`${account.display_name} 설정`} description="주제·독자·말투를 수정하세요. 이전 작성물은 그대로 유지됩니다." />
       <ErrorNotice message={error} />
-      {saved && <div className="mb-4"><Notice tone="ok">저장했습니다. 프로필 버전 {saved}</Notice></div>}
-      <ProfileForm action={save} defaults={account.profile} submitLabel="새 버전으로 저장" hidden={{ accountId: account.id, revision: String(account.revision) }} />
+      {saved && <div className="mb-4"><Notice tone="ok">저장했습니다.</Notice></div>}
+      <ProfileForm action={save} defaults={account.profile} submitLabel="변경사항 저장" hidden={{ accountId: account.id, revision: String(account.revision) }} />
     </div>
   );
 }

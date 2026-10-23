@@ -32,7 +32,7 @@ export default async function PublicationDetail({ params, searchParams }: { para
         <Card>
           <h2 className="font-semibold">관찰 기록</h2>
           {p.snapshots.length === 0 ? <p className="mt-2 text-sm text-muted">아직 기록이 없습니다.</p> : (
-            <div className="mt-2 overflow-x-auto">
+            <div><p className="mb-1 text-xs text-muted sm:hidden">표를 좌우로 밀어 나머지 항목을 확인하세요.</p><div role="region" aria-label="관찰 기록표 (좌우로 스크롤)" tabIndex={0} className="mt-2 overflow-x-auto">
               <table className="w-full min-w-[640px] text-sm">
                 <thead><tr className="border-b border-line text-left text-muted"><th scope="col" className="py-2 font-normal">관찰 시각</th>{METRIC_KEYS.map((k) => <th key={k} scope="col" className="font-normal">{LABEL[k]}</th>)}<th scope="col" className="font-normal">출처</th></tr></thead>
                 <tbody>{p.snapshots.map((s) => (
@@ -43,7 +43,7 @@ export default async function PublicationDetail({ params, searchParams }: { para
                   </tr>
                 ))}</tbody>
               </table>
-            </div>
+            </div></div>
           )}
         </Card>
         <Card>

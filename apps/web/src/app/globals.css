@@ -66,3 +66,17 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
   .learning-library fieldset { min-width: 0; }
   .learning-library { overflow-wrap: anywhere; }
 }
+
+/* Home, results and account forms share touch sizing, including detail routes. */
+@media (max-width: 767px) {
+  .mobile-dashboard { overflow-wrap: anywhere; }
+  .mobile-dashboard :is(section, fieldset) { min-width: 0; }
+  .mobile-dashboard :is(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), select, textarea) {
+    min-height: 44px;
+    font-size: 16px;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .mobile-dashboard :is(button, summary, label:has(> input[type="checkbox"])) { min-height: 44px; }
+  .mobile-dashboard a { display: inline-flex; align-items: center; min-height: 44px; }
+}

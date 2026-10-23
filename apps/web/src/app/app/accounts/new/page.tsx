@@ -17,7 +17,7 @@ export default async function NewAccount({ searchParams }: { searchParams: Promi
   const { error } = await searchParams;
   return (
     <div className="max-w-2xl">
-      <PageHeader title="계정 방향 설정" description="추천은 인기보다 내 계정에 맞는지와 실제로 촬영할 수 있는지를 먼저 봅니다." />
+      <PageHeader title="계정 방향 설정" description="다룰 주제와 독자, 말투를 정리하세요. 나중에 수정할 수 있습니다." />
       <ErrorNotice message={error} />
       <ProfileForm action={create} submitLabel="계정 만들기" />
     </div>

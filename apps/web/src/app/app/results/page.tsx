@@ -40,7 +40,7 @@ export default async function Results({ searchParams }: { searchParams: Promise<
         <div className="min-w-0 space-y-4">
           <Card>
             <h2 className="font-semibold">발행한 게시물</h2>
-            {d.pubs.length === 0 ? <div className="mt-2"><Empty title="기록한 게시물이 없습니다">오른쪽에서 게시물을 등록하세요.</Empty></div> : (
+            {d.pubs.length === 0 ? <div className="mt-2"><Empty title="기록한 게시물이 없습니다">‘게시물 등록’에서 발행한 글을 추가해 보세요.</Empty></div> : (
               <ul className="mt-2 divide-y divide-line">
                 {d.pubs.map((p) => {
                   const s = p.snapshots[0];
@@ -69,7 +69,7 @@ export default async function Results({ searchParams }: { searchParams: Promise<
               </nav>
             </div>
             {cmp.groups.length === 0 ? <p className="mt-2 text-sm text-muted">비교할 기록이 없습니다.</p> : (
-              <div className="mt-3 overflow-x-auto">
+              <div><p className="mb-1 text-xs text-muted sm:hidden">표를 좌우로 밀어 나머지 항목을 확인하세요.</p><div role="region" aria-label="성과 비교표 (좌우로 스크롤)" tabIndex={0} className="mt-3 overflow-x-auto">
                 <table className="w-full min-w-[480px] text-sm">
                   <thead><tr className="border-b border-line text-left text-muted"><th scope="col" className="py-2 font-normal">그룹</th><th scope="col" className="font-normal">게시물(기록)</th><th scope="col" className="font-normal">좋아요 중앙값</th><th scope="col" className="font-normal">저장 중앙값</th><th scope="col" className="font-normal">저장률</th></tr></thead>
                   <tbody>{cmp.groups.map((g) => (
@@ -80,7 +80,7 @@ export default async function Results({ searchParams }: { searchParams: Promise<
                     </tr>
                   ))}</tbody>
                 </table>
-              </div>
+              </div></div>
             )}
             <p className="mt-2 text-xs text-muted">저장률은 같은 기록에 조회수와 저장 수가 모두 있을 때만 계산합니다.</p>
             <ul className="mt-2 space-y-1">{cmp.warnings.map((w) => <li key={w} className="text-xs text-warn">! {w}</li>)}</ul>
@@ -93,7 +93,6 @@ export default async function Results({ searchParams }: { searchParams: Promise<
             <p className="mt-1 text-xs text-muted">발행·관찰 시각은 한국 시간 기준입니다.</p>
             <form action={addPublication} className="mt-3 space-y-2 text-sm">
               <input type="hidden" name="accountId" value={d.account.id} />
-              <p className="text-xs text-muted">기획과 연결하려면 기획의 “최종본 전달” 화면에서 등록하세요.</p>
               <div><label htmlFor="ptitle" className={label}>제목(메모용)</label><input id="ptitle" name="title" maxLength={200} className={input} /></div>
               <div><label htmlFor="noteUrl" className={label}>게시물 링크 (선택)</label><input id="noteUrl" name="noteUrl" type="url" className={input} /></div>
               <div><label htmlFor="publishedAt" className={label}>발행일시</label><input id="publishedAt" name="publishedAt" type="datetime-local" className={input} /></div>
@@ -131,7 +130,7 @@ export default async function Results({ searchParams }: { searchParams: Promise<
               </div>
             ))}
           </Card>
-          <Notice>성과 수치는 직접 입력한 값입니다. CSV 가져오기와 자동 연동은 이후 단계에서 지원합니다.</Notice>
+          <Notice>샤오홍슈에서 확인한 수치를 직접 입력하세요. 모르는 수치는 비워 두세요.</Notice>
         </div>
       </div>
     </>
