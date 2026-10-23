@@ -26,6 +26,14 @@ describe('search language evidence',()=>{
   expect(data.expressions.some(x=>x.term.toLowerCase()==='yyds')).toBe(false);
   expect(data.expressions.find(x=>x.term==='AY')?.meaning).toBeNull();
  });
+ it('keeps emoji intact at both excerpt boundaries',()=>{
+  const prefix='前'.repeat(33);
+  const suffix='后'.repeat(53);
+  const data=analyzeSearchLanguage([note('emoji',`😀${prefix} YYDS ${suffix}😀结束`)],[definition]);
+  const context=data.expressions.find(x=>x.term==='YYDS')!.examples[0]!.context;
+  expect(context).toBe(`😀${prefix} YYDS ${suffix}😀`);
+  expect(context).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u);
+ });
  it('matches literal dictionary punctuation safely',()=>{
   const data=analyzeSearchLanguage([note('a','真的 A+B 太好了')],[{...definition,term:'A+B'}]);
   expect(data.expressions.find(x=>x.term==='A+B')?.noteCount).toBe(1);
