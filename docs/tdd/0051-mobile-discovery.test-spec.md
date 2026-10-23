@@ -15,3 +15,13 @@ CI39897879051: type/lint/unit255/DB208 PASS, browser dependencies20s로 설치 �
 CI39898355739는255/208 PASS, E2E49pass/1fail. 새 학생 desktop/mobile회귀와 axe/console 검사는 통과했다. 한국어 검색 기존 테스트가 준비 화면에서 중국어 결과로 이동하기 전에 이전 details를 열어, 새 결과 key로 교체된 뒤 다시 접히는 순서 경쟁이 드러났다. 실제 중국어 q·prepare 해제 URL 도착을 기다린 다음 펼치도록 보완했다. 단순 재시도·실패 무시는 적용하지 않는다. 최종 전체 결과 대기.
 
 최종 CI39898915466 /08380da: 타입·린트·단위255/DB208/E2E50 모두 PASS (총513). 새 학생 desktop/mobile회귀 각각 PASS, 모바일 첫 카드<780px/16px/44px·axe·콘솔 검사 PASS. web/worker mock outbound attempts0. 기존 한국어→중국어 검색 회귀도 새 URL 대기 후 PASS. 최종 운영 소스는 이 앱 코드와 동일한 문서 후속 커밋으로 배포하며 운영 검증은 후속 기록한다.
+
+## 운영 배포·검증 완료
+
+운영 d8fcc8b6194d332f541a4e7d16c97e15c1d08e4e /web ec7935cc-7a88-4573-8c41-c5127c49f4d0 ACTIVE/Deployment successful 및 소스 링크 확인. GitHub deployment7270038353 success. 앱은 CI 통과08380da와 동일하고 문서 후속만 추가됐다.
+
+기존 관리자 세션에서375px 여행 분석 기본 접힘46px, 첫카드 y24721→795.5, 입력16px/44px·버튼44px 확인. 분석 펼침/닫힘,1→2→1 후 기본 접힘 초기화,6개카테고리·조합검색(防晒霜推荐+beauty+saves48건),전체27페이지마지막47건/다음링크0/이전→26페이지50건 확인.360/375/390/768px 및 desktop1280 가로넘침0, 펼친 분석도375px 넘침0, 최종consoleerror0. Native 화면 이동 후 이전 상태를 잠깐 읽는 도구 대기 timeout1회는 후속 주소/페이지표시로 전환완료를 확인했으며 성공을 추정하지 않았다.
+
+운영은 관리자 세션이다. 학생 권한/불필요 문구 숨김·첫카드<780px은 CI 모의학생 desktop/mobile 증거로 구분한다. 실제폰 터치/가상키보드/Safari 엔진 검증은 미실행. 전후 jobs96/settings c449be4b67243c09444342cd107c361d/budgets 2d9bc5daec1abd537e95222874bb6900 동일. 신규유료/수집/정기수집/불명예약 변경0, paused heartbeat 유지.
+
+증거: outputs/mobile-discovery-production-checks-20261023.json, mobile-discovery-production-improved-375-20261023.png, mobile-discovery-deployment-active-20261023.png, mobile-student-ui-final-20261023/discovery-mobile.png. viewport reset 및 임시 CI/배포 탭 정리 완료.

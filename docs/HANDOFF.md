@@ -1,3 +1,10 @@
+## 2026-10-23 모바일 탐색 개선 배포·운영 검증 완료
+
+- 운영 d8fcc8b /web ec7935cc-7a88-4573-8c41-c5127c49f4d0 ACTIVE/Deployment successful 및 GitHub source 확인. CI39898915466 /08380da와 앱 동일(문서 후속). 타입/린트/단위255/DB208/E2E50=513 PASS, web/worker mock 외부연결0. 모의학생 desktop/mobile에서 기본접힘·펼침·첫카드<780px·1→2→1·조건유지·16px/44px·axe·console0 PASS.
+- 관리자 운영375px 여행 첫카드 y24721→795.5, 분석닫힘46px. 펼침/닫힘·페이지변경접힘초기화·6카테고리·조합검색48건·마지막27페이지47건/다음없음/이전26페이지50건,360/375/390/768/1280 가로넘침0 및 최종consoleerror0. 학생실계정으로 검증했다고 주장하지 말 것. 실제휴대폰/Safari/가상키보드는 미검증.
+- 학생에게 갱신/관찰·공급자 보조자료·원문중복필터·추이링크 숨김. 원문링크/비교/사전저장/동의/정확성 안내 유지. 전후 jobs96/settings c449be4b67243c09444342cd107c361d/budgets 2d9bc5daec1abd537e95222874bb6900 동일. 예산/유료/새수집/정기수집/불명예약 변경0, 기존 heartbeat PAUSED 유지.
+- 상세 docs/tdd/0051-mobile-discovery.test-spec.md, outputs/mobile-discovery-release-20261023.md 및 production-checks.json/production-improved-375.png/deployment-active.png. 학생 증거 mobile-student-ui-final-20261023/discovery-mobile.png는 합성 테스트 자료. viewport복원/임시탭정리 완료. 후속 검증 문서는 로컬 커밋으로 보관하여 중복배포하지 않는다.
+
 ## 2026-10-23 모바일 탐색 검증 통과·배포 진행
 
 - 최종 CI39898915466 /08380da: 타입/린트/단위255/DB208/E2E50=513개 PASS, web/worker mock 외부연결0. 새 학생 desktop/mobile 접힘·첫카드<780px·1→2→1·조건 유지·44px/16px·axe·console0 통과. 기존 한국어→중국어 검색 전환 대기를 보완한 회귀도 PASS.
