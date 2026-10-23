@@ -116,6 +116,7 @@ test('verified hashtag reactions use exact medians and unverified candidates can
   await expect(candidate).toBeDisabled();
   await candidate.locator('..').locator('..').getByRole('button',{name:'실제 게시물로 검증'}).click();
   await expect(page).toHaveURL(/q=%E6%95%8F%E6%84%9F%E8%82%8C%E9%98%B2%E6%99%92%E9%9C%9C%E6%8E%A8%E8%8D%90/);
+  await page.getByTestId('discovery-analysis').locator('summary').first().click();
   await expect(page.getByRole('region',{name:'실사용 검증 결과'})).toContainText('현재 표본에서 확인되지 않았습니다');
  } finally {await db.query('delete from notes where id=any($1::uuid[])',[ids]);await db.end();}
 });

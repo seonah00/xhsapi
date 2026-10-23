@@ -9,3 +9,5 @@
 - CI/운영 결과는 후속 기록. 별도 커버리지 계측은 아직 수행하지 않았고 미실행 로컬 DB/E2E를 통과로 세지 않는다.
 
 CI39897017650은 타입/린트/단위255/DB208 이후 Azure Ubuntu 폰트 미러 설치에서 지연되어 최종 터치 링크44px 수정본 b6ddfb6 CI39897572877로 대체했다. 두 번째도 같은 미러 다운로드에서 지연됨을 GitHub live log로 확인했다. 검증 워크플로에만 공식 archive.ubuntu.com HTTPS 미러·20초/1회 다운로드 제한 및 해당 단계5분 timeout을 추가했다. 서명·TLS 검증을 해제하지 않고 운영 설정은 변경하지 않는다. 앞선 CI를 성공으로 세지 않으며 최종 실행 결과를 별도 기록한다.
+
+CI39897879051: type/lint/unit255/DB208 PASS, browser dependencies20s로 설치 성공. E2E46pass/4fail: 새 테스트 준비 SQL에서 classifier_version/confidence 누락으로 desktop/mobile2개 실패; 기존 학생 카드에서 숨긴 조회수 안내를 계속 요구하던 assertion1개; 검색 후보 이동 후 새 기본 접힘을 열지 않던 assertion1개. 준비 SQL과 의도한 새 동선에 맞춰 테스트를 수정했으며 앱 제품 코드의 실패로 혼동하지 않는다. 모든 검사를 다시 실행한 뒤에만 배포한다.

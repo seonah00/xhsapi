@@ -44,7 +44,7 @@ test('student onboarding → discover → reference → analysis → transcript 
   await expect(page.getByText('중국어 후보(편집 시드 사전)')).toBeVisible();
   const card = page.locator('article', { hasText: '敏感肌早晚护肤顺序' });
   await expect(card).toBeVisible();
-  await expect(card.getByText('조회수 제공 안 됨')).toBeVisible();
+  await expect(card.getByText('조회수 제공 안 됨')).toHaveCount(0);
   await card.getByRole('button', { name: '☆ 저장' }).click();
   await expect(page.locator('article', { hasText: '敏感肌早晚护肤顺序' }).getByRole('button', { name: '★ 저장됨' })).toBeVisible();
   await page.locator('article', { hasText: '敏感肌早晚护肤顺序' }).getByRole('button', { name: '비교 추가' }).click();

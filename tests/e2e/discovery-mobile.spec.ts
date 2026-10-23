@@ -14,7 +14,7 @@ test('student discovery prioritizes posts, preserves filters and offers previous
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   try {
-    await db.query(`insert into note_taxonomy(note_id,taxonomy_id) select n.id,t.id from notes n cross join taxonomy_terms t where n.id=any($1::uuid[]) and t.kind='topic' and t.slug='travel-outing'`, [ids]);
+    await db.query(`insert into note_taxonomy(note_id,taxonomy_id,classifier_version,confidence) select n.id,t.id,'mobile-test','high' from notes n cross join taxonomy_terms t where n.id=any($1::uuid[]) and t.kind='topic' and t.slug='travel-outing'`, [ids]);
     await page.goto('/login');
     await page.getByRole('button', { name: /student-a@demo.invalid/ }).click();
     await page.waitForURL(/\/app/);
@@ -26,15 +26,15 @@ test('student discovery prioritizes posts, preserves filters and offers previous
     expect(first!.y).toBeLessThan(780);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (info.project.name === 'mobile') {
-    for (const selector of ['[role=search] input[name=q]', '[role=search] select', '[role=search] button']) {
-      for (const control of await page.locator(selector).all()) {
-        expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      for (const selector of ['[role=search] input[name=q]', '[role=search] select', '[role=search] button']) {
+        for (const control of await page.locator(selector).all()) {
+          expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        }
       }
-    }
-    expect(await page.getByRole('textbox', { name: '검색어', exact: true }).evaluate(e => getComputedStyle(e).fontSize)).toBe('16px');
-    for (const link of [page.getByRole('link', {name:'한국어 자유문장으로 AI 검색어 만들기',exact:true}), page.getByRole('link', {name:/^비교 \(/})]) {
-      expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    }
+      expect(await page.getByRole('textbox', { name: '검색어', exact: true }).evaluate(e => getComputedStyle(e).fontSize)).toBe('16px');
+      for (const link of [page.getByRole('link', {name:'한국어 자유문장으로 AI 검색어 만들기',exact:true}), page.getByRole('link', {name:/^비교 \(/})]) {
+        expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      }
     }
     await expect(page.getByRole('link', { name: '원문 링크 있는 게시물만 보기', exact: true })).toHaveCount(0);
     await expect(page.getByRole('link', { name: '키워드 사용 추이 →', exact: true })).toHaveCount(0);
