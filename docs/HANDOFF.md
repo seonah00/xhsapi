@@ -1,3 +1,10 @@
+## 2026-10-23 콘솔 수정·추가 범위 운영 검증 완료
+
+- 날짜 번역 불일치와 표현 문맥 UTF-16 이모지 절단을 수정했다. web b869fb0d-5b21-4277-b2c5-6c89564f767a / df4e666 ACTIVE, Deployment successful 및 소스 링크 확인. CI39885515498 타입/린트/단위249/DB208/학생E2E48=505개 통과, 모의 외부 연결0. Node22 빌드 PASS.
+- 운영 관리자 세션에서 여행·외출 새 탭/새로고침/입력 편집, 6개 카테고리, 전체27페이지(1,347건, 마지막47·더 보기 없음), 한/중/영 저장 검색3개, 검색 다음 페이지, 빈 결과, saves/recent 정렬 확인: 콘솔 error0. 앞선 클릭 반복은 화면 전환 완료를 기다리지 않아 폐기하고 실제 주소별 GET으로 전수 재검사했다. 실제 더 보기 클릭 주소 전환도 별도 확인. 학생 역할 검증은 모의 CI이며 운영 관리자와 구분한다.
+- 전후 jobs96/settings c449be4b67243c09444342cd107c361d/budgets 2d9bc5daec1abd537e95222874bb6900 동일. 예산/유료/새 수집/정기수집/불명예약 변경 없음. 모니터는 PAUSED 유지. 과거·미래의 모든 화면/전체 영상 재생 무오류를 보장하지 않는다.
+- 증빙 outputs/console-hydration-fix-20261023.md, console-production-regression-20261023.json/png, console-unicode-deployment-active-20261023.png. docs ADR0049/0050 및 tdd0049 참조.
+
 ## 2026-10-23 콘솔 추가 원인: 표현 문맥 이모지 경계 (수정 검증 중)
 
 - 날짜 수정 ed8b25c/web9fc5a4d0 ACTIVE 후 여행·외출 React418이 남아 추가 조사했다. 로컬 Next22 개발 화면에서 SearchLanguage 표현 예문이 이모지 중간부터 잘려 단독 low surrogate가 RSC/HTML에서 다르게 표시되는 정확한 diff 확인.

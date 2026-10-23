@@ -28,3 +28,9 @@
 - 학생 E2E에 독립적인 합성 note fixture를 추가했다. 무료 저장자료 GET, 예문 펼치기, client 입력 편집 뒤 오류0을 검사한다. 테스트 note는 로컬/CI DB에서만 만들고 finally로 제거한다. CI 결과는 후속 기록한다.
 
 CI39885515498 SUCCESS (1fa1cac): 타입/린트/단위249/DB208/E2E48 = 총505개. 새 이모지 경계 학생 회귀도 PASS. 모의 web/worker outbound attempts0. Node22 프로덕션 빌드도 로컬 PASS. 운영 반영·fresh tab 재검사는 후속 기록한다.
+
+## 운영 최종 검증
+
+2026-10-23 web b869fb0d-5b21-4277-b2c5-6c89564f767a / df4e666 ACTIVE 및 Deployment successful, 해당 소스 링크 확인. 새 탭 여행·외출, 새로고침, client 입력 활성화에서 console error0. 6개 주제, 전체27페이지(1,347건, 마지막47건·다음 없음), 저장 검색 선크림추천/防晒霜推荐/ootd, 검색 다음 페이지1건, 빈 결과 안내, saves/recent 정렬도 오류0. 최초 클릭 반복 표본은 전환 완료를 기다리지 않아 폐기했고, 주소별 실제 GET 전환으로27페이지를 다시 점검했다. 실제 더 보기 클릭도 주소 cursor=NTA/다음MTAw 전환으로 확인했다.
+
+운영 세션은 기존 관리자이며 실제 학생 계정 검증으로 주장하지 않는다. 학생은 모의 CI 회귀2개 포함48개 증빙으로 구분한다. 전후 jobs96/settings c449be4b67243c09444342cd107c361d/budgets 2d9bc5daec1abd537e95222874bb6900 동일. 새 유료 호출·수집·정기수집 활성화·불명 예약 재시도 없음. 증빙은 outputs/console-production-regression-20261023.json/png, console-unicode-deployment-active-20261023.png.
