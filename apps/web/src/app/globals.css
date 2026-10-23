@@ -52,3 +52,17 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
   .discovery-screen :is(button, summary, a.inline-flex) { min-height: 44px; }
   .discovery-screen label > input:not([type="checkbox"]):not([type="radio"]) { width: 100%; margin-inline-start: 0; }
 }
+
+/* Dictionary and writing controls: readable text without mobile focus zoom. */
+@media (max-width: 767px) {
+  .learning-library :is(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), select, textarea) {
+    min-height: 44px;
+    font-size: 16px;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .learning-library :is(button, summary, a.inline-flex) { min-height: 44px; }
+  .learning-library :is(button, a.inline-flex) { overflow-wrap: anywhere; }
+  .learning-library fieldset { min-width: 0; }
+  .learning-library { overflow-wrap: anywhere; }
+}

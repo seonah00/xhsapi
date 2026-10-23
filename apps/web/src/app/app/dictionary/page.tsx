@@ -46,7 +46,7 @@ export default async function SharedDictionary({ searchParams }: { searchParams:
   return (
     <>
       <PageHeader title="공용 사전" description="운영자가 검토해 공개한 태그와 표현을 검색하고, 작성에 참고할 항목을 선택할 수 있습니다." />
-      <div className="mb-4 flex gap-2"><Link href="/app/dictionary/mine" className={btn.secondary}>내 사전</Link><Link href="/app/write" className={btn.secondary}>바로 글쓰기</Link><Link href="/app/write/history" className={btn.secondary}>작성 이력</Link></div>
+      <div className="mb-4 flex flex-wrap gap-2"><Link href="/app/dictionary/mine" className={btn.secondary}>내 사전</Link><Link href="/app/write" className={btn.secondary}>바로 글쓰기</Link><Link href="/app/write/history" className={btn.secondary}>작성 이력</Link></div>
       <ErrorNotice message={sp.error} />
       <div role="note" className="mb-4 rounded-xl bg-info-soft px-4 py-3 text-sm text-info">
         이 목록은 편집된 관찰 자료이며 인기 순위, 검색량, 성과 보장을 뜻하지 않습니다. 개인 초안이나 AI 생성 결과는 자동으로 공용 사전에 공유되지 않습니다.
@@ -78,7 +78,7 @@ export default async function SharedDictionary({ searchParams }: { searchParams:
       <section className="my-5 rounded-xl border border-line p-4" aria-label="실제 게시물 표현 찾기">
         <h2 className="font-semibold">실제 게시물에서 해시태그·현지 표현 찾기</h2>
         <p className="my-2 text-sm text-muted">등록한 사전과 샤오홍슈 검색 자료를 함께 확인하세요. 줄임말·구어체는 사용 문맥과 근거를 확인하고 다른 사이트의 본문 작성에 활용할 수 있습니다.</p>
-        <form action={searchAutomatically} className="flex gap-2"><input name="q" aria-label="게시물 검색 주제" defaultValue={sp.q} required maxLength={100} placeholder="한국어 주제 또는 중국어 표현" className={input}/><button className={btn.secondary}>게시물에서 찾기</button></form>
+        <form action={searchAutomatically} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"><input name="q" aria-label="게시물 검색 주제" defaultValue={sp.q} required maxLength={100} placeholder="한국어 주제 또는 중국어 표현" className={input}/><button className={btn.secondary}>게시물에서 찾기</button></form>
       </section>
       {research && <SearchLanguage query={sp.q ?? ''} notes={research.notes} dictionary={research.dictionary}/>}
       <DictionaryWorkspace canManage={canManage} items={result.items} aiStatus={aiStatus} />
