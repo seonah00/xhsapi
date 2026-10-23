@@ -67,3 +67,21 @@ test('copyable original connection preserves valid shares and handles expiry wit
   await expect(page.getByRole('alert').filter({hasText:'공유 링크'})).toBeVisible();await expect(page.getByRole('button',{name:'원문 연결 링크 복사',exact:true})).toHaveCount(0);
  }finally{await db.query('delete from notes where id=$1',[id]);await db.end();}
 });
+
+
+test('dictionary and writing controls fit small touch screens @mobile',async({page},info)=>{
+ await login(page,'student-b@demo.invalid');
+ await page.setViewportSize({width:375,height:812});
+ for(const route of ['/app/dictionary','/app/dictionary/mine','/app/write','/app/write/history']){
+  await page.goto(route);
+  const fields=page.locator('main input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),main select,main textarea');
+  for(const field of await fields.all()){
+   if(!await field.isVisible())continue;
+   const box=await field.boundingBox();expect(box!.height,route).toBeGreaterThanOrEqual(44);
+   expect(await field.evaluate(e=>parseFloat(getComputedStyle(e).fontSize)),route).toBeGreaterThanOrEqual(16);
+  }
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),route).toBe(true);
+ }
+ await mkdir('test-results/student-library',{recursive:true});
+ await page.screenshot({path:`test-results/student-library/library-controls-${info.project.name}.png`});
+});

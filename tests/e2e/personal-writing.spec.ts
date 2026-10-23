@@ -17,7 +17,7 @@ test('private dictionary to writing, saved versions and another student isolatio
  expect((await page.goto(savedUrl))?.status()).toBe(404);
 });
 
-test('private dictionary editing, classification and bilingual examples feed recoverable writing',async({page})=>{
+test('private dictionary editing, classification and bilingual examples feed recoverable writing @mobile',async({page})=>{
  await page.goto('/login');await page.getByRole('button',{name:/student-a@demo.invalid/}).click();await page.waitForURL(/\/app/);
  await page.goto('/app/dictionary/mine');await page.getByLabel('중국어 태그·표현').fill('松弛测试');await page.getByLabel('내가 정리한 뜻').fill('편안한 느낌');await page.getByRole('button',{name:'내 항목 등록',exact:true}).click();
  await expect(page.getByRole('link',{name:'등록 완료 · 바로 글쓰기'})).toBeVisible();
