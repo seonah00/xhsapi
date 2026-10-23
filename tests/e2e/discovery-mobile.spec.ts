@@ -25,12 +25,14 @@ test('student discovery prioritizes posts, preserves filters and offers previous
     const first = await page.locator('article').first().boundingBox();
     expect(first!.y).toBeLessThan(780);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    if (info.project.name === 'mobile') {
     for (const selector of ['[role=search] input[name=q]', '[role=search] select', '[role=search] button']) {
       for (const control of await page.locator(selector).all()) {
         expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       }
     }
     expect(await page.getByRole('textbox', { name: '검색어', exact: true }).evaluate(e => getComputedStyle(e).fontSize)).toBe('16px');
+    }
     await expect(page.getByRole('link', { name: '원문 링크 있는 게시물만 보기', exact: true })).toHaveCount(0);
     await expect(page.getByRole('link', { name: '키워드 사용 추이 →', exact: true })).toHaveCount(0);
     await expect(page.locator('article').first()).not.toContainText('관찰 ');

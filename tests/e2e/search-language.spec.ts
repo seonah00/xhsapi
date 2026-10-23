@@ -16,6 +16,7 @@ test('Korean search previews a composed Chinese query; result evidence counts di
     await expect(page.getByRole('textbox',{name:'중국어 검색어',exact:true})).toHaveValue('圣水洞 咖啡店');
     await expect(page).not.toHaveURL(/auto=/);
     await page.getByRole('button',{name:'이 중국어로 검색'}).click();
+    await page.getByTestId('discovery-analysis').locator('summary').first().click();
     const section=page.getByRole('region',{name:'이 검색에서 발견한 해시태그·표현'});
     await expect(section).toContainText('중복 제외 1개 게시물');
     await expect(section).toContainText('1/1개 게시물에서 발견');
@@ -50,6 +51,7 @@ test('free Korean sentence follows AI preview, consent and worker completion wit
   await page.getByRole('button', {name: /student-b@demo\.invalid/}).click();
   await page.waitForURL(/\/app/);
   await page.goto('/app/discover?q=' + encodeURIComponent('防晒霜推荐'));
+  await page.getByTestId('discovery-analysis').locator('summary').first().click();
   await expect(page.getByRole('heading', {name: '사전과 검색 결과로 키워드 정리'})).toBeVisible();
   await page.getByText(/검증 전 검색 후보 .*개 · AI·사전·대상 조합/).click();
   const candidate=page.getByRole('checkbox', {name: '#敏感肌防晒霜推荐', exact: true});
@@ -97,6 +99,7 @@ test('verified hashtag reactions use exact medians and unverified candidates can
   }
   await page.goto('/login');await page.getByRole('button',{name:/student-b@demo\.invalid/}).click();await page.waitForURL(/\/app/);
   await page.goto('/app/discover?q='+encodeURIComponent('合成关键词证据'));
+  await page.getByTestId('discovery-analysis').locator('summary').first().click();
   const evidence=page.getByRole('region',{name:'실사용 검증 결과'});
   await expect(evidence).toContainText('실사용 확인 · 현재 표본 3/3건');
   await expect(evidence).toContainText('확인된 작성자 3명 · 비교 표본 충분');
@@ -107,6 +110,7 @@ test('verified hashtag reactions use exact medians and unverified candidates can
   await expect(page.getByRole('button',{name:'선택한 1개 태그 복사'})).toBeVisible();
   await expect(page).not.toHaveURL(/auto=|quote=/);
   await page.goto('/app/discover?q='+encodeURIComponent('防晒霜推荐'));
+  await page.getByTestId('discovery-analysis').locator('summary').first().click();
   await page.getByText(/검증 전 검색 후보 .*개 · AI·사전·대상 조합/).click();
   const candidate=page.getByRole('checkbox',{name:'#敏感肌防晒霜推荐',exact:true});
   await expect(candidate).toBeDisabled();

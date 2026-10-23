@@ -1,3 +1,9 @@
+## 2026-10-23 모바일 게시물 우선·페이지 이동 수정 (검증 중)
+
+- 사용자 요청에 따라 탐색 키워드 분석 native details 기본 접힘, 위아래 현재 페이지/이전/다음, 반복 terms 포함 조건 유지, 모바일2열필터·입력16px/44px·버튼44px 적용. 학생 갱신·관찰·공급자 보조자료·중복원문필터·추이 링크는 숨기고 원문링크/비교/사전저장/AI동의는 유지.
+- RED64f7355 missing implementation compile-time → GREEN044b3a5 pagination6pass. 초기 전체는 localhost EPERM으로 실패했고 권한 후 타입/린트/단위255, Node22빌드 PASS. 새 학생 desktop/mobile E2E는 CI로 확인 예정. 변경 파일에는 유료 제공자·조직·예산 정책 없음. 배포/운영 재점검 전 완료로 보고하지 말 것.
+- ADR0051, docs/tdd/0051-mobile-discovery.test-spec.md. 앞선 운영 베이스 df4e666은 정상. 기존 docs 후속1a7511d 보존.
+
 ## 2026-10-23 콘솔 수정·추가 범위 운영 검증 완료
 
 - 날짜 번역 불일치와 표현 문맥 UTF-16 이모지 절단을 수정했다. web b869fb0d-5b21-4277-b2c5-6c89564f767a / df4e666 ACTIVE, Deployment successful 및 소스 링크 확인. CI39885515498 타입/린트/단위249/DB208/학생E2E48=505개 통과, 모의 외부 연결0. Node22 빌드 PASS.

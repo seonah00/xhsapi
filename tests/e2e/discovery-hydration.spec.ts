@@ -7,11 +7,12 @@ test('discovery dates hydrate without React errors in an English browser', async
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
   await page.goto('/login');
-  await page.getByRole('button', { name: /student-a@demo.invalid/ }).click();
+  await page.getByRole('button', { name: /admin@demo.invalid/ }).click();
   await page.waitForURL(/\/app/);
   await page.goto('/app/discover?topic=beauty');
   await expect(page.getByRole('heading', { name: '탐색', exact: true })).toBeVisible();
   await expect(page.locator('article').first()).toContainText(/관찰 .* (오전|오후) \d{2}:\d{2}/);
+  await page.getByTestId('discovery-analysis').locator('summary').first().click();
   // Client-only editing proves the page has hydrated; no collection or AI action.
   await page.getByLabel('대상 (예: 敏感肌)').fill('测试');
   await expect(page.getByRole('button', { name: '조합한 키워드로 게시물 찾기' })).toBeVisible();
@@ -33,6 +34,7 @@ test('expression excerpts hydrate when an emoji crosses either clipping boundary
     await page.getByRole('button', { name: /student-a@demo.invalid/ }).click();
     await page.waitForURL(/\/app/);
     await page.goto('/app/discover?q=' + encodeURIComponent(query));
+    await page.getByTestId('discovery-analysis').locator('summary').first().click();
     const evidence = page.getByRole('region', { name: '이 검색에서 발견한 해시태그·표현' });
     await expect(evidence).toContainText('YYDS');
     await evidence.locator('summary').filter({ hasText: '근거 게시물·사용 문맥' }).last().click();

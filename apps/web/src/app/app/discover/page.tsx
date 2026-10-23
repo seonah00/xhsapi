@@ -73,8 +73,8 @@ export default async function Discover({ searchParams }: { searchParams: Promise
           <PendingButton className={btn.primary} pendingText="검색 중…">이 중국어로 검색</PendingButton>
         </form>
       </section>}
-      {(sp.q || sp.topic) && <details data-testid="discovery-analysis" className="my-3 rounded-xl border border-line bg-surface">
-        <summary className="min-h-11 cursor-pointer px-3 py-3 text-sm font-semibold">키워드·표현 분석 <span className="font-normal text-muted">· 펼쳐 보기</span></summary>
+      {(sp.q || sp.topic) && <details key={`${back}:${query.cursor ?? ""}`} data-testid="discovery-analysis" className="group my-3 rounded-xl border border-line bg-surface">
+        <summary className="min-h-11 cursor-pointer px-3 py-3 text-sm font-semibold">키워드·표현 분석 <span className="font-normal text-muted group-open:hidden">· 펼쳐 보기</span><span className="hidden font-normal text-muted group-open:inline">· 접기</span></summary>
         <div className="p-3"><SearchLanguage query={searchQuery} notes={result.notes} dictionary={keywordDictionary}/></div>
       </details>}
 
