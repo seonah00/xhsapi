@@ -1,3 +1,11 @@
+## 2026-10-24 모바일 전체 학습흐름 개선 배포·모의검증 완료 (운영 로그인 대기)
+
+- 새연결회귀: 탐색관찰태그저장→내사전검색/뜻편집→선택하여글쓰기태그전달→임시저장→새로고침복원→이력버전저장→목록검색→동일본문재조회. RED CI40065961518 성공직후링크16px로2실패/기존55PASS. 수정719ecfd/CI40066407368 타입/린트/단위255/DB208/E2E57=520PASS, web/worker모의외부연결0. Node22빌드PASS(기존경고2개).
+- 저장후바로글쓰기·수동등록성공·이력열기44px터치영역, 간격/줄바꿈, 내사전보기바로가기추가. 상태/권한/복원/버전/예산코드변경없음. 실제학생쓰기대신합성mock학생desktop/mobile모두완주. overflow없음/axe/pageerror0.
+- web c9f7bc4e-5bfc-4d75-84a0-2d4bebb5a179 ACTIVE/Deployment successful, source719ecfdda4a56dee4a0205a19d23172dd0b4fb44 일치. GitHub deployment7294601304 success05:37:04UTC. 운영로그인세션만료로로그인요청함. 로그인하지않은상태에서운영전체검사완료로보고하지말것. 인앱로그인탭handoff유지, viewport복원/CI·Railway임시탭정리.
+- jobs96/settings c449be4b67243c09444342cd107c361d/budgets 2d9bc5daec1abd537e95222874bb6900 동일. 예산/새유료/정기수집/불명예약변경0. 기존heartbeat PAUSED 유지. 실제휴대폰/Safari/가상키보드·실제AI생성미검증.
+- ADR0054/tdd0054, outputs/mobile-learning-audit-20261024.md, mobile-learning-ci-20261024/learning-journey-mobile.png(합성학생증빙), deployment-active.png. 로그인후운영탐색/사전/글쓰기/이력GET읽기전용확인만남음. 운영개인초안에합성저장하지않음.
+
 ## 2026-10-23 홈·성과·계정 모바일 개선 배포 완료
 
 - 소스5c0f589c52eea76a1bb8890a979dd42755069bb0/web da4a2c26-f7b2-42aa-ab2c-23dde9d6f5be Active/Deployment successful 및소스일치확인. GitHub deployment7271995094 success. CI39912491073 타입/린트/단위255/DB208/E2E55=518PASS, 모의외부연결0. Node22빌드PASS.

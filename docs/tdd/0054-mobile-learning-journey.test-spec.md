@@ -13,3 +13,10 @@
 - fa611bf 테스트추가. CI40065961518 RED: 새desktop/mobile2개실패, 기대44px이상/실제16px. 정확히SavePersonal 성공바로글쓰기크기assertion에서실패. 기존55개통과, 외부연결0.
 - UI크기결함후보: SavePersonal성공바로글쓰기와WritingEditor저장본열기가일반inline링크. 신규내사전바로가기는저장후학습흐름을이어준다.
 - 운영세션만료로로그인요청. mock학생증빙과운영관리자읽기전용증빙을구분한다.
+
+## GREEN
+
+- 719ecfd / CI40066407368 SUCCESS: 타입·린트·단위255/DB208/E2E57=520. 새연결회귀desktop/mobile모두통과. web/worker모의외부연결0. Node22.23.2빌드PASS(기존pg-config추적경고2개).
+- 수정: SavePersonal성공터치44px/간격·줄바꿈/내사전보기, 직접등록성공과WritingEditor이력열기44px. 권한/버전/예산/제공자변경0.
+- 통과보장: 저장한관찰태그가내사전편집후글쓰기해시태그로전달되며새로고침복원후에도보존. 저장본문을이력검색후재조회일치. 가로넘침없음·axe검사·pageerror0.
+- 수치커버리지계측없음. 실제폰/Safari/가상키보드/실제AI호출은미검증. 운영로그인대기와모의학생완료를구분.
