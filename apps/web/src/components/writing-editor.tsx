@@ -36,6 +36,6 @@ export function WritingEditor({entries,draft,suggestion}:{entries:SharedDictiona
  <label className="block">해시태그 (공백으로 구분)<input name="tags" value={tags} onChange={e=>{setTags(e.target.value);setTagsEdited(true);}} className={input}/></label>
  <button disabled={pending||!id||recovery.busy} className={btn.primary}>{pending?'저장 중…':'작성 이력에 저장'}</button></fieldset>
  {restoredIds&&<p className="text-xs">복원한 사전 항목 {restoredIds.length}개를 함께 보관합니다. <button type="button" className="underline" onClick={()=>setRestoredIds([])}>복원한 사전 항목 제외</button></p>}
- {state.id&&<p role="status">버전 {state.revision} 저장 완료 · <Link className="underline" href={`/app/write/history/${state.id}`}>저장본·이력 열기</Link></p>}{state.error&&<p role="alert">{state.error}</p>}
+ {state.id&&<p role="status">버전 {state.revision} 저장 완료 · <Link className="inline-flex min-h-11 items-center underline" href={`/app/write/history/${state.id}`}>저장본·이력 열기</Link></p>}{state.error&&<p role="alert">{state.error}</p>}
  </form><div className="mt-3"><CopyButton text={[title,body,tags.split(/[\s,#，]+/).filter(Boolean).map(t=>'#'+t).join(' ')].filter(Boolean).join('\n\n')} label="현재 제목·본문·태그 복사"/></div></section>;
 }
