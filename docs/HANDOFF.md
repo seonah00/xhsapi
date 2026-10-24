@@ -1,3 +1,9 @@
+## 2026-10-24 PC 전체 학습흐름 재점검 완료 (추가 코드 변경 없음)
+
+- 현재앱은운영719ecfd와동일(HEAD2d36743문서만다름). 재실행CI40070480311 SUCCESS: 타입/린트/단위255/DB208/E2E57=520PASS, web/worker외부시도0. mock학생desktop1280에서탐색관찰태그저장→내사전검색/편집→글쓰기태그전달→임시저장/새로고침복원→이력저장/검색/본문재조회다시통과. 기존복원/복제/보관/페이지검사도통과.
+- 운영기존관리자읽기전용5화면×1024/1280/1440/1920=20조합 heading누락0/overflow0/console0. 사전Enter검색, 내사전→글쓰기idsURL도착, ArrowRight/Home글쓰기탭전환, 이력→저장본URL일치/필드2개/버전summary3개확인. 학생쓰기검사는mock증빙과구분.
+- 전후jobs96/settings c449be4b67243c09444342cd107c361d/budgets 2d9bc5daec1abd537e95222874bb6900 동일. 예산/새유료/정기수집보류유지. 추가결함없어코드수정·재배포안함. viewport복원/공용사전deliverable탭유지. outputs/pc-learning-audit-20261024.md, production-checks.json/production.png, pc-learning-ci-20261024/learning-journey-desktop.png. 문서후속은로컬보관.
+
 ## 2026-10-24 로그인 후 운영 모바일 연결 확인 완료
 
 - 사용자로그인후기존관리자세션으로 탐색/공용사전/내사전/글쓰기/이력×360/375/390/768=20조합 읽기전용확인. heading누락0/overflow0/모바일44px16px미달0/consoleerror0.
