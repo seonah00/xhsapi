@@ -8,7 +8,7 @@ import {revalidatePath} from 'next/cache';
 export async function saveGuide(f:FormData){
  const fields=['title','audience','situation','coverAnalysis','titleAnalysis','bodyStructure','videoStructure','reusable','avoidCopy'];
  const id=String(f.get('id')??'');
- const result=await orRedirectWithError('/app/guides',()=>withPageCtx(ctx=>saveCaseGuide(ctx,{...Object.fromEntries(fields.map(k=>[k,String(f.get(k)??'')])),questions:String(f.get('questions')??'').split('\n').map(v=>v.trim()).filter(Boolean),checklist:String(f.get('checklist')??'').split('\n').map(v=>v.trim()).filter(Boolean),...(id?{id,revision:Number(f.get('revision'))}:{})})));
+ const result=await orRedirectWithError('/app/guides',()=>withPageCtx(ctx=>saveCaseGuide(ctx,{...Object.fromEntries(fields.map(k=>[k,String(f.get(k)??'')])),...(f.get('sourceNoteId')?{sourceNoteId:String(f.get('sourceNoteId'))}:{}),questions:String(f.get('questions')??'').split('\n').map(v=>v.trim()).filter(Boolean),checklist:String(f.get('checklist')??'').split('\n').map(v=>v.trim()).filter(Boolean),...(id?{id,revision:Number(f.get('revision'))}:{})})));
  revalidatePath('/app/guides');redirect(`/app/guides/${result.id}`);
 }
 export async function publishGuide(f:FormData){
