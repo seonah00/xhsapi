@@ -11,7 +11,7 @@ test('private dictionary to writing, saved versions and another student isolatio
  await expect(page.getByText('버전 2 저장 완료',{exact:false})).toBeVisible();
  await page.getByRole('link',{name:'저장본·이력 열기',exact:true}).click();
  await page.waitForURL(/\/app\/write\/history\/[0-9a-f-]+$/);const savedUrl=page.url();await expect(page.getByLabel('중국어 본문',{exact:true})).toHaveValue('这是第二版。');
- await page.getByText(/^버전 1 ·/).click();await expect(page.getByText('这是第一版。',{exact:true})).toBeVisible();
+ await page.locator('summary').filter({hasText:/^버전 1 ·/}).click();await expect(page.getByText('这是第一版。',{exact:true})).toBeVisible();
  await page.reload();await expect(page.getByLabel('중국어 본문',{exact:true})).toHaveValue('这是第二版。');
  await page.context().clearCookies();await page.goto('/login');await page.getByRole('button',{name:/student-b@demo.invalid/}).click();await page.waitForURL(/\/app/);
  expect((await page.goto(savedUrl))?.status()).toBe(404);
