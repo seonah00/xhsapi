@@ -134,3 +134,7 @@ pnpm bootstrap:org --org-name "<조직 이름>" --admin-email <관리자 이메�
 ### 원문 링크 검색
 
 마이그레이션 28은 AP02를 단가 unknown으로 등록한다. web/worker의 APIFY_SEARCH_BUILD와 검증된 USD/run 단가 등록 후 관리자 자동 검색 공급자를 선택한다. RedFox는 기존 기본값이다. APIFY_ENABLED/LIVE_PROVIDER_CALLS_ENABLED/AUTO_REFRESH_ENABLED와 승인 정책·USD 예산이 모두 필요하다.
+
+## 2026-10-25 학습 완성 기능
+
+`20261025132000_learning_workflow.sql`은 작성물의 개인 메모·한국어 대조 상태, 관리자 검토 사례, 특정 작성 버전의 검토·피드백, 성과 연결 열을 추가합니다. 기존 데이터 삭제나 예산/실행 설정 변경은 없습니다. 정상 web 시작 절차의 `db:migrate`가 적용하고 `app.applied_migrations`에 기록합니다. 수동 적용 시 이 기록과 중복되지 않게 확인합니다. 검증 브랜치 CI40199186153: 타입·린트·단위259/DB212/E2E61=532 PASS, mock 외부 시도0. 실제 사례 콘텐츠는 관리자가 별도로 작성·검토하여 공개합니다.
