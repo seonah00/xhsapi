@@ -27,7 +27,7 @@ it('edits private meanings, classification, favorite, usage and examples without
 it('keeps temporary content private, rejects stale windows and preserves tombstones after discard',async()=>{
  const content={id:randomUUID(),revision:0,title:'未完成',cover:'',body:'临时内容',meaningKo:'임시',tags:[],entryIds:[]};
  expect(await user(a,ctx=>saveTemporaryWriting(ctx,{scope:'new',version:0,content}))).toEqual({version:1});
- expect((await user(a,ctx=>getTemporaryWriting(ctx,'new'))).content).toEqual(content);
+ expect((await user(a,ctx=>getTemporaryWriting(ctx,'new'))).content).toEqual({...content,meaningReviewedFor:'',learningNotes:''});
  for(const uid of [b,manager])expect((await user(uid,ctx=>getTemporaryWriting(ctx,'new'))).content).toBeNull();
  expect((await user(a,ctx=>getTemporaryWriting(ctx,'new'),'live')).content).toBeNull();
  await expect(user(a,ctx=>saveTemporaryWriting(ctx,{scope:'new',version:0,content}))).rejects.toMatchObject({code:'CONFLICT'});
