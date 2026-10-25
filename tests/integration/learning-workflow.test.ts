@@ -1,0 +1,33 @@
+import {it,expect,afterAll} from 'vitest';
+import {randomUUID} from 'node:crypto';
+import {saveCaseGuide,publishCaseGuide,listCaseGuides,importCaseGuide,submitWritingReview,getWritingReview,addWritingFeedback,withdrawWritingReview,saveWriting,getWriting,getTemporaryWriting,type Ctx} from '@xhs/core';
+import {pool,asUser,U,ORG1,COHORT1} from './db.ts';
+const user=<T>(uid:string,fn:(ctx:Ctx)=>Promise<T>)=>asUser(uid,db=>fn({db,uid,orgId:ORG1,mode:'mock',role:uid===U.admin?'org_admin':uid===U.reviewer||uid===U.reviewerOther?'reviewer':'student'}));
+afterAll(()=>pool.end());
+it('publishes explicitly reviewed guides and imports only private adaptation notes',async()=>{
+ const data={title:'합성 사례 '+randomUUID(),audience:'초보 독자',situation:'주말 기록',coverAnalysis:'장면을 먼저 보여줌',titleAnalysis:'궁금증을 남김',bodyStructure:'상황→경험→정리',videoStructure:'시작→과정→마무리',reusable:'장면 순서',avoidCopy:'타인의 경험과 성과 수치',questions:['내가 직접 경험한 장면은?'],checklist:['확인된 사실만 썼는가?']};
+ const draft=await user(U.admin,ctx=>saveCaseGuide(ctx,data));
+ expect((await user(U.studentA,listCaseGuides)).some(g=>g.id===draft.id)).toBe(false);
+ await expect(user(U.studentA,ctx=>publishCaseGuide(ctx,draft.id,draft.revision))).rejects.toMatchObject({code:'FORBIDDEN'});
+ await user(U.admin,ctx=>publishCaseGuide(ctx,draft.id,draft.revision));
+ expect((await user(U.studentA,listCaseGuides)).some(g=>g.id===draft.id)).toBe(true);
+ await user(U.studentA,ctx=>importCaseGuide(ctx,draft.id,['공원에서 걸었다']));
+ const temp=await user(U.studentA,ctx=>getTemporaryWriting(ctx,'new'));expect(temp.content?.learningNotes).toContain('공원에서 걸었다');
+ await user(U.admin,ctx=>saveCaseGuide(ctx,{...data,id:draft.id,revision:draft.revision+1,coverAnalysis:'수정한 분석'}));
+ expect((await user(U.studentA,listCaseGuides)).some(g=>g.id===draft.id)).toBe(false);
+});
+it('shares an immutable selected version only with the assigned reviewer and excludes private notes',async()=>{
+ const id=randomUUID(),data={id,revision:0,title:'审核测试',cover:'封面',body:'第一版',meaningKo:'확인본',tags:[],entryIds:[],learningNotes:'공유하지 않는 개인 메모'};
+ await user(U.studentA,ctx=>saveWriting(ctx,data));
+ const review=await user(U.studentA,ctx=>submitWritingReview(ctx,{draftId:id,revision:1,cohortId:COHORT1,confirm:true}));
+ await user(U.studentA,ctx=>saveWriting(ctx,{...data,revision:1,body:'수정 중인 비공개 둘째 버전'}));
+ const shared=await user(U.reviewer,ctx=>getWritingReview(ctx,review));expect(shared.snapshot.body).toBe('第一版');expect(JSON.stringify(shared.snapshot)).not.toContain('공유하지 않는');
+ await expect(user(U.studentB,ctx=>getWritingReview(ctx,review))).rejects.toMatchObject({code:'NOT_FOUND'});
+ await expect(user(U.reviewerOther,ctx=>getWritingReview(ctx,review))).rejects.toMatchObject({code:'NOT_FOUND'});
+ expect((await user(U.studentA,ctx=>getWriting(ctx,id))).draft.body).toContain('둘째');
+ await user(U.reviewer,ctx=>addWritingFeedback(ctx,review,'시작 장면을 구체화하세요.'));
+ expect((await user(U.studentA,ctx=>getWritingReview(ctx,review))).feedback).toHaveLength(1);
+ await expect(user(U.studentA,ctx=>addWritingFeedback(ctx,review,'스스로 피드백'))).rejects.toMatchObject({code:'FORBIDDEN'});
+ await user(U.studentA,ctx=>withdrawWritingReview(ctx,review));
+ await expect(user(U.reviewer,ctx=>getWritingReview(ctx,review))).rejects.toMatchObject({code:'NOT_FOUND'});
+});
