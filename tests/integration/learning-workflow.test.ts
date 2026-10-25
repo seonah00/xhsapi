@@ -31,3 +31,14 @@ it('shares an immutable selected version only with the assigned reviewer and exc
  await user(U.studentA,ctx=>withdrawWritingReview(ctx,review));
  await expect(user(U.reviewer,ctx=>getWritingReview(ctx,review))).rejects.toMatchObject({code:'NOT_FOUND'});
 });
+it('links a publication to an owned immutable writing version and rejects other owners',async()=>{
+ const {createAccount,createPublication,listPublications}=await import('@xhs/core');
+ const accountId=await user(U.reviewerOther,ctx=>createAccount(ctx,{displayName:'연결 검증',topics:['beauty'],mainTopic:'beauty',audience:'초보',goals:['grow_followers'],tone:'plain',formats:['vlog'],chineseLevel:'beginner',showFace:true,useVoice:true}));
+ const id=randomUUID(),data={id,revision:0,title:'연결할 글',cover:'',body:'첫 버전',meaningKo:'',tags:[],entryIds:[]};
+ await user(U.reviewerOther,ctx=>saveWriting(ctx,data));await user(U.reviewerOther,ctx=>saveWriting(ctx,{...data,revision:1,body:'둘째 버전'}));
+ const pub=await user(U.reviewerOther,ctx=>createPublication(ctx,{accountId,writingDraftId:id,writingRevision:1}));
+ const saved=(await user(U.reviewerOther,ctx=>listPublications(ctx,accountId))).find(p=>p.id===pub);expect(saved?.writingDraftId).toBe(id);expect(saved?.writingRevision).toBe(1);
+ const other=randomUUID();await user(U.studentA,ctx=>saveWriting(ctx,{...data,id:other}));
+ await expect(user(U.reviewerOther,ctx=>createPublication(ctx,{accountId,writingDraftId:other,writingRevision:1}))).rejects.toMatchObject({code:'NOT_FOUND'});
+ await expect(user(U.reviewerOther,ctx=>createPublication(ctx,{accountId,writingDraftId:id}))).rejects.toThrow();
+});

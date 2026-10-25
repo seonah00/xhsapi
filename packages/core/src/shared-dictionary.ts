@@ -341,7 +341,7 @@ export async function listSharedDictionary(
          from expressions where org_id = $1 and data_mode = $2 and owner_user_id is null and shared_dictionary_key is not null and review_status = 'published'
      ), filtered as (
        select * from entries
-        where ($3::text is null or meta->>'term' ilike $3 escape '\\' or meta->>'meaning' ilike $3 escape '\\')
+        where ($3::text is null or concat_ws(' ',meta->>'term',meta->>'meaning',meta->>'usage',meta->>'situation') ilike $3 escape '\\' or meta->>'meaning' ilike $3 escape '\\')
           and ($4::text is null or (meta->'categories') ? $4)
      ), counted as (
        select *, count(*) over ()::int as total,
@@ -368,7 +368,7 @@ export async function listSharedDictionary(
           where org_id = $1 and data_mode = $2 and owner_user_id is null and shared_dictionary_key is not null and review_status = 'published'
        ) select count(*) filter (where entry_type='tag')::int as tags,
                 count(*) filter (where entry_type='expression')::int as expressions
-           from entries where ($3::text is null or meta->>'term' ilike $3 escape '\\' or meta->>'meaning' ilike $3 escape '\\')
+           from entries where ($3::text is null or concat_ws(' ',meta->>'term',meta->>'meaning',meta->>'usage',meta->>'situation') ilike $3 escape '\\' or meta->>'meaning' ilike $3 escape '\\')
              and ($4::text is null or (meta->'categories') ? $4)`,
       [ctx.orgId, ctx.mode, like, q.category ?? null],
     )).rows[0];
@@ -392,4 +392,9 @@ export async function getPublishedDictionaryEntries(ctx: Ctx, ids: string[]): Pr
   )).rows;
   const mapped = new Map(rows.map((row) => [row.id as string, mapPublic(row)]));
   return clean.flatMap((id) => mapped.get(id) ? [mapped.get(id)!] : []);
+}
+
+export async function sharedDictionaryCategories(ctx:Ctx):Promise<string[]>{
+ const rows=(await ctx.db.query(`select distinct jsonb_array_elements_text(case when jsonb_typeof(shared_dictionary_meta->'categories')='array' then shared_dictionary_meta->'categories' else '[]'::jsonb end) as category from (select shared_dictionary_meta from keywords where org_id=$1 and data_mode=$2 and shared_dictionary_key is not null and review_status='published' union all select shared_dictionary_meta from expressions where org_id=$1 and data_mode=$2 and owner_user_id is null and shared_dictionary_key is not null and review_status='published') e order by category`,[ctx.orgId,ctx.mode])).rows;
+ return rows.map(r=>r.category);
 }

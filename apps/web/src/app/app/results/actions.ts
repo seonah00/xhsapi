@@ -10,7 +10,7 @@ const toIso = (v: FormDataEntryValue | null) => koreanLocalTimeToIso(String(v ??
 
 export async function addPublication(f: FormData) {
   const id = await orRedirectWithError('/app/results', () => withPageCtx((ctx) => createPublication(ctx, {
-    accountId: String(f.get('accountId')), planVersionId: String(f.get('planVersionId') ?? '') || undefined, noteUrl: String(f.get('noteUrl') ?? '').trim() || undefined,
+    accountId: String(f.get('accountId')),writingDraftId:String(f.get('writingDraftId')??'')||undefined,writingRevision:f.get('writingRevision')?Number(f.get('writingRevision')):undefined, planVersionId: String(f.get('planVersionId') ?? '') || undefined, noteUrl: String(f.get('noteUrl') ?? '').trim() || undefined,
     publishedAt: toIso(f.get('publishedAt')), title: String(f.get('title') ?? '').trim() || undefined, topic: String(f.get('topic') ?? '') || undefined,
     format: String(f.get('format') ?? '') || undefined, sponsorship: String(f.get('sponsorship') ?? 'unknown'), paidPromotion: String(f.get('paidPromotion') ?? 'unknown'),
   })));

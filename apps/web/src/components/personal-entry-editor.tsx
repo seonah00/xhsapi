@@ -10,7 +10,7 @@ export function PersonalEntryEditor({entry}:{entry:PersonalDictionaryEntry}){
  <input type="hidden" name="id" value={entry.id}/><input type="hidden" name="revision" value={state.revision??entry.revision}/>
  <label className="block">뜻<textarea aria-label="뜻" name="meaning" defaultValue={entry.meaning} maxLength={1000} className={input}/></label>
  <label className="block">개인 메모<textarea aria-label="개인 메모" name="note" defaultValue={entry.note} maxLength={2000} className={input}/></label>
- <label className="block">분류<input name="folder" defaultValue={entry.folder} maxLength={60} placeholder="예: 뷰티 · 여행 · 제목 표현" className={input}/></label>
+ <label className="block">분류<input list={`folders-${entry.id}`} name="folder" defaultValue={entry.folder} maxLength={60} placeholder="분류 선택 또는 새 분류 입력" className={input}/><datalist id={`folders-${entry.id}`}>{[...new Set([entry.folder,'뷰티','여행','일상','맛집','제목 표현','본문 표현'])].filter(Boolean).map(folder=><option key={folder} value={folder}/>)}</datalist></label>
  <label className="block"><input type="checkbox" name="favorite" defaultChecked={entry.favorite}/> 즐겨찾기</label>
  <label className="block">사용법·사용 상황<textarea aria-label="사용법·사용 상황" name="usage" defaultValue={entry.usage} maxLength={2000} className={input}/></label>
  <p className="text-xs text-muted">직접 편집한 뜻·사용법과 학습용 예문입니다. 실제 게시물 사용이나 인기의 근거로 간주하지 않습니다.</p>

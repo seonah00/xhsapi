@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { DictionaryAiInput, DictionaryAiStatus, SharedDictionaryEntry } from '@xhs/core';
 import { Badge, btn, Card } from '@/components/ui';
 import { dictionaryAiAction, type DictionaryAiState } from './actions';
+import {expressionGuide} from './expression-guides';
 import { ExpressionPractice } from './expression-practice';
 import { WritingEditor } from '@/components/writing-editor';
 import { SavePersonal } from '@/components/save-personal';
@@ -243,21 +244,11 @@ export function DictionaryWorkspace({ items, aiStatus, canManage = false }: { ca
             const checked = selectedItems.has(item.id);
             return (
               <li key={item.id}>
-                <label className={`block h-full cursor-pointer rounded-2xl border bg-surface p-4 transition-colors ${checked ? 'border-accent ring-1 ring-accent' : 'border-line hover:border-accent/50'}`}>
-                  <span className="flex items-start gap-3">
-                    <input type="checkbox" checked={checked} onChange={(event) => toggle(item, event.target.checked)} className="mt-1" aria-label={`${item.term} 선택`} />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-1"><Badge tone={item.entryType === 'tag' ? 'info' : 'accent'}>{ENTRY_TYPE[item.entryType]}</Badge>{item.type && <Badge>{item.type}</Badge>}</span>
-                      <strong className="zh mt-2 block text-lg" lang="zh-CN">{item.term}</strong>
-                      <span className="mt-1 block text-sm">{item.meaning}</span>
-                      {item.categories.length > 0 && <span className="mt-2 flex flex-wrap gap-1">{item.categories.map((category) => <Badge key={category}>{category}</Badge>)}</span>}
-                      {item.groups.length > 0 && <span className="mt-2 block text-xs text-muted">묶음: {item.groups.join(', ')}</span>}
-                      {item.cautions.length > 0 && <span className="mt-2 block text-xs text-warn">주의: {item.cautions.join(' · ')}</span>}
-                      {item.observedCount !== null && <span className="mt-2 block text-xs text-muted">편집 자료에서 관찰 {item.observedCount.toLocaleString()}회 · 인기 지표 아님</span>}
-                      {item.unknownTrendNote && <span className="mt-1 block text-xs text-warn">{item.unknownTrendNote}</span>}
-                    </span>
-                  </span>
-                </label>
+                <div className={`h-full break-words rounded-2xl border bg-surface p-4 ${checked?'border-accent ring-1 ring-accent':'border-line'}`}>
+                <label className="flex min-h-11 cursor-pointer items-center gap-3"><input type="checkbox" checked={checked} onChange={event=>toggle(item,event.target.checked)} aria-label={`${item.term} 선택`}/><strong className="zh text-lg" lang="zh-CN">{item.term}</strong><Badge>{ENTRY_TYPE[item.entryType]}</Badge></label>
+                <p className="mt-2 text-sm">{item.meaning}</p>{expressionGuide(item.term)?.situation&&<p className="mt-2 text-sm">사용 상황: {expressionGuide(item.term)?.situation}</p>}
+                {item.cautions.length>0&&<p className="mt-2 text-xs text-warn">주의: {item.cautions.join(' · ')}</p>}{item.unknownTrendNote&&<p className="mt-1 text-xs text-warn">{item.unknownTrendNote}</p>}
+                <details className="mt-2 text-sm"><summary className="min-h-11 cursor-pointer py-2">분류·예문·관찰 정보</summary><div className="space-y-2">{item.categories.map(category=><Badge key={category}>{category}</Badge>)}{item.groups.length>0&&<p>묶음: {item.groups.join(', ')}</p>}{item.observedCount!==null&&<p>편집 자료에서 관찰 {item.observedCount}회 · 인기 지표 아님</p>}{expressionGuide(item.term)&&<><p lang="zh-CN">{expressionGuide(item.term)?.zh}</p><p>{expressionGuide(item.term)?.ko}</p></>}</div></details></div>
                 <SavePersonal source={{kind:"shared",id:item.id}}/>
               </li>
             );

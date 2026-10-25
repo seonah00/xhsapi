@@ -6,7 +6,7 @@ import {revalidatePath} from 'next/cache';
 import {z} from 'zod';
 export async function saveWritingAction(_previous:{id?:string;revision?:number;error?:string},form:FormData):Promise<{id?:string;revision?:number;error?:string}> {
  try {
-  const result=await withPageCtx(ctx=>saveWriting(ctx,{id:String(form.get('id')),revision:Number(form.get('revision')),title:String(form.get('title')??''),cover:String(form.get('cover')??''),body:String(form.get('body')??''),meaningKo:String(form.get('meaningKo')??''),tags:String(form.get('tags')??'').split(/[\s,#，]+/).filter(Boolean),entryIds:form.getAll('entryIds').map(String)}));
+  const result=await withPageCtx(ctx=>saveWriting(ctx,{id:String(form.get('id')),revision:Number(form.get('revision')),title:String(form.get('title')??''),cover:String(form.get('cover')??''),body:String(form.get('body')??''),meaningKo:String(form.get('meaningKo')??''),meaningReviewedFor:String(form.get('meaningReviewedFor')??''),learningNotes:String(form.get('learningNotes')??''),tags:String(form.get('tags')??'').split(/[\s,#，]+/).filter(Boolean),entryIds:form.getAll('entryIds').map(String)}));
   revalidatePath('/app/write/history');revalidatePath(`/app/write/history/${result.id}`);return result;
  } catch(e) {
   if(e instanceof AppError) return {..._previous,error:e.messageKo};

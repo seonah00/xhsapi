@@ -30,7 +30,7 @@ export function useWritingRecovery(scope:string,content:Content,manualPending:bo
    .finally(()=>{busy.current=false;setReady(true);setTick(t=>t+1);});
  },[saved.id,saved.revision,scope]);
  useEffect(()=>{
-  if(version.current===0&&!content.title&&!content.cover&&!content.body&&!content.meaningKo)return;
+  if(version.current===0&&!content.title&&!content.cover&&!content.body&&!content.meaningKo&&!content.learningNotes)return;
   if(!ready||manualPending||busy.current||blocked.current||!content.id||serialized===synced.current)return;
   setStatus('임시 저장 대기 중…');
   const timer=setTimeout(()=>{

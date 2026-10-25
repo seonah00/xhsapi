@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Form from 'next/form';
-import { getDictionaryAiStatus, listSharedDictionary, discover, observedDictionary, type DictionaryEntryType } from '@xhs/core';
+import { sharedDictionaryCategories, getDictionaryAiStatus, listSharedDictionary, discover, observedDictionary, type DictionaryEntryType } from '@xhs/core';
 import { withPageCtx } from '@/server/ctx';
 import { Badge, btn, Empty, ErrorNotice, input, PageHeader } from '@/components/ui';
 import { SearchLanguage } from '@/components/search-language';
@@ -29,8 +29,8 @@ export default async function SharedDictionary({ searchParams }: { searchParams:
   const entryType: DictionaryEntryType | undefined = sp.entryType === 'tag' || sp.entryType === 'expression' ? sp.entryType : undefined;
   const parsedPage = Number.parseInt(sp.page ?? '1', 10);
   const requestedPage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
-  const { result, aiStatus, canManage, research } = await withPageCtx(async (ctx) => ({
-    canManage: ctx.role==='org_admin',
+  const { result, aiStatus, canManage, research,categories } = await withPageCtx(async (ctx) => ({
+    canManage: ctx.role==='org_admin',categories:await sharedDictionaryCategories(ctx),
     research: sp.q?.trim() ? await (async () => { const sample = await discover(ctx, {q: (sp.q ?? '').trim().slice(0,100)}); return {notes:sample.notes, dictionary:await observedDictionary(ctx,sample.notes)}; })() : null,
     result: await listSharedDictionary(ctx, {
       ...(sp.q?.trim() ? { query: sp.q.trim() } : {}),
@@ -61,7 +61,7 @@ export default async function SharedDictionary({ searchParams }: { searchParams:
           <option value="expression">표현</option>
         </select>
         <label className="sr-only" htmlFor="dictionary-category">카테고리</label>
-        <input id="dictionary-category" name="category" defaultValue={sp.category} maxLength={80} placeholder="카테고리 필터" className={input} />
+        <select id="dictionary-category" name="category" defaultValue={sp.category??''} className={input}><option value="">카테고리 전체</option>{[...new Set([...(sp.category?[sp.category]:[]),...categories])].map(category=><option key={category}>{category}</option>)}</select>
         <button className={btn.primary}>검색</button>
       </Form>
 

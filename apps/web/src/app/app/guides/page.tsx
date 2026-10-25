@@ -1,0 +1,5 @@
+import Link from 'next/link';
+import {listCaseGuides} from '@xhs/core';
+import {withPageCtx} from '@/server/ctx';
+import {PageHeader,Empty,ErrorNotice,btn} from '@/components/ui';
+export default async function Guides({searchParams}:{searchParams:Promise<{error?:string}>}){const sp=await searchParams;const {guides,staff}=await withPageCtx(async ctx=>({guides:await listCaseGuides(ctx),staff:ctx.role==='org_admin'}));return <><PageHeader title="사례 가이드" description="구조를 이해하고 내 경험에 맞게 바꿔 보세요." actions={staff?<Link href="/app/guides/new" className={btn.primary}>사례 작성</Link>:undefined}/><ErrorNotice message={sp.error}/>{!guides.length&&<Empty title="공개된 사례가 없습니다">관리자 검토를 마친 사례부터 공개됩니다.</Empty>}<ul className="space-y-3">{guides.map(g=><li key={g.id}><Link className="block rounded-xl border border-line p-4" href={`/app/guides/${g.id}`}><h2 className="font-semibold">{g.content.title}</h2><p>{g.content.audience} · {g.content.situation}</p><p className="text-sm text-muted">{g.status==='published'?'검토 후 공개':'비공개 · 검토 전'}</p></Link></li>)}</ul></>;}

@@ -13,6 +13,7 @@ export type ResultMetrics = z.infer<typeof ResultMetrics>;
 export const PublicationInput = z.object({
   accountId: z.string().uuid(),
   planVersionId: z.string().uuid().optional(),
+  writingDraftId:z.string().uuid().optional(),writingRevision:z.number().int().positive().optional(),
   noteUrl: z.string().trim().max(2000).optional(),
   publishedAt: z.string().datetime({ offset: true }).optional(),
   title: z.string().trim().max(200).optional(),
@@ -20,7 +21,7 @@ export const PublicationInput = z.object({
   format: z.string().max(40).optional(),
   sponsorship: z.enum(['yes', 'no', 'unknown']).default('unknown'),
   paidPromotion: z.enum(['yes', 'no', 'unknown']).default('unknown'),
-});
+}).refine(d=>Boolean(d.writingDraftId)===(d.writingRevision!==undefined),'작성물과 버전을 함께 선택하세요.').refine(d=>!(d.planVersionId&&d.writingDraftId),'연결할 작성물을 하나만 선택하세요.');
 
 export const SnapshotInput = z.object({
   observedAt: z.string().datetime({ offset: true }),
@@ -31,7 +32,7 @@ export const SnapshotInput = z.object({
 export type Snapshot = { id: string; observedAt: string; enteredAt: string; source: string; metrics: ResultMetrics };
 export type Publication = {
   id: string; accountId: string; accountName: string; title: string | null; noteUrl: string | null; publishedAt: string | null; topic: string | null; format: string | null;
-  sponsorship: string; paidPromotion: string; planVersionId: string | null; planId: string | null; snapshots: Snapshot[];
+  sponsorship: string; paidPromotion: string; planVersionId: string | null; planId: string | null; writingDraftId?:string|null;writingRevision?:number|null; snapshots: Snapshot[];
 };
 
 function cleanUrl(u: string | undefined): string | null {
@@ -56,10 +57,11 @@ export async function createPublication(ctx: Ctx, input: unknown): Promise<strin
     const v = await ctx.db.query(`select 1 from plan_versions v join plans p on p.id = v.plan_id where v.id = $1 and p.owner_user_id = $2 and v.kind = 'edit'`, [d.planVersionId, ctx.uid]);
     if (!v.rowCount) notFound();
   }
+  if(d.writingDraftId){const version=await ctx.db.query(`select 1 from writing_versions v join writing_drafts d on d.id=v.draft_id where d.id=$1 and v.revision=$2 and d.owner_user_id=$3 and d.org_id=$4 and d.data_mode=$5`,[d.writingDraftId,d.writingRevision,ctx.uid,ctx.orgId,ctx.mode]);if(!version.rowCount)notFound();}
   return (await ctx.db.query<{ id: string }>(
-    `insert into publication_records (org_id, owner_user_id, account_id, plan_version_id, note_url, published_at, title, topic, format, sponsorship, paid_promotion)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) returning id`,
-    [ctx.orgId, ctx.uid, d.accountId, d.planVersionId ?? null, cleanUrl(d.noteUrl), d.publishedAt ?? null, d.title ?? null, d.topic ?? null, d.format ?? null, d.sponsorship, d.paidPromotion],
+    `insert into publication_records (org_id, owner_user_id, account_id, plan_version_id, note_url, published_at, title, topic, format, sponsorship, paid_promotion,writing_draft_id,writing_revision)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,$12,$13) returning id`,
+    [ctx.orgId, ctx.uid, d.accountId, d.planVersionId ?? null, cleanUrl(d.noteUrl), d.publishedAt ?? null, d.title ?? null, d.topic ?? null, d.format ?? null, d.sponsorship, d.paidPromotion,d.writingDraftId??null,d.writingRevision??null],
   )).rows[0]!.id;
 }
 
@@ -91,7 +93,7 @@ export async function listPublications(ctx: Ctx, accountId?: string): Promise<Pu
   )).rows : [];
   return pubs.map((p) => ({
     id: p.id, accountId: p.account_id, accountName: p.display_name, title: p.title, noteUrl: p.note_url, publishedAt: p.published_at?.toISOString() ?? null,
-    topic: p.topic, format: p.format, sponsorship: p.sponsorship, paidPromotion: p.paid_promotion, planVersionId: p.plan_version_id, planId: p.plan_id,
+    topic: p.topic, format: p.format, sponsorship: p.sponsorship, paidPromotion: p.paid_promotion, planVersionId: p.plan_version_id, planId: p.plan_id,writingDraftId:p.writing_draft_id,writingRevision:p.writing_revision,
     snapshots: snaps.filter((s) => s.publication_id === p.id).map((s) => ({ id: s.id, observedAt: s.observed_at.toISOString(), enteredAt: s.entered_at.toISOString(), source: s.metric_source, metrics: s.values_json })),
   }));
 }

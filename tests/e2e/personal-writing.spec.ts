@@ -25,7 +25,7 @@ test('private dictionary editing, classification and bilingual examples feed rec
  const edit=card.getByRole('form',{name:'松弛测试 편집'});
  await edit.getByLabel('뜻',{exact:true}).fill('힘을 빼고 편안한 분위기');await edit.getByLabel('개인 메모',{exact:true}).fill('주말 콘텐츠');await edit.getByLabel('분류',{exact:true}).fill('일상');await edit.getByLabel('즐겨찾기',{exact:true}).check();await edit.getByLabel('사용법·사용 상황',{exact:true}).fill('편안한 주말 기록에 사용');
  await edit.getByLabel('중국어 예문 1',{exact:true}).fill('记录轻松的周末。');await edit.getByLabel('한국어 뜻 1',{exact:true}).fill('편안한 주말을 기록해요.');await edit.getByRole('button',{name:'사전 변경 저장',exact:true}).click();await expect(edit.getByText('사전 변경 저장 완료',{exact:true})).toBeVisible();
- await page.reload();await expect(card.getByText('사용법: 편안한 주말 기록에 사용',{exact:true})).toBeVisible();await expect(card.getByText('记录轻松的周末。',{exact:true})).toBeVisible();
+ await page.reload();await expect(card.getByText('사용법: 편안한 주말 기록에 사용',{exact:true})).toBeVisible();await card.getByText('예문·분류·관찰 정보',{exact:true}).click();await expect(card.getByText('记录轻松的周末。',{exact:true})).toBeVisible();
  await page.getByLabel('분류 필터').selectOption('일상');await page.getByLabel('즐겨찾기만').check();await page.getByRole('button',{name:'검색',exact:true}).click();await expect(card).toBeVisible();
  await card.getByRole('link',{name:'이 항목으로 글쓰기',exact:true}).click();await page.getByText('松弛测试 활용 보기',{exact:true}).click();await expect(page.getByText('내 사전 사용법: 편안한 주말 기록에 사용',{exact:true})).toBeVisible();
  await page.getByLabel('중국어 제목',{exact:true}).fill('恢复测试');await page.getByLabel('중국어 본문',{exact:true}).fill('没有手动保存的内容。');await expect(page.getByText('자동 임시 저장 완료',{exact:true})).toBeVisible();
