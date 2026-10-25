@@ -81,7 +81,7 @@ describe('deletion request', () => {
     const writingId=randomUUID(),draft={id:writingId,revision:0,title:'삭제할 작성물',cover:'',body:'비공개 본문',meaningKo:'',tags:[],entryIds:[],learningNotes:'개인 메모'};
     await pool.query(`insert into cohort_members(org_id,cohort_id,user_id,role) values($1,'00000000-0000-4000-c000-000000000001',$2,'student')`,[ORG1,S]);
     await as(S,ctx=>saveWriting(ctx,draft));
-    await as(S,ctx=>saveTemporaryWriting(ctx,{scope:'new',version:0,content:draft}));
+    await as(S,ctx=>saveTemporaryWriting(ctx,{scope:'new',version:0,content:{...draft,revision:1}}));
     const writingReview=await as(S,ctx=>submitWritingReview(ctx,{draftId:writingId,revision:1,cohortId:'00000000-0000-4000-c000-000000000001',confirm:true}));
 
     const storage = new LocalPrivateStorage(await mkdtemp(join(tmpdir(), 'xhs-del-')));
