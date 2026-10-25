@@ -47,6 +47,7 @@ async function createBlockedRequest(ctx: Ctx, scope: 'all_my_data' | 'leave_org'
   for (const s of (await ctx.db.query<{ id: string }>(`select id from submissions where owner_user_id = $1 and org_id = $2 and status <> 'withdrawn'`, [ctx.uid, ctx.orgId])).rows) {
     await ctx.db.query(`select app.withdraw_submission($1)`, [s.id]);
   }
+  for(const review of (await ctx.db.query<{id:string}>(`select id from writing_reviews where org_id=$1 and owner_user_id=$2 and status='submitted'`,[ctx.orgId,ctx.uid])).rows)await ctx.db.query('select app.withdraw_writing_review($1)',[review.id]);
   return id;
 }
 
@@ -81,6 +82,11 @@ export async function processDeletion(db: Db, storage: ObjectStorage | null, req
   await del('submissions', `delete from submissions where org_id = $1 and owner_user_id = $2`);
   await del('check_runs', `delete from check_runs where org_id = $1 and owner_user_id = $2`);
   await del('publications_results', `delete from publication_records where org_id = $1 and owner_user_id = $2`);
+  await del('writing_feedback',`delete from writing_feedback f where exists(select 1 from writing_reviews r where r.id=f.review_id and r.org_id=$1 and (r.owner_user_id=$2 or f.author_id=$2))`);
+  await del('writing_reviews',`delete from writing_reviews where org_id=$1 and owner_user_id=$2`);
+  await del('writing_temporary',`delete from writing_temporary where org_id=$1 and owner_user_id=$2`);
+  await del('writing_drafts',`delete from writing_drafts where org_id=$1 and owner_user_id=$2`);
+  await del('personal_dictionary',`delete from personal_dictionary where org_id=$1 and owner_user_id=$2`);
   await del('plans', `delete from plans where org_id = $1 and owner_user_id = $2`);
   await del('transcripts', `delete from transcript_runs where org_id = $1 and owner_user_id = $2`);
   await del('analyses', `delete from analyses where org_id = $1 and owner_user_id = $2`);

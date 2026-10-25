@@ -1,3 +1,4 @@
+import {randomUUID} from 'node:crypto';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -76,6 +77,13 @@ describe('library sharing', () => {
 describe('deletion request', () => {
   it('blocks access immediately, then deletes stored data and files; ledger/audit retained', async () => {
     const S = await newStudent('delete-me@demo.invalid');
+    const {saveWriting,submitWritingReview,getWritingReview,saveTemporaryWriting}=await import('@xhs/core');
+    const writingId=randomUUID(),draft={id:writingId,revision:0,title:'삭제할 작성물',cover:'',body:'비공개 본문',meaningKo:'',tags:[],entryIds:[],learningNotes:'개인 메모'};
+    await pool.query(`insert into cohort_members(org_id,cohort_id,user_id,role) values($1,'00000000-0000-4000-c000-000000000001',$2,'student')`,[ORG1,S]);
+    await as(S,ctx=>saveWriting(ctx,draft));
+    await as(S,ctx=>saveTemporaryWriting(ctx,{scope:'new',version:0,content:draft}));
+    const writingReview=await as(S,ctx=>submitWritingReview(ctx,{draftId:writingId,revision:1,cohortId:'00000000-0000-4000-c000-000000000001',confirm:true}));
+
     const storage = new LocalPrivateStorage(await mkdtemp(join(tmpdir(), 'xhs-del-')));
     const ref = await as(S, (ctx) => createReference(ctx, { sourceType: 'pasted_text', text: '지울 메모', title: '지울 자료' }));
     const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 2, 0, 0, 0, 2, 8, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 73, 69, 78, 68, 0, 0, 0, 0]);
@@ -86,6 +94,7 @@ describe('deletion request', () => {
 
     await expect(as(S, (ctx) => requestDeletion(ctx, '삭제'))).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     const reqId = await as(S, (ctx) => requestDeletion(ctx, DELETE_CONFIRM_TEXT));
+    await expect(as(U.reviewer,ctx=>getWritingReview(ctx,writingReview))).rejects.toMatchObject({code:'NOT_FOUND'});
     // Immediate: library item gone.
     expect((await as(U.studentB, (ctx) => listLibrary(ctx))).some((l) => l.id === pub)).toBe(false);
     await service((db) => enqueueDeletion(db, reqId));
@@ -95,6 +104,8 @@ describe('deletion request', () => {
     const left = (await pool.query(`select (select count(*) from reference_items where owner_user_id = $1)::int as refs, (select count(*) from assets where owner_user_id = $1)::int as assets,
       (select count(*) from reference_publications where source_owner_user_id = $1)::int as pubs`, [S])).rows[0];
     expect(left).toEqual({ refs: 0, assets: 0, pubs: 0 });
+    expect((await pool.query('select count(*)::int as n from writing_drafts where id=$1',[writingId])).rows[0].n).toBe(0);
+    expect((await pool.query('select count(*)::int as n from writing_reviews where id=$1',[writingReview])).rows[0].n).toBe(0);
     await expect(storage.get(`${ORG1}/${img.id}`)).rejects.toThrow();
     const [req] = await as(S, (ctx) => listMyDeletionRequests(ctx));
     expect(req).toMatchObject({ state: 'partially_retained', summary: expect.objectContaining({ references: 1, assets: 1 }) });
