@@ -1,3 +1,4 @@
+import {ShootingGuide} from './shooting-guides.ts';
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import {AppError} from '@xhs/domain';
@@ -7,7 +8,7 @@ import {getWriting} from './writing.ts';
 import {getTemporaryWriting,saveTemporaryWriting} from './writing-temporary.ts';
 const requireGuideAdmin=(ctx:Ctx)=>{if(ctx.role!=='org_admin')throw new AppError('FORBIDDEN','관리자만 사례를 편집·공개할 수 있습니다.');};
 const text=z.string().trim().min(1).max(3000);
-export const CaseGuideInput=z.object({id:z.string().uuid().optional(),revision:z.number().int().positive().optional(),title:text.max(200),audience:text,situation:text,coverAnalysis:text,titleAnalysis:text,bodyStructure:text,videoStructure:text,reusable:text,avoidCopy:text,questions:z.array(text.max(500)).min(1).max(8),checklist:z.array(text.max(500)).min(1).max(12),sourceNoteId:z.string().uuid().optional()}).strict();
+export const CaseGuideInput=z.object({id:z.string().uuid().optional(),revision:z.number().int().positive().optional(),title:text.max(200),audience:text,situation:text,coverAnalysis:text,titleAnalysis:text,bodyStructure:text,videoStructure:text,reusable:text,avoidCopy:text,questions:z.array(text.max(500)).min(1).max(8),checklist:z.array(text.max(500)).min(1).max(12),sourceNoteId:z.string().uuid().optional(),shooting:ShootingGuide.optional()}).strict();
 export type CaseGuide={id:string;revision:number;status:'draft'|'published';content:z.infer<typeof CaseGuideInput>;reviewed_at:Date|null};
 export async function listCaseGuides(ctx:Ctx):Promise<CaseGuide[]>{return (await ctx.db.query(`select id,revision,status,content,reviewed_at from case_guides where org_id=$1 and data_mode=$2 and (status='published' or $3::boolean) order by updated_at desc limit 100`,[ctx.orgId,ctx.mode,ctx.role==='org_admin'])).rows;}
 export async function getCaseGuide(ctx:Ctx,id:string):Promise<CaseGuide>{

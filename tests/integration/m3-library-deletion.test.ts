@@ -77,7 +77,11 @@ describe('library sharing', () => {
 describe('deletion request', () => {
   it('blocks access immediately, then deletes stored data and files; ledger/audit retained', async () => {
     const S = await newStudent('delete-me@demo.invalid');
-    const {saveWriting,submitWritingReview,getWritingReview,saveTemporaryWriting}=await import('@xhs/core');
+    const {saveWriting,submitWritingReview,getWritingReview,saveTemporaryWriting,saveCaseGuide,publishCaseGuide,startShootingWork}=await import('@xhs/core');
+    const {SHOOTING_TEMPLATES}=await import('../../packages/core/src/shooting-guides.ts');
+    const guide=await as(U.admin,ctx=>saveCaseGuide(ctx,{title:'삭제 검증 촬영안',audience:'초보',situation:'실제 경험',coverAnalysis:'표지',titleAnalysis:'제목',bodyStructure:'본문',videoStructure:'영상',reusable:'구조',avoidCopy:'남의 경험',questions:['내 소재는?'],checklist:['실제 확인?'],shooting:SHOOTING_TEMPLATES[0]}));
+    await as(U.admin,ctx=>publishCaseGuide(ctx,guide.id,guide.revision));
+    const shootingId=await as(S,ctx=>startShootingWork(ctx,guide.id));
     const writingId=randomUUID(),draft={id:writingId,revision:0,title:'삭제할 작성물',cover:'',body:'비공개 본문',meaningKo:'',tags:[],entryIds:[],learningNotes:'개인 메모'};
     await pool.query(`insert into cohort_members(org_id,cohort_id,user_id,role) values($1,'00000000-0000-4000-c000-000000000001',$2,'student')`,[ORG1,S]);
     await as(S,ctx=>saveWriting(ctx,draft));
@@ -106,6 +110,7 @@ describe('deletion request', () => {
     expect(left).toEqual({ refs: 0, assets: 0, pubs: 0 });
     expect((await pool.query('select count(*)::int as n from writing_drafts where id=$1',[writingId])).rows[0].n).toBe(0);
     expect((await pool.query('select count(*)::int as n from writing_reviews where id=$1',[writingReview])).rows[0].n).toBe(0);
+    expect((await pool.query('select count(*)::int as n from shooting_work where id=$1',[shootingId])).rows[0].n).toBe(0);
     await expect(storage.get(`${ORG1}/${img.id}`)).rejects.toThrow();
     const [req] = await as(S, (ctx) => listMyDeletionRequests(ctx));
     expect(req).toMatchObject({ state: 'partially_retained', summary: expect.objectContaining({ references: 1, assets: 1 }) });

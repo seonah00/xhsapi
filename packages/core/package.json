@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./shooting-guides": "./src/shooting-guides.ts",
     "./expression-guides": "./src/expression-guides.ts"
   },
   "dependencies": {

@@ -1,0 +1,20 @@
+import {it,expect,afterAll} from 'vitest';
+import {saveCaseGuide,publishCaseGuide,startShootingWork,getShootingWork,saveShootingWork,importShootingWork,saveTemporaryWriting,getTemporaryWriting,type Ctx} from '@xhs/core';
+import {SHOOTING_TEMPLATES} from '../../packages/core/src/shooting-guides.ts';
+import {pool,asUser,U,ORG1} from './db.ts';
+import {randomUUID} from 'node:crypto';
+const user=<T>(uid:string,fn:(ctx:Ctx)=>Promise<T>)=>asUser(uid,db=>fn({db,uid,orgId:ORG1,mode:'mock',role:uid===U.admin?'org_admin':'student'}));
+afterAll(()=>pool.end());
+it('keeps shooting progress private, snapshots reviewed cuts, rejects stale updates and preserves existing writing',async()=>{
+ const guideData={title:'촬영 테스트',audience:'초보',situation:'실제 경험',coverAnalysis:'결과',titleAnalysis:'내용',bodyStructure:'순서',videoStructure:'컷',reusable:'구조',avoidCopy:'남의 경험',questions:['내 소재는?'],checklist:['내 사실인가?'],shooting:SHOOTING_TEMPLATES[0]};
+ const guide=await user(U.admin,ctx=>saveCaseGuide(ctx,guideData));await expect(user(U.studentA,ctx=>startShootingWork(ctx,guide.id))).rejects.toThrow();
+ await user(U.admin,ctx=>publishCaseGuide(ctx,guide.id,guide.revision));const id=await user(U.studentA,ctx=>startShootingWork(ctx,guide.id));
+ const work=await user(U.studentA,ctx=>getShootingWork(ctx,id));const cut=work.guide.shooting!.shots[0]!;
+ await user(U.studentA,ctx=>saveShootingWork(ctx,{id,revision:1,subject:'내 주말 메이크업',checked:[cut.id],notes:{[cut.id]:'내가 직접 확인한 색상'},memo:'느낀 점'}));
+ await expect(user(U.studentA,ctx=>saveShootingWork(ctx,{id,revision:1,subject:'덮어쓰기',checked:[],notes:{},memo:''}))).rejects.toMatchObject({code:'CONFLICT'});
+ await expect(user(U.studentB,ctx=>getShootingWork(ctx,id))).rejects.toMatchObject({code:'NOT_FOUND'});await expect(user(U.admin,ctx=>getShootingWork(ctx,id))).rejects.toMatchObject({code:'NOT_FOUND'});
+ await user(U.admin,ctx=>saveCaseGuide(ctx,{...guideData,id:guide.id,revision:2,title:'수정 후 비공개'}));expect((await user(U.studentA,ctx=>getShootingWork(ctx,id))).guide.title).toBe('촬영 테스트');
+ const temp=await user(U.studentA,ctx=>getTemporaryWriting(ctx,'new'));await user(U.studentA,ctx=>saveTemporaryWriting(ctx,{scope:'new',version:temp.version,content:{id:randomUUID(),revision:0,title:'기존 제목',cover:'',body:'기존 본문',meaningKo:'확인본',tags:['日常'],entryIds:[]}}));
+ await user(U.studentA,ctx=>importShootingWork(ctx,id,2));const result=await user(U.studentA,ctx=>getTemporaryWriting(ctx,'new'));expect(result.content?.body).toBe('기존 본문');expect(result.content?.learningNotes).toContain('내가 직접 확인한 색상');
+ await user(U.studentA,ctx=>importShootingWork(ctx,id,2));expect((await user(U.studentA,ctx=>getTemporaryWriting(ctx,'new'))).content?.learningNotes).toBe(result.content?.learningNotes);
+});

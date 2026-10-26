@@ -84,6 +84,7 @@ export async function processDeletion(db: Db, storage: ObjectStorage | null, req
   await del('publications_results', `delete from publication_records where org_id = $1 and owner_user_id = $2`);
   await del('writing_feedback',`delete from writing_feedback f where exists(select 1 from writing_reviews r where r.id=f.review_id and r.org_id=$1 and (r.owner_user_id=$2 or f.author_id=$2))`);
   await del('writing_reviews',`delete from writing_reviews where org_id=$1 and owner_user_id=$2`);
+  await del('shooting_work',`delete from shooting_work where org_id=$1 and owner_user_id=$2`);
   await del('writing_temporary',`delete from writing_temporary where org_id=$1 and owner_user_id=$2`);
   await del('writing_drafts',`delete from writing_drafts where org_id=$1 and owner_user_id=$2`);
   await del('personal_dictionary',`delete from personal_dictionary where org_id=$1 and owner_user_id=$2`);

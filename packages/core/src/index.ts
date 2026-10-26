@@ -72,3 +72,5 @@ export * from './library-page.ts';
 export * from './note-link-recovery.ts';
 
 export * from './learning-workflow.ts';
+
+export * from './shooting-work.ts';
