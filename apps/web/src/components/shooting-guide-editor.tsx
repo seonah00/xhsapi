@@ -2,7 +2,7 @@
 import {useState} from 'react';
 import {SHOOTING_TEMPLATES,SHOOTING_CATEGORIES,type ShootingGuide} from '@xhs/core/shooting-guides';
 import {btn,input,label} from './ui';
-export function ShootingGuideEditor({initial}:{initial?:ShootingGuide}){
+export function ShootingGuideEditor({initial}:{initial?:ShootingGuide|undefined}){
  const [guide,setGuide]=useState(initial),[category,setCategory]=useState('beauty');
  function apply(){if(guide&&!window.confirm('현재 컷별 촬영 안내를 선택한 기본안으로 바꿀까요? 다른 사례 입력은 유지됩니다.'))return;setGuide(structuredClone(SHOOTING_TEMPLATES.find(t=>t.category===category)!));}
  function cut(index:number,key:string,value:string|number|boolean){setGuide(g=>g?{...g,shots:g.shots.map((s,i)=>i===index?{...s,[key]:value}:s)}:g);}

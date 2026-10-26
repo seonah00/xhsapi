@@ -22,7 +22,7 @@ export async function publishGuide(f:FormData){
 }
 export async function adaptGuide(f:FormData){const id=String(f.get('id'));await orRedirectWithError(`/app/guides/${id}`,()=>withPageCtx(ctx=>importCaseGuide(ctx,id,f.getAll('answers').map(String))));redirect('/app/write');}
 export async function startShooting(f:FormData){const id=String(f.get('guideId'));const workId=await orRedirectWithError(`/app/guides/${id}`,()=>withPageCtx(ctx=>startShootingWork(ctx,id)));redirect(`/app/guides/work/${workId}`);}
-export async function saveShooting(_previous:{revision:number;error?:string;success?:boolean},f:FormData){
+export async function saveShooting(_previous:{revision:number;error?:string;success?:boolean},f:FormData):Promise<{revision:number;error?:string;success?:boolean}>{
  try{const result=await withPageCtx(ctx=>saveShootingWork(ctx,{id:String(f.get('id')),revision:Number(f.get('revision')),subject:String(f.get('subject')??''),checked:f.getAll('checked').map(String),notes:Object.fromEntries(f.getAll('cutId').map(String).map(id=>[id,String(f.get('note:'+id)??'')])),memo:String(f.get('memo')??'')}));return {...result,success:true};}
  catch(e){if(e instanceof AppError)return {..._previous,error:e.messageKo,success:false};if(e instanceof ZodError)return {..._previous,error:'촬영 메모 길이와 입력을 확인하세요.',success:false};throw e;}
 }
