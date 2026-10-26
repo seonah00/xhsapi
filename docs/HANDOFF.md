@@ -1,3 +1,11 @@
+## 2026-10-26 촬영 가이드 배포·검증 완료
+
+- 앱8d1450f2cc262c504245698faffbdc53b5cbd02e / web9a541bbf-cac7-4bb0-b639-f9995af21e51 Active·Deployment successful·Details 소스 일치. GitHub deployment7332194229 success. migration20261026091500 정상 web 시작 경로 적용 및 app.applied_migrations 확인.
+- CI40324329358 타입/린트/단위261/DB213/E2E63=537PASS, Node22 production build PASS, web/worker mock 외부 시도0. 앞선40322017673(strict web 타입)·40323202669(PC hover 대비/모바일 상태 예상) 실패는 통과로 세지 않음. 수정 후 전체 재검증 완료.
+- 더우인 제외, 5분야×7컷 기본안·관리자 검토 공개·개인 촬영 체크/메모 저장복원·미저장 이탈 경고·검토본 snapshot·기존 글 보존 가져오기 구현. 소유자격리/관리자 타인 메모 차단/동시 수정/사용자 삭제 처리 검증. 기본안은 작성 도구이며 실제 공개 사례는 관리자 작성·검토 필요(운영 사례0/개인촬영0, 합성 공개/저장 안 함).
+- 운영 기존 관리자375px에서 뷰티/패션/카페/브이로그/맛집7컷 표시, 컷 상세8필드/모바일 작은 입력0/가로넘침0.1280px도 가로넘침0, consoleerror0. 학생 저장·복원·가져오기·타인차단은 mock desktop/mobile 증빙과 구분. 실기기/Safari/키보드는 미검증.
+- 전후jobs96/settings c449be4b67243c09444342cd107c361d/budgets 2d9bc5daec1abd537e95222874bb6900/notes1857/links1366 동일. 예산/새유료/수집/정기활성화/불명예약 변경0. ADR0056/tdd0056. outputs/shooting-guides-20261026.md 및 shooting-guides-ci-20261026/ 촬영 체크 증빙. 문서 후속은 로컬 보관하여 중복 배포 방지.
+
 ## 2026-10-25 학습 완성 기능 배포·검증 완료
 
 - 운영 d8aa63a15162c70225aef4dc70e129b8077385fb/web6942a64b-61d9-4e42-9ab8-a23cdbffc4f3 Active·Deployment successful·GitHub 소스 일치. migration20261025132000 정상 시작 경로 적용 확인. CI40199186153 타입/린트/단위259/DB212/E2E61=532 PASS, mock 외부0, Node22빌드PASS. 앞선 실패 CI40198284320/40198393115/40199029761은 통과로 세지 않음.
