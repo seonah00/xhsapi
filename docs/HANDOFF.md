@@ -1,3 +1,12 @@
+## 2026-10-26 모음집 중심 전환·작성 자료 영구 삭제 완료
+
+- 사용자 승인: 글쓰기/작성 이력/사례 가이드 기능 제거, 추가 확인에서 운영 조직 전체 수강생 작성물·이력 영구 삭제 승인. web 라우트/actions/작성 연결 제거, 실제 /app/write·/app/guides404. 메뉴 홈/게시물 탐색/해시태그/표현/내 모음. 개인 사전 편집·예문·분류·페이지 유지, 카드 복사/관련 게시물 GET 연결.
+- 일반 검색은 저장 자료 조회만 수행하며 새 자동 수집을 요청하지 않는다. 기존 auto_search 승인 정책 true/2026-10-31만료는 변경하지 않음. 정기 수집과 별개다. 관리자 명시적 견적 경로는 유지. 예산/새유료/정기활성화/불명예약 변경0.
+- 앱ce767caca3556704a1f3b061cc7d3268d421f617 / web71d39df0-114a-4a3a-b4f7-64db541f0f94 Active·Deployment successful·Details 소스 일치. CI40329948950 타입/린트/단위261/DB213/E2E44=518PASS, production build PASS, mock 외부0. 퇴역 web 전용 검사 제거, 대체 모음집 PC/mobile 흐름 추가. 과거 core/DB 이력삭제/RLS 검사 유지. CI40329003404는 옛 제목/메뉴 기대값3실패(39PASS/2미실행),40328909327은 취소: 최종 통과로 세지 않음.
+- 운영 관리자375/1280×홈/태그/표현/내모음8화면 heading/가로넘침0/퇴역링크0/예상외console0. 태그 메뉴 aria-current 확인. 내 모음 관련 게시물 실제 이동: 记录生活, 카드3. 옛주소404 실제확인. 학생 쓰기/저장 검사는 합성 mock 증빙과 구분.
+- 영구 삭제 전 작성물1/버전3/임시본1/검토0/촬영0. 배포 후 org범위 트랜잭션으로 publication 작성연결 해제 후 feedback/reviews/shooting/temporary/drafts 삭제, versions cascade. 삭제 후 drafts/versions/temporary/reviews0 재조회. Supabase mutation connector2회 invalid_request_state로 미실행→공식 SQL Editor에서 승인된 동일트랜잭션 Success 확인 및 별도MCP 읽기재검증. 다른 학생/조직의 무관 자료 삭제 없음.
+- 보존 대조: personal1/keywords3052/expressions174/notes1857/links1366 동일. jobs96/settings c449be4b67243c09444342cd107c361d/budgets 2d9bc5daec1abd537e95222874bb6900 동일. ADR0057. outputs/collection-focus-20261026.md, production-checks.json 및 production-375.png. viewport복원/임시Railway·SQL탭정리/홈deliverable. 문서후속은 로컬 보관.
+
 ## 2026-10-26 촬영 가이드 배포·검증 완료
 
 - 앱8d1450f2cc262c504245698faffbdc53b5cbd02e / web9a541bbf-cac7-4bb0-b639-f9995af21e51 Active·Deployment successful·Details 소스 일치. GitHub deployment7332194229 success. migration20261026091500 정상 web 시작 경로 적용 및 app.applied_migrations 확인.
