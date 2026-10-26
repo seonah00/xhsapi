@@ -25,7 +25,7 @@ export default async function PublicationDetail({ params, searchParams }: { para
       <div className="mb-4 flex flex-wrap gap-1 text-sm">
         {p.topic && <Badge>{topicLabel(p.topic)}</Badge>}{p.format && <Badge tone="info">{formatLabel(p.format)}</Badge>}
         {p.paidPromotion === 'yes' && <Badge tone="warn">유료 프로모션</Badge>}{p.sponsorship === 'yes' && <Badge tone="warn">협찬</Badge>}
-        {p.writingDraftId&&<Link href={`/app/write/history/${p.writingDraftId}`} className="text-accent underline">연결된 작성물 · 버전 {p.writingRevision}</Link>}{p.planId && <Link href={`/app/plans/${p.planId}`} className="text-accent underline">연결된 기획</Link>}
+        {p.planId && <Link href={`/app/plans/${p.planId}`} className="text-accent underline">연결된 기획</Link>}
         {href && <a href={href} target="_blank" rel="noopener noreferrer" className="text-accent underline">게시물 열기 ↗</a>}
       </div>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">

@@ -5,12 +5,11 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { AppError, containsHangul } from '@xhs/domain';
-import { chineseSearchCandidate, isChineseSearch, requestAutoSearch, createQuote, createReference, reserveJob, toggleSave } from '@xhs/core';
+import { containsHangul } from '@xhs/domain';
+import { chineseSearchCandidate, isChineseSearch, createQuote, createReference, reserveJob, toggleSave } from '@xhs/core';
 import { service, withPageCtx } from '@/server/ctx';
 import { orRedirectWithError, safeLocalPath } from '@/server/actions-util';
 
-import { env } from '@/server/env';
 
 const COMPARE = 'xhs_compare';
 const id = z.string().uuid();
@@ -96,15 +95,5 @@ export async function searchAutomatically(f: FormData) {
   if(q && !isChineseSearch(q)) redirect('/app/discover?error='+encodeURIComponent('중국어 검색어를 50자 이내로 확인해 주세요.'));
   const filters={...(f.get('topic')?{topic:String(f.get('topic'))}:{}),...(f.get('days')?{days:Number(f.get('days'))}:{})};
   const qs=new URLSearchParams({q,...presentation(f),...Object.fromEntries(Object.entries(filters).map(([k,v])=>[k,String(v)]))});
-  if(q) {
-    const requestId=await orRedirectWithError(`/app/discover?${qs}`,()=>withPageCtx(async ctx=>{
-      try { return await requestAutoSearch(ctx,service,q,env(),filters); }
-      catch(e) {
-        if(e instanceof AppError && ['LIVE_BLOCKED','FEATURE_DISABLED','BUDGET_EXCEEDED'].includes(e.code)) throw new AppError('FEATURE_DISABLED','현재 새 게시물을 찾을 수 없어 저장된 결과를 표시합니다.');
-        throw e;
-      }
-    }));
-    if(requestId) qs.set('auto',requestId);
-  }
   redirect(`/app/discover?${qs}`);
 }

@@ -103,7 +103,7 @@ test('an unavailable preferred cover falls back to the stored original cover', a
   } finally { await db.query('delete from notes where id=$1',[note.id]);await db.query('delete from app_jobs where id=$1',[job.id]);await db.end(); }
 });
 
-test('student automatic search runs without cost controls and reuses the same search',async({page})=>{
+test('student search uses saved references even with an approved automatic policy',async({page})=>{
   const {default:pg}=await import('pg');
   const db=new pg.Pool({connectionString:process.env.DATABASE_URL});
   const org='00000000-0000-4000-b000-000000000001';
@@ -114,11 +114,10 @@ test('student automatic search runs without cost controls and reuses the same se
     await page.goto('/app/discover');
     await page.getByRole('textbox',{name:'검색어',exact:true}).fill('自动测试');
     await page.getByRole('button',{name:'검색',exact:true}).click();
-    await expect(page).toHaveURL(/auto=/);
-    await expect(page.getByRole('status')).toContainText('최신 검색 결과',{timeout:20000});
+    await expect(page).toHaveURL(/q=/);await expect(page).not.toHaveURL(/auto=/);
     await expect(page.getByRole('button',{name:'확인하고 실행'})).toHaveCount(0);
-    const first=new URL(page.url()).searchParams.get('auto');
+    const first=new URL(page.url()).searchParams.get('q');
     await page.getByRole('button',{name:'검색',exact:true}).click();
-    await expect(page).toHaveURL(new RegExp(`auto=${first}`));
+    expect(new URL(page.url()).searchParams.get('q')).toBe(first);await expect(page).not.toHaveURL(/auto=/);
   } finally {await db.query('update organizations set settings=$2 where id=$1',[org,previous]);await db.end();}
 });

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { comparePublications, getWriting, getWritingVersion, getQuote, listAccounts, listPublications, listReflections } from '@xhs/core';
+import { comparePublications, getQuote, listAccounts, listPublications, listReflections } from '@xhs/core';
 import { withPageCtx } from '@/server/ctx';
 import { JobStatus } from '@/components/job-status';
 import { QuoteConfirm } from '@/components/quote-confirm';
@@ -19,16 +19,12 @@ export default async function Results({ searchParams }: { searchParams: Promise<
     const account = accounts.find((a) => a.id === sp.account) ?? accounts[0] ?? null;
     return {
       accounts, account, mode:ctx.mode,
-      writing:sp.writing?await getWriting(ctx,sp.writing):null,
-      linkedVersion:sp.writing&&sp.revision?await getWritingVersion(ctx,sp.writing,Number(sp.revision)):null,
       pubs: account ? await listPublications(ctx, account.id) : [],
       reflections: account ? await listReflections(ctx, account.id) : [],
       quote: sp.quote ? await getQuote(ctx, sp.quote) : null,
     };
   });
   if (!d.account) return <Empty title="먼저 계정 방향을 설정하세요"><div className="mt-2"><LinkButton href="/app/accounts/new" variant="primary">계정 설정</LinkButton></div></Empty>;
-  const writingRevision=d.writing?Number(sp.revision??d.writing.draft.revision):null;
-  const linkedVersion=d.linkedVersion??d.writing?.versions.find(v=>v.revision===writingRevision);
   const cmp = comparePublications(d.pubs, groupBy);
   const withSnap = d.pubs.filter((p) => p.snapshots[0]);
   return (
@@ -97,7 +93,7 @@ export default async function Results({ searchParams }: { searchParams: Promise<
             <p className="mt-1 text-xs text-muted">발행·관찰 시각은 한국 시간 기준입니다.</p>
             <form action={addPublication} className="mt-3 space-y-2 text-sm">
               <input type="hidden" name="accountId" value={d.account.id} />
-              {linkedVersion&&<><input type="hidden" name="writingDraftId" value={d.writing!.draft.id}/><input type="hidden" name="writingRevision" value={linkedVersion.revision}/><p>연결할 작성물: {linkedVersion.snapshot.title} · 버전 {linkedVersion.revision}</p></>}{d.writing&&!linkedVersion&&<Notice>해당 버전을 확인할 수 없습니다. 작성 이력에서 버전을 다시 선택해 주세요.</Notice>}
+
               <div><label htmlFor="ptitle" className={label}>제목(메모용)</label><input id="ptitle" name="title" maxLength={200} className={input} /></div>
               <div><label htmlFor="noteUrl" className={label}>게시물 링크 (선택)</label><input id="noteUrl" name="noteUrl" type="url" className={input} /></div>
               <div><label htmlFor="publishedAt" className={label}>발행일시</label><input id="publishedAt" name="publishedAt" type="datetime-local" className={input} /></div>

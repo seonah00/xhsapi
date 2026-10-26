@@ -1,12 +1,11 @@
 import Link from 'next/link';
 import Form from 'next/form';
-import { sharedDictionaryCategories, getDictionaryAiStatus, listSharedDictionary, discover, observedDictionary, type DictionaryEntryType } from '@xhs/core';
+import { sharedDictionaryCategories, listSharedDictionary, discover, observedDictionary, type DictionaryEntryType } from '@xhs/core';
 import { withPageCtx } from '@/server/ctx';
 import { Badge, btn, Empty, ErrorNotice, input, PageHeader } from '@/components/ui';
 import { SearchLanguage } from '@/components/search-language';
 import { searchAutomatically } from '@/app/app/discover/actions';
 import { DictionaryWorkspace } from './workspace';
-import { getDictionaryAiConfig } from '@/server/dictionary-ai-config';
 
 export const metadata = { title: '공용 사전' };
 
@@ -29,8 +28,8 @@ export default async function SharedDictionary({ searchParams }: { searchParams:
   const entryType: DictionaryEntryType | undefined = sp.entryType === 'tag' || sp.entryType === 'expression' ? sp.entryType : undefined;
   const parsedPage = Number.parseInt(sp.page ?? '1', 10);
   const requestedPage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
-  const { result, aiStatus, canManage, research,categories } = await withPageCtx(async (ctx) => ({
-    canManage: ctx.role==='org_admin',categories:await sharedDictionaryCategories(ctx),
+  const { result, research,categories } = await withPageCtx(async (ctx) => ({
+    categories:await sharedDictionaryCategories(ctx),
     research: sp.q?.trim() ? await (async () => { const sample = await discover(ctx, {q: (sp.q ?? '').trim().slice(0,100)}); return {notes:sample.notes, dictionary:await observedDictionary(ctx,sample.notes)}; })() : null,
     result: await listSharedDictionary(ctx, {
       ...(sp.q?.trim() ? { query: sp.q.trim() } : {}),
@@ -39,17 +38,16 @@ export default async function SharedDictionary({ searchParams }: { searchParams:
       page: requestedPage,
       pageSize: PAGE_SIZE,
     }),
-    aiStatus: await getDictionaryAiStatus(ctx, getDictionaryAiConfig()),
   }));
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
 
   return (
     <>
-      <PageHeader title="공용 사전" description="운영자가 검토해 공개한 태그와 표현을 검색하고, 작성에 참고할 항목을 선택할 수 있습니다." />
-      <div className="mb-4 flex flex-wrap gap-2"><Link href="/app/dictionary/mine" className={btn.secondary}>내 사전</Link><Link href="/app/write" className={btn.secondary}>바로 글쓰기</Link><Link href="/app/write/history" className={btn.secondary}>작성 이력</Link></div>
+      <PageHeader title={entryType==='tag'?'해시태그':entryType==='expression'?'표현':'해시태그·표현 모음'} description="뜻과 사용 상황을 확인하고 복사하거나 내 모음에 저장하세요." />
+      <div className="mb-4 flex flex-wrap gap-2"><Link href="/app/dictionary/mine" className={btn.secondary}>내 모음</Link></div>
       <ErrorNotice message={sp.error} />
       <div role="note" className="mb-4 rounded-xl bg-info-soft px-4 py-3 text-sm text-info">
-        이 목록은 편집된 관찰 자료이며 인기 순위, 검색량, 성과 보장을 뜻하지 않습니다. 개인 초안이나 AI 생성 결과는 자동으로 공용 사전에 공유되지 않습니다.
+        이 목록은 편집된 관찰 자료이며 인기 순위, 검색량, 성과 보장을 뜻하지 않습니다. 
       </div>
 
       <Form action="/app/dictionary" key={JSON.stringify([sp.q, entryType, sp.category])} role="search" className="grid gap-2 rounded-2xl border border-line bg-surface p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
@@ -81,7 +79,7 @@ export default async function SharedDictionary({ searchParams }: { searchParams:
         <form action={searchAutomatically} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"><input name="q" aria-label="게시물 검색 주제" defaultValue={sp.q} required maxLength={100} placeholder="한국어 주제 또는 중국어 표현" className={input}/><button className={btn.secondary}>게시물에서 찾기</button></form>
       </section>
       {research && <SearchLanguage query={sp.q ?? ''} notes={research.notes} dictionary={research.dictionary}/>}
-      <DictionaryWorkspace canManage={canManage} items={result.items} aiStatus={aiStatus} />
+      <DictionaryWorkspace items={result.items} />
 
       {totalPages > 1 && (
         <nav aria-label="사전 페이지" className="mt-5 flex items-center justify-center gap-2 pb-24 lg:pb-0">

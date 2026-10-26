@@ -10,9 +10,8 @@ import { MockBanner } from './ui';
 const ROLE: Record<string, string> = { student: '학생', reviewer: '강사', org_admin: '관리자' };
 
 export const STUDENT_NAV = [
-  ['/app', '홈'], ['/app/discover', '탐색'], ['/app/dictionary', '공용사전'],
-  ['/app/dictionary/mine', '내 사전'], ['/app/write', '글쓰기'], ['/app/write/history', '작성 이력'],
-  ['/app/guides', '사례 가이드'], ['/app/results', '성과'], ['/app/accounts', '내 계정'],
+  ['/app', '홈'], ['/app/discover', '게시물 탐색'], ['/app/dictionary?entryType=tag', '해시태그'],
+  ['/app/dictionary?entryType=expression', '표현'], ['/app/dictionary/mine', '내 모음'],
 ] as const;
 export const STAFF_NAV = [['/review/submissions', '검토함'], ['/review/rules', '점검 규칙'], ['/review/reports', '신고']] as const;
 export const ADMIN_NAV = [
