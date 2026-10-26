@@ -13,7 +13,7 @@ test('student collection flow removes retired tools and connects terms to saved 
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);
  }
- await page.goto('/app/dictionary?entryType=tag&q='+encodeURIComponent(term));const reference=page.getByRole('link',{name:'관련 게시물 보기',exact:true}).first();const href=await reference.getAttribute('href');expect(href).toMatch(/^\/app\/discover\?q=/);await reference.click();await page.waitForURL(/\/app\/discover\?q=/);await expect(page.getByRole('link',{name:term,exact:true}).first()).toBeVisible();
+ await page.goto('/app/dictionary?entryType=tag&q='+encodeURIComponent(term));const reference=page.getByRole('link',{name:'관련 게시물 보기',exact:true}).first();const href=await reference.getAttribute('href');expect(href).toMatch(/^\/app\/discover\?q=/);await reference.click();await page.waitForURL(/\/app\/discover\?q=/);await expect(page.getByRole('heading',{name:term,exact:true})).toBeVisible();
  for(const path of ['/app/write','/app/write/history','/app/guides','/app/guides/new'])expect((await page.goto(path))?.status()).toBe(404);
  }finally{await db.query('delete from notes where id=$1',[note]);await db.query('delete from keywords where id=$1',[keyword]);await db.end();}
 });
