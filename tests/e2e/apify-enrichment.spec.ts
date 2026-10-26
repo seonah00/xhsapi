@@ -61,7 +61,8 @@ test('students cannot access image operations or retired features', async ({ pag
   await page.waitForURL(/\/app/);
   await page.goto('/app/discover?q=敏感肌');
   await expect(page.getByRole('link', { name: /이미지 업데이트|정보 업데이트/ })).toHaveCount(0);
-  for (const name of ['자료실', '해시태그', '표현 사전']) await expect(page.getByRole('link',{name,exact:true})).toHaveCount(0);
+  for (const name of ['자료실', '표현 사전']) await expect(page.getByRole('link',{name,exact:true})).toHaveCount(0);
+  await expect(page.getByRole('link',{name:'해시태그',exact:true})).toHaveAttribute('href','/app/dictionary?entryType=tag');
   for (const path of ['/app/library','/app/keywords','/app/expressions','/review/library','/review/expressions','/api/v1/keywords','/api/v1/expressions',
     '/app/notes/enrich?ids=00000000-0000-4000-a000-000000000001','/app/notes/00000000-0000-4000-a000-000000000001/enrich']) {
     expect((await page.request.get(path)).status(), path).toBe(404);

@@ -37,7 +37,7 @@ test('student onboarding → discover → reference → analysis → transcript 
   await page.getByRole('checkbox', { name: '루틴', exact: true }).check();
   await page.getByRole('button', { name: '계정 만들기' }).click();
   await page.waitForURL(/\/app\?account=/);
-  await expect(page.getByRole('heading', { name: '샤오홍슈 표현 찾기' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '게시물과 중국어 표현 모음' })).toBeVisible();
 
   // Discover with Korean query expansion (F04)
   await page.goto('/app/discover?q=스킨케어');

@@ -5,7 +5,7 @@ test('focused navigation and separate post links',async({page})=>{
  await page.waitForURL(/\/app/);
  const nav=page.getByRole('navigation',{name:'주 메뉴',exact:true});
  for(const name of ['레퍼런스','참고 계정','기획실','점검','제출']) await expect(nav.getByRole('link',{name,exact:true})).toHaveCount(0);
- await expect(page.getByRole('heading',{name:'샤오홍슈 표현 찾기'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'게시물과 중국어 표현 모음'})).toBeVisible();
  await page.goto('/app/discover?q='+encodeURIComponent('敏感肌'));
  const card=page.locator('article',{hasText:'敏感肌早晚护肤顺序'});
  await expect(card.getByRole('button',{name:'레퍼런스로 가져오기'})).toHaveCount(0);
