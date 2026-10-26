@@ -47,7 +47,7 @@ export class ApifySearchProvider {
     url.search=new URLSearchParams({build:o.build,memory:'256',timeout:'120',maxTotalChargeUsd:o.maxChargeUsd,maxItems:String(input.targetCount),restartOnError:'false',format:'json'}).toString();
     // Exactly one bounded submission. Never retry a billable request after uncertain delivery.
     let res: Response;
-    try {res=await this.fetchImpl(url,{method:'POST',headers:{Authorization:`Bearer ${o.token}`,'Content-Type':'application/json'},body:JSON.stringify({keywords:[input.query],maxResults:input.targetCount,topUpFromOtherSorts:true,sortType:'general',noteType:'all',timeFilter:input.days===7?'1w':'all'}),redirect:'error',signal:AbortSignal.timeout(150_000)});} catch {throw new Error('APIFY_SEARCH_RESPONSE_UNKNOWN');}
+    try {res=await this.fetchImpl(url,{method:'POST',headers:{Authorization:`Bearer ${o.token}`,'Content-Type':'application/json'},body:JSON.stringify({keywords:[input.query],maxResults:input.targetCount,topUpFromOtherSorts:input.days!==7,sortType:input.days===7?'time_descending':'general',noteType:'all',timeFilter:input.days===7?'1w':'all'}),redirect:'error',signal:AbortSignal.timeout(150_000)});} catch {throw new Error('APIFY_SEARCH_RESPONSE_UNKNOWN');}
     if(!res.ok) throw new Error(`APIFY_SEARCH_HTTP_${res.status}`);
     try {return parseZenSearch(await res.json(),input.targetCount);} catch {throw new Error('APIFY_SEARCH_CONTRACT');}
   }

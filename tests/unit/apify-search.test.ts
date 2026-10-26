@@ -28,3 +28,8 @@ it.each(['flag','price','budget','consent','build'])('blocks %s before submittin
 it('does not retry ambiguous responses or expose response bodies',async()=>{
  const f=vi.fn(async()=>new Response('private-response',{status:500}));await expect(new ApifySearchProvider(options(),f).search(scope)).rejects.toThrow('APIFY_SEARCH_HTTP_500');expect(f).toHaveBeenCalledTimes(1);
 });
+it('uses newest-first weekly collection without filling from older sort orders',async()=>{
+ const f=vi.fn(async()=>Response.json([row]));await new ApifySearchProvider(options(),f).search({...scope,days:7});
+ const [,init]=f.mock.calls[0] as unknown as [URL,RequestInit];
+ expect(JSON.parse(String(init.body))).toMatchObject({sortType:'time_descending',timeFilter:'1w',topUpFromOtherSorts:false});
+});

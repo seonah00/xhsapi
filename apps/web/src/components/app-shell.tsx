@@ -15,7 +15,7 @@ export const STUDENT_NAV = [
 ] as const;
 export const STAFF_NAV = [['/review/submissions', '검토함'], ['/review/rules', '점검 규칙'], ['/review/reports', '신고']] as const;
 export const ADMIN_NAV = [
-  ['/admin', '개요'], ['/admin/members', '멤버'], ['/admin/invitations', '초대'], ['/admin/cohorts', '기수'], ['/admin/dictionary', '공용사전 관리'], ['/review/rules', '점검 규칙'], ['/review/reports', '신고'], ['/admin/taxonomy', '분류 체계'], ['/admin/providers', '공급자·스위치'], ['/admin/usage', '사용량·한도'], ['/admin/jobs', '작업'], ['/admin/audit', '감사 기록'], ['/app', '← 학습 화면'],
+  ['/admin', '개요'], ['/admin/members', '멤버'], ['/admin/invitations', '초대'], ['/admin/cohorts', '기수'], ['/admin/dictionary', '공용사전 관리'], ['/review/rules', '점검 규칙'], ['/review/reports', '신고'], ['/admin/taxonomy', '분류 체계'], ['/admin/providers', '공급자·스위치'], ['/admin/usage', '사용량·한도'], ['/admin/collection', '공용 수집'], ['/admin/jobs', '작업'], ['/admin/audit', '감사 기록'], ['/app', '← 학습 화면'],
 ] as const;
 
 export async function AppShell({ children, area }: { children: React.ReactNode; area: 'app' | 'admin' }) {
