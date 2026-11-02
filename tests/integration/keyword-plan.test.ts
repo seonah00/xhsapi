@@ -16,7 +16,7 @@ it('imports only server-verified candidates, preserves provenance and uses tags 
  await user(U.studentA,ctx=>saveDraft(ctx,id,plan.draft,plan.revision));
  expect((await user(U.studentA,ctx=>getPlan(ctx,id))).keywordSource?.requestId).toBe(input.requestId);
  const prep=await user(U.studentA,ctx=>preparePlanAi(ctx.db,ctx.orgId,ctx.uid,id));
- expect(prep.input.keywords).toEqual([{term:'敏感肌防晒霜推荐',meaning:'',unverified:true}]);
+ expect(prep.input.keywords).toEqual([{term:'敏感肌防晒霜推荐',meaning:'민감성 피부용 선크림 추천',unverified:true}]);
  await expect(user(U.studentB,ctx=>getPlan(ctx,id))).rejects.toThrow();
  await expect(user(U.studentB,ctx=>importKeywordPlan(ctx,{...input,requestId:randomUUID()}))).rejects.toThrow();
  await expect(user(U.studentA,ctx=>importKeywordPlan(ctx,{...input,requestId:randomUUID(),selected:['fabricated']}))).rejects.toThrow();

@@ -34,6 +34,13 @@ describe('search language evidence',()=>{
   expect(context).toBe(`😀${prefix} YYDS ${suffix}😀`);
   expect(context).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u);
  });
+ it('explains known tags without inventing truncated meanings',()=>{
+  const data=analyzeSearchLanguage([note('a','',['釜山旅行','韩国探店','出国旅','韩'])],[]);
+  expect(data.tags.find(x=>x.term==='釜山旅行')?.meaning).toBe('부산 여행');
+  expect(data.tags.find(x=>x.term==='韩国探店')?.meaning).toBe('한국 가게 탐방');
+  expect(data.tags.find(x=>x.term==='出国旅')?.meaning).toBeNull();
+  expect(data.tags.find(x=>x.term==='韩')?.meaning).toBeNull();
+ });
  it('matches literal dictionary punctuation safely',()=>{
   const data=analyzeSearchLanguage([note('a','真的 A+B 太好了')],[{...definition,term:'A+B'}]);
   expect(data.expressions.find(x=>x.term==='A+B')?.noteCount).toBe(1);

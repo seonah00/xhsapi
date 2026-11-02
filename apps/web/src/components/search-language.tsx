@@ -12,7 +12,7 @@ export function SearchLanguage({ query, notes, dictionary }: { query: string; no
     <KeywordRecommendations key={query} result={recommendKeywords(query, notes, dictionary)} source={{query,noteIds:notes.map(n=>n.id)}}/>
     <h2 id="search-language-title" className="font-semibold">이 검색에서 발견한 해시태그·표현</h2>
     <p className="mt-1 text-sm text-muted">현재 페이지의 중복 제외 {analysis.sampleSize}개 게시물 기준 · 수집 관찰 {fmtDate(analysis.from)} ~ {fmtDate(analysis.to)}</p>
-    <p className="mt-1 text-xs text-muted">샤오홍슈 전체 인기 순위나 작성자 국적을 뜻하지 않습니다. 정렬·필터·페이지에 따라 표본이 달라지며, 수집된 제목·본문 일부·태그만 분석합니다. 뜻과 주의사항은 공용사전 설명입니다.</p>
+    <p className="mt-1 text-xs text-muted">샤오홍슈 전체 인기 순위나 작성자 국적을 뜻하지 않습니다. 정렬·필터·페이지에 따라 표본이 달라지며, 수집된 제목·본문 일부·태그만 분석합니다. 뜻은 공용사전과 기본 해설을 참고합니다.</p>
     <form action={previewLanguage} className="mt-3">
       <input type="hidden" name="task" value="interpret"/><input type="hidden" name="noteIds" value={notes.map(n=>n.id).join(',')}/>
       <PendingButton className="rounded-lg border border-line px-3 py-2 text-sm">사전에 없는 표현도 AI로 해석</PendingButton>
