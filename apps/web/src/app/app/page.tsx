@@ -16,15 +16,15 @@ const collections = [
 export default function Home() {
   return (
     <div className="space-y-8 pb-6 sm:space-y-10">
-      <section className="relative overflow-hidden rounded-3xl border border-line bg-surface p-6 sm:p-10" aria-labelledby="home-heading">
+      <section className="relative overflow-hidden rounded-3xl border border-line bg-surface p-5 sm:p-10" aria-labelledby="home-heading">
         <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-32 h-80 w-80 rounded-full bg-accent-soft/50 blur-3xl" />
         <div className="relative max-w-3xl">
-          <p className="mb-4 text-xs font-semibold tracking-[0.18em] text-accent">XHS LIBRARY</p>
-          <h1 id="home-heading" className="text-2xl font-bold leading-snug tracking-tight sm:text-4xl">게시물과 중국어 표현 모음</h1>
-          <p className="mt-3 text-sm leading-7 text-muted sm:text-base">눈길을 끄는 게시물부터 자연스러운 표현까지.<br className="hidden sm:block" /> 필요한 자료를 찾고, 나만의 모음으로 남겨보세요.</p>
-          <form action={searchAutomatically} role="search" aria-label="게시물 검색" className="mt-7 flex flex-col gap-2 rounded-2xl border border-line bg-bg p-2 sm:flex-row">
+          <p className="mb-3 text-xs font-semibold tracking-[0.18em] text-accent">XHS LIBRARY</p>
+          <h1 id="home-heading" className="break-keep text-[22px] font-bold leading-snug tracking-tight sm:text-4xl">게시물과 중국어 표현 모음</h1>
+          <p className="mt-3 text-sm leading-7 text-muted sm:text-base">게시물을 살펴보고, 마음에 드는 표현을 모아보세요.</p>
+          <form action={searchAutomatically} role="search" aria-label="게시물 검색" className="mt-5 flex flex-col gap-2 rounded-2xl border border-line bg-bg p-2 sm:flex-row">
             <label className="sr-only" htmlFor="home-query">게시물 검색어</label>
-            <input id="home-query" name="q" required maxLength={100} placeholder="어떤 게시물을 찾으세요? 예: 뷰티, 穿搭" className="min-h-12 min-w-0 flex-1 rounded-xl bg-transparent px-3 text-base placeholder:text-muted" />
+            <input id="home-query" name="q" required maxLength={100} placeholder="주제·태그 검색 (예: 뷰티, 穿搭)" className="min-h-12 min-w-0 flex-1 rounded-xl bg-transparent px-3 text-base placeholder:text-muted" />
             <button className="min-h-12 shrink-0 rounded-xl bg-accent px-6 font-semibold text-on-accent hover:opacity-90">게시물 검색 <span aria-hidden="true" className="ml-2">→</span></button>
           </form>
           <div className="mt-4 flex flex-wrap items-center gap-2" aria-label="주제별 게시물">
@@ -41,14 +41,14 @@ export default function Home() {
           <p className="text-sm text-muted">확인하고 · 복사하고 · 저장하세요</p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          {collections.map(item => <Link key={item.href} href={item.href} aria-label={item.action} className="group flex flex-col rounded-2xl border border-line bg-surface p-6 transition-colors hover:border-accent sm:p-7">
+          {collections.map(item => <Link key={item.href} href={item.href} aria-label={item.action} className="group flex flex-col rounded-2xl border border-line bg-surface p-5 transition-colors hover:border-accent sm:p-7">
             <div className="flex items-center justify-between">
               <span aria-hidden="true" className={`flex h-12 w-12 items-center justify-center rounded-2xl text-2xl font-medium ${item.tone}`}>{item.symbol}</span>
               <span aria-hidden="true" className="text-xl text-muted group-hover:text-accent">↗</span>
             </div>
             <h3 className="mt-5 text-xl font-bold">{item.title}</h3>
             <p className="mt-2 text-sm leading-6 text-muted">{item.description}</p>
-            <p className="mt-5 border-t border-line pt-4 text-sm text-muted">{item.example}</p>
+            <p className="mt-5 hidden border-t border-line pt-4 text-sm text-muted sm:block">{item.example}</p>
             <span className="mt-4 font-semibold text-accent">{item.action} <span aria-hidden="true">→</span></span>
           </Link>)}
         </div>
