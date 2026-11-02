@@ -1,3 +1,13 @@
+## 2026-11-02 홈 디자인 전체 검증·운영 배포 완료
+
+- 앱 5f21908359910e5d2a8ae010669842b80d5e9d73, Railway web ffd70be0-977a-4c7e-880a-938f9caa99dd ACTIVE/Deployment successful/Details 소스 일치. 이전 30e0274 배포를 최종 증빙으로 혼동하지 않는다.
+- 최종 CI41395814688 SUCCESS: 단위262/DB213/E2E47=522PASS, 타입·린트·production build PASS, mock web/worker 외부 시도0. 별도 auth-only alternate 모드는 이번에 재실행하지 않음. 코드·React 리뷰 actionable0.
+- 홈 검색/6주제/태그·표현 카드/내 모음 디자인, 로그인 퇴역 문구, 사전 관련 게시물 버튼 설명 개선. 실제 모바일 스크린샷에서 제목 고립 글자와 과도한 상단 높이를 발견하여 줄바꿈·크기·간격·보조 예시 노출 개선 후 전체 CI 재실행.
+- 운영 관리자 읽기 전용: 태그검색 防晒, 표현2페이지, 내 모음 표시,375px 한국어→중국어확인→결과,뷰티50건→2페이지50건→이전,1280px 홈 확인. 가로넘침0/홈 주요컨트롤44px 이상/관찰 console error·warn0. 학생 저장·권한은 합성 E2E이며 실학생 운영 쓰기/실기기Safari 검증 아님.
+- 성수동 카페→圣水洞 咖啡店 검색은 정상 이동하나 저장자료0건. 다중어 검색 품질 개선 후보이며 새 수집으로 보충하지 않음.
+- 전후 jobs98/notes1907/links1416/활성추적0/settings MD5 c449be4b67243c09444342cd107c361d/budgets MD5 31952b81f80ade3cc640591136959123 동일. 예산·새유료·정기수집·불명예약 변경0.
+- outputs/home-release-20261102.md, home-production-desktop-20261102.png, home-production-mobile-20261102.png 및 home-release-final-ci-20261102/. 문서 후속은 로컬 보관하여 중복 배포하지 않음.
+
 ## 2026-11-02 홈 탐색 중심 디자인 개선 (로컬, 미배포)
 
 - 홈 상단 게시물 검색(기존 stored-only 검색 액션), 6개 주제 바로가기, 해시태그/표현 전체 클릭 카드, 내 모음 하단 바로가기. 기존 제목/접근성 라벨과 theme 토큰 유지. 수집/예산/DB 변경 없음.
