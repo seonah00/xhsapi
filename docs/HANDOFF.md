@@ -1,7 +1,10 @@
-## 2026-11-02 해시태그 검색 카드 간소화 (로컬, 미배포)
+## 2026-11-02 해시태그 카드 간소화 배포·검증 완료
 
-- 기본 카드: 태그·한국어 뜻·사용법·중요 주의·확인된 태그 복사/저장. 공용사전 usage 전달, 미등록 뜻은 생성하지 않고 미준비 안내. 통계/추이/근거 링크는 개별 details, 정렬/표본 설명과 검색어 조합은 별도 details로 접음.
-- web 타입/변경 파일 ESLint 및 단위262 PASS. 기존 E2E에 기본 통계 숨김/펼치기/후보 이동 회귀검사 추가. 로컬 PostgreSQL 부재로 DB/E2E 실행 및 운영 배포는 아직 하지 않음. 기존 비용/수집/승인 로직 변경 없음.
+- 최종47ad42c79bdb79dad74bfe3f7e641399a0fe99eb (앱b1244cf+E2E후속). CI41397993380 SUCCESS: 단위262/DB213/E2E47=522 PASS, 타입/린트/production build PASS, web/worker mock 외부 시도0. 이전41397826601은 테스트 기대값 보완 후 취소.
+- Railway web e17cebb3-1aac-465d-942b-1b3b57e813ce Active/Deployment successful/Details GitHub SHA 일치. 기본 카드 뜻·usage·중요주의·복사/저장, 분석과 근거 details 기본 접힘. 미등록 뜻은 임의 생성하지 않음.
+- 운영 관리자 GET 探店 검색15게시물/29태그 카드 확인. PC1280/모바일375 가로넘침0, 기본 details열림0, 펼치면 저장통계 visible, 관찰 console error/warn0. 학생 저장/권한은 합성E2E이며 운영 쓰기나 실휴대폰Safari 검증 아님.
+- 전후 jobs98/notes1907/links1416/enabled_tracking0/settings c449be4b67243c09444342cd107c361d/budgets31952b81f80ade3cc640591136959123 불변. 새 유료 호출·수집·예산·정기설정 변경0. 최근 observed_at2026-10-26T15:00:49.944Z(한국10월27일00:00), 현재 자동갱신 안 함.
+- outputs/hashtag-simple-release-20261102.md 및 hashtag-simple-desktop/mobile-20261102.png. 미등록 뜻과 구체적인 사용법 보강은 후속 콘텐츠 작업. 문서 후속만 로컬 보관.
 
 ## 2026-11-02 홈 디자인 전체 검증·운영 배포 완료
 
