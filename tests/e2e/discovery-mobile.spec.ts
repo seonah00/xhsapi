@@ -51,7 +51,7 @@ test('student discovery prioritizes posts, preserves filters and offers previous
     await pager.getByRole('link', { name: '이전', exact: true }).click();
     await expect(pager.getByText('1페이지', { exact: true })).toBeVisible();
     await analysis.locator('summary').first().click();
-    await expect(page.getByRole('heading', { name: '사전과 검색 결과로 키워드 정리' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '해시태그 뜻과 사용법' })).toBeVisible();
     await analysis.locator('summary').first().click();
     expect((await new AxeBuilder({ page }).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);
     expect(errors).toEqual([]);

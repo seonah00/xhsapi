@@ -14,7 +14,8 @@ test('discovery dates hydrate without React errors in an English browser', async
   await expect(page.locator('article').first()).toContainText(/관찰 .* (오전|오후) \d{2}:\d{2}/);
   await page.getByTestId('discovery-analysis').locator('summary').first().click();
   // Client-only editing proves the page has hydrated; no collection or AI action.
-  await page.getByLabel('대상 (예: 敏感肌)').fill('测试');
+  await page.getByText('검색어 조합하기',{exact:true}).click();
+    await page.getByLabel('대상 (예: 敏感肌)').fill('测试');
   await expect(page.getByRole('button', { name: '조합한 키워드로 게시물 찾기' })).toBeVisible();
   expect(errors).toEqual([]);
 });
@@ -39,6 +40,7 @@ test('expression excerpts hydrate when an emoji crosses either clipping boundary
     await expect(evidence).toContainText('YYDS');
     await evidence.locator('summary').filter({ hasText: '근거 게시물·사용 문맥' }).last().click();
     await expect(evidence).toContainText(body.slice(0, -2));
+    await page.getByText('검색어 조합하기',{exact:true}).click();
     await page.getByLabel('대상 (예: 敏感肌)').fill('测试');
     await expect(page.getByRole('button', { name: '조합한 키워드로 게시물 찾기' })).toBeVisible();
     expect(errors).toEqual([]);
