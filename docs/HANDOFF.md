@@ -1,3 +1,10 @@
+## 2026-11-02 홈 탐색 중심 디자인 개선 (로컬, 미배포)
+
+- 홈 상단 게시물 검색(기존 stored-only 검색 액션), 6개 주제 바로가기, 해시태그/표현 전체 클릭 카드, 내 모음 하단 바로가기. 기존 제목/접근성 라벨과 theme 토큰 유지. 수집/예산/DB 변경 없음.
+- web 타입·변경 파일 ESLint PASS, 코드 리뷰 actionable0. Next webpack 프로덕션 빌드 PASS. 기본 Turbopack은 sandbox port EPERM으로 실패(앱 오류로 단정하지 않음).
+- 실제 컴포넌트를 정적 렌더링하고 빌드 CSS를 적용한 미리보기 PC/375px 확인, 모바일 가로넘침0. 앱 셸/서버 액션 실행을 포함한 E2E 검증은 아님. 로컬 PostgreSQL 부재로 전체 E2E는 미실행. 커밋/푸시/운영 배포하지 않음.
+- outputs/home-redesign-desktop.png, home-redesign-mobile.png. 사용자 로그인 운영 홈 접근 확인. 이후 전체 회귀검증과 배포 필요.
+
 ## 2026-10-27 공용 수집 첫 시험 완료
 
 - ADR0058. 앱8405b8b, CI40340785537: 단위262/DB213/E2E45=520PASS, 타입·린트·Node22빌드PASS. 코드리뷰 actionable0. web703aa2fa-ef92-47d7-9bdf-03f0a680bb89/workerf0ff50c2-c9b8-4d2e-883f-649181bd8831 Active. 워커 실행환경 commit8405b8b/build0.0.109 확인.

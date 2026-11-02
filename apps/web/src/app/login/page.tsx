@@ -24,7 +24,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <main className="mx-auto max-w-md px-4 py-10">
       <h1 className="text-2xl font-bold">XHS 콘텐츠 스튜디오</h1>
-      <p className="mt-1 text-sm text-muted">샤오홍슈 콘텐츠 탐색·기획·중국어 표현 학습 도구</p>
+      <p className="mt-1 text-sm text-muted">샤오홍슈 게시물·해시태그·중국어 표현 모음</p>
       <div className="mt-6">
         <ErrorNotice message={error} />
         {done === 'password' && <div className="mb-4"><Notice tone="ok">비밀번호를 설정했습니다. 새 비밀번호로 로그인하세요.</Notice></div>}

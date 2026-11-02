@@ -75,8 +75,8 @@ export default async function SharedDictionary({ searchParams }: { searchParams:
       {result.items.length === 0 && <Empty title="조건에 맞는 항목이 없습니다">검색어나 카테고리 필터를 바꿔 보세요.</Empty>}
       <section className="my-5 rounded-xl border border-line p-4" aria-label="실제 게시물 표현 찾기">
         <h2 className="font-semibold">실제 게시물에서 해시태그·현지 표현 찾기</h2>
-        <p className="my-2 text-sm text-muted">등록한 사전과 샤오홍슈 검색 자료를 함께 확인하세요. 줄임말·구어체는 사용 문맥과 근거를 확인하고 다른 사이트의 본문 작성에 활용할 수 있습니다.</p>
-        <form action={searchAutomatically} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"><input name="q" aria-label="게시물 검색 주제" defaultValue={sp.q} required maxLength={100} placeholder="한국어 주제 또는 중국어 표현" className={input}/><button className={btn.secondary}>게시물에서 찾기</button></form>
+        <p className="my-2 text-sm text-muted">저장된 게시물에서 태그와 표현이 쓰인 문맥을 확인하세요. 검색하면 게시물 탐색 화면으로 이동합니다.</p>
+        <form action={searchAutomatically} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"><input name="q" aria-label="게시물 검색 주제" defaultValue={sp.q} required maxLength={100} placeholder="한국어 주제 또는 중국어 표현" className={input}/><button className={btn.secondary}>관련 게시물 보기</button></form>
       </section>
       {research && <SearchLanguage query={sp.q ?? ''} notes={research.notes} dictionary={research.dictionary}/>}
       <DictionaryWorkspace items={result.items} />
