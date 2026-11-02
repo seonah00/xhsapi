@@ -1,4 +1,5 @@
 import { canonicalTerm } from '@xhs/domain';
+import { hashtagGloss } from './hashtag-glossary.ts';
 import { analyzeSearchLanguage, chineseSearchCandidate, isChineseSearch } from './search-language.ts';
 import type { NoteCard } from './discover.ts';
 import type { SharedDictionaryEntry } from './shared-dictionary.ts';
@@ -30,9 +31,12 @@ export function recommendKeywords(query: string, notes: readonly NoteCard[], dic
     if (!isChineseSearch(term) || term.length < 2) return;
     const existing = items.get(term);
     if (existing) { existing.suggested ||= suggested; if (group === 'longTail' && existing.group !== 'core') existing.group = group; return; }
-    const definitions = dictionary.filter(d => canonicalTerm(d.term) === term);
+    const definitions = dictionary.filter(d => d.entryType === 'tag' && canonicalTerm(d.term) === term);
+    const gloss = hashtagGloss(term);
+    const meaning = definitions.find(d => d.meaning.trim())?.meaning ?? gloss?.meaning ?? null;
+    const usage = definitions.find(d => d.usage?.trim())?.usage ?? (definitions.some(d => d.meaning.trim()) ? undefined : gloss?.usage);
     const found = observed.tags.find(t => canonicalTerm(t.term) === term);
-    items.set(term, { term, group, dictionaryIds: definitions.map(d => d.id), meaning: definitions[0]?.meaning ?? null, ...(definitions[0]?.usage ? {usage: definitions[0].usage} : {}),
+    items.set(term, { term, group, dictionaryIds: definitions.map(d => d.id), meaning, ...(usage ? {usage} : {}),
       cautions: definitions.flatMap(d => d.cautions), noteCount: found?.noteCount ?? 0, evidence: found?.examples ?? [], suggested,
       ...(found ? {performance:keywordEvidence(term,sample),trend:keywordTrend(term,sample)} : {}) });
   }

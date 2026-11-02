@@ -1,5 +1,6 @@
 import { canonicalTerm, extractHashtags, KO_ZH_SEED, containsHangul, normalizeSearchQuery } from '@xhs/domain';
 import type { NoteCard } from './discover.ts';
+import { hashtagGloss } from './hashtag-glossary.ts';
 import type { SharedDictionaryEntry } from './shared-dictionary.ts';
 
 /** Composes one query instead of broadening a multiword intent into unrelated OR terms. */
@@ -33,7 +34,7 @@ export function analyzeSearchLanguage(notes: readonly NoteCard[], dictionary: re
     const definition = definitions.get(key);
     let entry = terms.get(key);
     if (!entry) {
-      entry = { item: { term, kind, meaning: definition?.meaning ?? null, cautions: definition?.cautions ?? [], noteCount: 0, authorCount: 0, examples: [] }, notes: new Set(), authors: new Set() };
+      entry = { item: { term, kind, meaning: definition?.meaning.trim() || (kind === 'tag' ? hashtagGloss(term)?.meaning : null) || null, cautions: definition?.cautions ?? [], noteCount: 0, authorCount: 0, examples: [] }, notes: new Set(), authors: new Set() };
       terms.set(key, entry);
     }
     if (entry.notes.has(note.id)) return;

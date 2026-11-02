@@ -15,6 +15,17 @@ describe('keyword recommendations', () => {
     const note:NoteCard={id:'synthetic',platformNoteId:'synthetic',title:'真实标签',bodyExcerpt:null,canonicalUrl:'',coverUrl:null,noteType:'image',authorName:null,authorRef:'a',authorFollowers:null,publishedAt:null,observedAt:null,dataMode:'mock',topics:[],formats:[],tags:['上班族低糖便当'],metrics:{},saved:false};
     expect(recommendKeywords('低糖便当',[note],[]).items.find(t=>t.term==='上班族低糖便当')).toMatchObject({group:'longTail',noteCount:1,performance:{noteCount:1,views:{median:null,sampleSize:0}}});
   });
+  it('explains common tags without paid translation or invented dictionary evidence', () => {
+    const item = recommendKeywords('#首尔美食', [], []).items.find(t => t.term === '首尔美食');
+    expect(item).toMatchObject({meaning:'서울 맛집·음식', usage:'서울에서 먹은 음식이나 식당을 소개할 때', dictionaryIds:[], noteCount:0});
+    expect(recommendKeywords('＃OOTD', [], []).items.find(t => t.term === 'ootd')?.meaning).toBe('오늘의 옷차림');
+    expect(recommendKeywords('未知自创标签', [], []).items[0]?.meaning).toBeNull();
+  });
+  it('keeps published definitions ahead of editorial glosses and ignores expression homonyms', () => {
+    expect(recommendKeywords('防晒霜', [], [{...entry, meaning:'관리자 검토 뜻'}]).items[0]?.meaning).toBe('관리자 검토 뜻');
+    expect(recommendKeywords('防晒霜', [], [{...entry, entryType:'expression', meaning:'다른 의미'}]).items[0]).toMatchObject({meaning:'선크림', dictionaryIds:[]});
+    expect(recommendKeywords('防晒霜', [], [{...entry, meaning:'   ', usage:''}]).items[0]?.meaning).toBe('선크림');
+  });
   it('does not fabricate a translation for unknown Korean input', () => {
     expect(recommendKeywords('아무단어', [], [entry]).items).toEqual([]);
   });
