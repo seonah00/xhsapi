@@ -13,7 +13,7 @@ export type KeywordRecommendation = {
   trend?: ReturnType<typeof keywordTrend>;
   performance?: ReturnType<typeof keywordEvidence>;
   aiReason?: string; term: string; group: 'core' | 'related' | 'longTail';
-  dictionaryIds: string[]; meaning: string | null; cautions: string[];
+  dictionaryIds: string[]; meaning: string | null; usage?: string; cautions: string[];
   noteCount: number; evidence: { noteId: string; title: string }[]; suggested: boolean;
 };
 
@@ -32,7 +32,7 @@ export function recommendKeywords(query: string, notes: readonly NoteCard[], dic
     if (existing) { existing.suggested ||= suggested; if (group === 'longTail' && existing.group !== 'core') existing.group = group; return; }
     const definitions = dictionary.filter(d => canonicalTerm(d.term) === term);
     const found = observed.tags.find(t => canonicalTerm(t.term) === term);
-    items.set(term, { term, group, dictionaryIds: definitions.map(d => d.id), meaning: definitions[0]?.meaning ?? null,
+    items.set(term, { term, group, dictionaryIds: definitions.map(d => d.id), meaning: definitions[0]?.meaning ?? null, ...(definitions[0]?.usage ? {usage: definitions[0].usage} : {}),
       cautions: definitions.flatMap(d => d.cautions), noteCount: found?.noteCount ?? 0, evidence: found?.examples ?? [], suggested,
       ...(found ? {performance:keywordEvidence(term,sample),trend:keywordTrend(term,sample)} : {}) });
   }

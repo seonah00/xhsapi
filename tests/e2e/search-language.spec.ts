@@ -53,13 +53,15 @@ test('free Korean sentence follows AI preview, consent and worker completion wit
   await page.waitForURL(/\/app/);
   await page.goto('/app/discover?q=' + encodeURIComponent('防晒霜推荐'));
   await page.getByTestId('discovery-analysis').locator('summary').first().click();
-  await expect(page.getByRole('heading', {name: '사전과 검색 결과로 키워드 정리'})).toBeVisible();
+  await expect(page.getByRole('heading', {name: '해시태그 뜻과 사용법'})).toBeVisible();
   await page.getByText(/검증 전 검색 후보 .*개 · AI·사전·대상 조합/).click();
   const candidate=page.getByRole('checkbox', {name: '#敏感肌防晒霜推荐', exact: true});
   await expect(candidate).toBeDisabled();
   await expect(page.getByRole('button', {name: '선택한 1개 태그 복사'})).toHaveCount(0);
+  await candidate.locator('..').locator('..').getByText('관련 게시물·자세히 보기',{exact:true}).click();
   await expect(candidate.locator('..').locator('..').getByRole('button',{name:'실제 게시물로 검증'})).toBeVisible();
   await expect(page).not.toHaveURL(/auto=/);
+  await page.getByText('검색어 조합하기',{exact:true}).click();
   await page.getByLabel('대상 (예: 敏感肌)').fill('敏感肌');
   await expect(page.getByRole('button', {name: '조합한 키워드로 게시물 찾기'})).toBeEnabled();
   await page.getByLabel('대상 (예: 敏感肌)').fill('민감성');
@@ -81,7 +83,8 @@ test('general AI expansion keeps unverified suggestions out of tag copy',async({
  await page.getByText(/검증 전 검색 후보 .*개 · AI·사전·대상 조합/).click();
  const unverified=page.getByRole('checkbox',{name:'#雨天亲子旅行',exact:true});
  await expect(unverified).toBeDisabled();
- await expect(unverified.locator('..').locator('..').getByRole('button',{name:'실제 게시물로 검증'})).toBeVisible();
+ await unverified.locator('..').locator('..').getByText('관련 게시물·자세히 보기',{exact:true}).click();
+  await expect(unverified.locator('..').locator('..').getByRole('button',{name:'실제 게시물로 검증'})).toBeVisible();
  await expect(page.getByRole('button',{name:'선택한 1개 태그 복사'})).toHaveCount(0);
  await expect(page.getByRole('link',{name:/선택 키워드로 기획하기/})).toHaveCount(0);
 });
@@ -102,6 +105,9 @@ test('verified hashtag reactions use exact medians and unverified candidates can
   await page.goto('/app/discover?q='+encodeURIComponent('合成关键词证据'));
   await page.getByTestId('discovery-analysis').locator('summary').first().click();
   const evidence=page.getByRole('region',{name:'실사용 검증 결과'});
+  await expect(evidence.getByText('한국어 뜻을 아직 준비하지 못했어요.', {exact:false})).toBeVisible();
+  await expect(evidence.getByText('저장 중앙값 20 · 정확한 수치 3/3건')).not.toBeVisible();
+  await evidence.getByText('관련 게시물·자세히 보기', {exact:true}).click();
   await expect(evidence).toContainText('실사용 확인 · 현재 표본 3/3건');
   await expect(evidence).toContainText('확인된 작성자 3명 · 비교 표본 충분');
   await expect(evidence).toContainText('저장 중앙값 20 · 정확한 수치 3/3건');
@@ -115,6 +121,7 @@ test('verified hashtag reactions use exact medians and unverified candidates can
   await page.getByText(/검증 전 검색 후보 .*개 · AI·사전·대상 조합/).click();
   const candidate=page.getByRole('checkbox',{name:'#敏感肌防晒霜推荐',exact:true});
   await expect(candidate).toBeDisabled();
+  await candidate.locator('..').locator('..').getByText('관련 게시물·자세히 보기',{exact:true}).click();
   await candidate.locator('..').locator('..').getByRole('button',{name:'실제 게시물로 검증'}).click();
   await expect(page).toHaveURL(/q=%E6%95%8F%E6%84%9F%E8%82%8C%E9%98%B2%E6%99%92%E9%9C%9C%E6%8E%A8%E8%8D%90/);
   await page.getByTestId('discovery-analysis').locator('summary').first().click();

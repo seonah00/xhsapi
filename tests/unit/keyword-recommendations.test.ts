@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { recommendKeywords, type NoteCard, type SharedDictionaryEntry } from '@xhs/core';
-const entry: SharedDictionaryEntry = { id: 'dictionary-id', entryType: 'tag', term: '防晒霜', meaning: '선크림', type: 'tag', categories: [], groups: [], cautions: ['확인'], observedCount: 999, unknownTrendNote: null };
+const entry: SharedDictionaryEntry = { id: 'dictionary-id', entryType: 'tag', term: '防晒霜', meaning: '선크림', usage: '선크림 후기나 자외선 차단 방법을 소개할 때', type: 'tag', categories: [], groups: [], cautions: ['확인'], observedCount: 999, unknownTrendNote: null };
 describe('keyword recommendations', () => {
   it('includes dictionary definitions without turning historical counts into live evidence', () => {
     const result = recommendKeywords('선크림추천', [], [entry]);
-    expect(result.items.find(t => t.term === '防晒霜')).toMatchObject({ dictionaryIds: ['dictionary-id'], meaning: '선크림', noteCount: 0, evidence: [] });
+    expect(result.items.find(t => t.term === '防晒霜')).toMatchObject({ dictionaryIds: ['dictionary-id'], meaning: '선크림', usage: '선크림 후기나 자외선 차단 방법을 소개할 때', noteCount: 0, evidence: [] });
     expect(result.items.find(t => t.term === '敏感肌防晒霜推荐')).toMatchObject({ group: 'longTail', suggested: true, noteCount: 0 });
   });
   it('does not insert Korean destinations into unrelated travel searches', () => {

@@ -34,6 +34,15 @@ export function KeywordRecommendations({ result, source }: { result: ReturnType<
     const p=item.performance;
     return <li key={item.term} className="rounded-xl border border-line p-3">
       <label className="flex gap-2"><input type="checkbox" disabled={!verified || (!selectedVerified.includes(item.term) && (selectedVerified.length >= 8 || item.term.length > 40))} checked={selectedVerified.includes(item.term)} onChange={e=>setSelected(current=>e.target.checked?[...current.filter(t=>observed.some(item=>item.term===t)),item.term]:current.filter(t=>t!==item.term))}/><span lang="zh-CN">#{item.term}</span></label>
+      <p className="mt-3 text-sm leading-relaxed"><span className="font-medium">뜻</span> · {item.meaning || '한국어 뜻을 아직 준비하지 못했어요.'}</p>
+      <p className="mt-1 text-sm leading-relaxed"><span className="font-medium">사용법</span> · {item.usage || (item.meaning ? `‘${item.meaning}’에 관한 게시물에 붙여 쓰세요.` : '뜻을 확인한 뒤 게시물 내용에 맞을 때 사용하세요.')}</p>
+      {item.cautions.map((c,i)=><p key={i} className="text-xs text-warn">{c}</p>)}
+      <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+        {verified && <CopyButton text={`#${item.term}`} label="태그 복사"/>}
+        {verified && <SavePersonal source={{kind:"observed",source,term:item.term}}/>}
+      </div>
+      <details className="mt-3 border-t border-line pt-2">
+        <summary className="min-h-11 cursor-pointer content-center text-sm text-muted">관련 게시물·자세히 보기</summary>
       <p className="text-xs text-muted">{{core:'핵심',related:'연관',longTail:'롱테일'}[item.group]} · {item.dictionaryIds.length?'공용사전 수록 · ':''}{verified?`실사용 확인 · 현재 표본 ${item.noteCount}/${result.sampleSize}건`:'실사용 미확인 · 검색 후보'}</p>
       {p && verified && <div className="my-2 space-y-1 text-sm" aria-label={`${item.term} 사용 게시물 반응`}>
         <p>확인된 작성자 {p.authorCount}명 · {p.strength==='comparable'?'비교 표본 충분':'표본 부족 — 반응 순위 해석에 주의하세요'}</p>
@@ -44,26 +53,27 @@ export function KeywordRecommendations({ result, source }: { result: ReturnType<
         <p className="text-xs text-muted">확인 {fmtDate(p.observedFrom)} ~ {fmtDate(p.observedTo)} · 게시 {fmtDate(p.publishedFrom)} ~ {fmtDate(p.publishedTo)}</p>
       </div>}
       {verified && item.trend && <KeywordTrend trend={item.trend}/>}
-      {item.meaning && <p className="text-sm">{item.meaning}</p>}
       {item.aiReason && <p className="text-xs text-muted">AI 제안 이유: {item.aiReason}</p>}
-      {item.cautions.map((c,i)=><p key={i} className="text-xs text-warn">{c}</p>)}
       <div className="mt-2 flex flex-wrap gap-3 text-sm">
         <form action={searchAutomatically}><input type="hidden" name="q" value={item.term}/><PendingButton className="underline">{verified?'이 태그로 추가 검색':'실제 게시물로 검증'}</PendingButton></form>
         {!!item.dictionaryIds.length && <Link href={`/app/dictionary?q=${encodeURIComponent(item.term)}`} className="underline">사전에서 활용하기</Link>}
         {item.evidence.map((e,i)=><Link key={e.noteId} href={`/app/notes/${e.noteId}`} className="underline">근거 게시물 {i+1}</Link>)}
       </div>
-      {verified && <SavePersonal source={{kind:"observed",source,term:item.term}}/>}
+      </details>
     </li>;
   }
   return <div className="mb-6 border-b border-line pb-5">
-    <h2 className="font-semibold">사전과 검색 결과로 키워드 정리</h2>
-    <p className="mt-1 text-sm text-muted">현재 검색 표본 최대 50건에서 실제로 발견한 태그를 비교합니다. 공용사전은 뜻과 주의사항을 보완하며 과거 관찰 수는 현재 사용 횟수에 합산하지 않습니다.</p>
-    <p className="mt-1 text-xs text-muted">게시물 반응은 키워드 검색량·전체 조회수·태그의 성과 효과를 뜻하지 않습니다. 검색 순서와 수집 범위에 영향을 받습니다. 새 검색이 진행 중이면 완료 후 표본이 갱신됩니다.</p>
+    <h2 className="font-semibold">해시태그 뜻과 사용법</h2>
+    <p className="mt-1 text-sm text-muted">게시물에 맞는 태그를 골라 복사하거나 내 모음에 저장하세요.</p>
     <section className="mt-4" aria-label="실사용 검증 결과">
-      <h3 className="font-medium">실사용이 확인된 태그 · 게시물 반응 비교</h3>
+      <h3 className="font-medium">게시물에서 찾은 해시태그</h3>
+      <details className="my-2 text-sm text-muted">
+        <summary className="min-h-11 cursor-pointer content-center">정렬·분석 기준</summary>
+        <p>현재 검색 표본 최대 50건의 비교입니다. 게시물 반응은 검색량이나 태그의 효과를 뜻하지 않습니다.</p>
       {result.zh && <p className="my-2 text-sm">검색어와 같은 태그 #{result.zh}: {searched?.noteCount?`표본 ${searched.noteCount}/${result.sampleSize}건에서 확인`:'현재 표본에서 확인되지 않았습니다. 이 검색어 자체가 사용되지 않는다는 뜻은 아닙니다.'}</p>}
       <label className="text-sm">반응 비교 정렬 <select value={order} onChange={e=>setOrder(e.target.value as Order)} className="rounded border border-line p-2"><option value="saves">비교 표본 충분 · 저장 중앙값 순</option><option value="likes">비교 표본 충분 · 좋아요 중앙값 순</option><option value="usage">태그 사용 게시물 수 순</option></select></label>
       <p className="mt-1 text-xs text-muted">비교 표본 충분: 게시물 3건 이상·확인된 작성자 2명 이상·정확한 저장 수 3건 이상. 미제공·반올림 수치는 중앙값 계산에서 제외합니다.</p>
+      </details>
       {!observed.length && <p className="my-3 text-sm">현재 표본에서 확인된 태그가 없습니다. 아래 후보를 실제 게시물로 검증해 주세요.</p>}
       <ul className="mt-2 grid gap-2 md:grid-cols-2">{observed.map(item=>card(item,true))}</ul>
     </section>
@@ -87,11 +97,13 @@ export function KeywordRecommendations({ result, source }: { result: ReturnType<
         <p className="text-xs text-muted">선택한 주제·사전 설명·게시물 발췌로 검색 후보를 만듭니다. AI 후보 생성 후에도 실사용 검증이 필요합니다. 실행 전에 외부 AI 처리 동의를 받습니다.</p>
       </form>}
     </details>
-    <div className="mt-4 space-y-2">
+    <details className="mt-4 space-y-2"><summary className="min-h-11 cursor-pointer content-center text-sm">검색어 조합하기</summary>
       <p className="text-sm">중국어 대상·상황을 붙여 롱테일 검색 후보를 만들 수 있습니다.</p>
       <label className="block text-sm">대상 (예: 敏感肌)<input className="ml-2 rounded border border-line p-2" value={audience} maxLength={20} onChange={e=>setAudience(e.target.value)}/></label>
       <label className="block text-sm">상황 (예: 夏季)<input className="ml-2 rounded border border-line p-2" value={situation} maxLength={20} onChange={e=>setSituation(e.target.value)}/></label>
       {(audience || situation) && <form action={searchAutomatically}><input type="hidden" name="q" value={custom}/><p lang="zh-CN">{custom} · 실사용 미확인</p><PendingButton disabled={!result.zh || custom.length>50 || /[가-힣]/.test(custom)} className="underline">조합한 키워드로 게시물 찾기</PendingButton></form>}
+    </details>
+    <div className="mt-3">
       {!!selectedVerified.length && <CopyButton text={selectedVerified.map(t=>`#${t}`).join(' ')} label={`선택한 ${selectedVerified.length}개 태그 복사`}/>}
       <p className="text-xs text-muted">태그 선택·복사는 현재 표본에서 실사용이 확인된 항목만 가능합니다.</p>
     </div>
