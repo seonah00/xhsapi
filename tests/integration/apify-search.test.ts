@@ -9,7 +9,7 @@ const env={...loadEnv({}),APP_DATA_MODE:'live' as const,LIVE_PROVIDER_CALLS_ENAB
 const service:Runner=async fn=>{const db=await pool.connect();try{await db.query('begin');const r=await fn(db);await db.query('commit');return r;}catch(e){await db.query('rollback');throw e;}finally{db.release();}};
 const user=<T>(fn:(ctx:Ctx)=>Promise<T>)=>service(async db=>{await db.query(`select set_config('request.jwt.claim.sub',$1,true)`,[uid]);await db.query('set local role authenticated');return fn({db,orgId:org,uid,role:'org_admin',mode:'live'});});
 const scope={source:'apify',query:'合成搜索',targetCount:50};
-async function enqueue(){const q=await user(ctx=>createQuote(ctx,service,'provider_search',scope,{env}));expect(q).toMatchObject({currency:'USD',maxAmount:'0.30000000',maxBillableUnits:1});const args={quoteId:q.id,route:'test',idempotencyKey:randomUUID(),operation:'provider_search' as const,scope,jobKind:'provider_search' as const,dedupeKey:q.id,inputRef:scope,consent:true};const first=await user(ctx=>reserveJob(ctx,args));expect(await user(ctx=>reserveJob(ctx,args))).toEqual({...first,replayed:true});return first.jobId;}
+async function enqueue(input=scope){const q=await user(ctx=>createQuote(ctx,service,'provider_search',input,{env}));expect(q).toMatchObject({currency:'USD',maxAmount:'0.30000000',maxBillableUnits:1});const args={quoteId:q.id,route:'test',idempotencyKey:randomUUID(),operation:'provider_search' as const,scope:input,jobKind:'provider_search' as const,dedupeKey:q.id,inputRef:input,consent:true};const first=await user(ctx=>reserveJob(ctx,args));expect(await user(ctx=>reserveJob(ctx,args))).toEqual({...first,replayed:true});return first.jobId;}
 const fake=vi.fn(async()=>Response.json([{id:pid,type:'normal',title:'合成搜索',timestamp:1780000000,url:`https://www.xiaohongshu.com/discovery/item/${pid}?xsec_token=fixture`,images:[]}]));
 const deps={service,provider:new MockXhsProvider(),env,apifySearchFetch:fake};
 beforeAll(async()=>{
@@ -69,4 +69,14 @@ it('a successful title search does not link a different post to the target',asyn
  const job=(await pool.query('select job_id from search_requests where id=$1',[request])).rows[0].job_id;
  expect(await runJob(deps,job,'different')).toMatchObject({state:'succeeded'});
  expect(await user(ctx=>originalNoteLink(ctx,service,target))).toBeNull();
+});
+
+it('reserves a full run cap for 25 items and passes the limit through the worker',async()=>{
+ const job=await enqueue({...scope,targetCount:25});
+ const fetch25=vi.fn(async()=>Response.json([]));
+ expect(await runJob({...deps,apifySearchFetch:fetch25},job,'small')).toMatchObject({state:'succeeded'});
+ expect(fetch25).toHaveBeenCalledTimes(1);
+ const [url,init]=fetch25.mock.calls[0] as unknown as [URL,RequestInit];
+ expect(url.searchParams.get('maxItems')).toBe('25');
+ expect(JSON.parse(String(init.body)).maxResults).toBe(25);
 });

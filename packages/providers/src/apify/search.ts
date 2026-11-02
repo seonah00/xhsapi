@@ -14,7 +14,7 @@ export const APIFY_SEARCH_CAPABILITY: EndpointCapability = {
   docUrl: 'https://apify.com/zen-studio/rednote-search-scraper/input-schema',
 };
 export const ApifySearchScope = z.object({
-  source: z.literal('apify'), query: z.string().trim().min(1).max(50), targetCount: z.union([z.literal(50), z.literal(100)]),
+  source: z.literal('apify'), query: z.string().trim().min(1).max(50), targetCount: z.union([z.literal(25), z.literal(50), z.literal(100)]),
   topic: z.enum(['beauty','daily-life','parenting','food-places','travel-outing','fashion']).optional(),
   days: z.union([z.literal(7),z.literal(14),z.literal(30)]).optional(),
 }).strict();

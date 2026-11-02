@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const CollectionTarget = z.union([z.literal(50), z.literal(100)]);
+export const CollectionTarget = z.union([z.literal(25), z.literal(50), z.literal(100)]);
 /** Two spare pages allow for duplicate or date-filtered results without unbounded spend. */
 export const collectionPages = (target: number): number => Math.ceil(CollectionTarget.parse(target) / 20) + 2;
 export const EnrichmentScope = z.union([

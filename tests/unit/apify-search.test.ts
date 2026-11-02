@@ -33,3 +33,11 @@ it('uses newest-first weekly collection without filling from older sort orders',
  const [,init]=f.mock.calls[0] as unknown as [URL,RequestInit];
  expect(JSON.parse(String(init.body))).toMatchObject({sortType:'time_descending',timeFilter:'1w',topUpFromOtherSorts:false});
 });
+
+it('caps a 25-item weekly request at the provider boundary',async()=>{
+ const f=vi.fn(async()=>Response.json([row]));await new ApifySearchProvider(options(),f).search({...scope,targetCount:25,days:7});
+ const [u,init]=f.mock.calls[0] as unknown as [URL,RequestInit];
+ expect(u.searchParams.get('maxItems')).toBe('25');
+ expect(JSON.parse(String(init.body))).toMatchObject({maxResults:25,topUpFromOtherSorts:false,timeFilter:'1w'});
+ expect(f).toHaveBeenCalledTimes(1);
+});
