@@ -18,6 +18,8 @@ test('student discovery prioritizes posts, preserves filters and offers previous
     await page.goto('/login');
     await page.getByRole('button', { name: /student-a@demo.invalid/ }).click();
     await page.waitForURL(/\/app/);
+    await page.goto('/app/discover');
+    await expect(page.getByLabel('정렬', { exact: true })).toHaveValue('reference');
     await page.goto('/app/discover?' + new URLSearchParams({ q: query, topic: 'travel-outing', sort: 'saves' }));
     const analysis = page.getByTestId('discovery-analysis');
     await expect(analysis).not.toHaveAttribute('open');
