@@ -36,7 +36,7 @@ export const DiscoverQuery = z.object({
   format: z.string().optional(),
   days: z.coerce.number().int().refine((d) => [7, 14, 30].includes(d)).optional(),
   /** popular = most likes, saves = most saves (latest snapshot; exact value or lower bound), recent = newest first. */
-  sort: z.enum(['popular', 'saves', 'recent']).default('popular'),
+  sort: z.enum(['reference', 'popular', 'saves', 'recent']).default('reference'),
   terms: z.array(z.string().trim().min(1).max(40)).max(10).optional(),
   cursor: z.string().max(40).optional(),
 });
@@ -46,7 +46,18 @@ const PAGE = 50;
 
 const metricOrder = (key: 'likes' | 'saves') => `(select coalesce((m.metrics_json->'${key}'->>'exact')::numeric, (m.metrics_json->'${key}'->>'lowerBound')::numeric)
   from metric_snapshots m where m.note_id = n.id order by m.observed_at desc limit 1) desc nulls last,`;
-const ORDER: Record<'popular' | 'saves' | 'recent', string> = { popular: metricOrder('likes'), saves: metricOrder('saves'), recent: '' };
+// Log scaling keeps one large counter from overwhelming the other reactions.
+// Keyword evidence boosts relevance, not nationality or guaranteed quality.
+const referenceOrder = `(select
+  ln(1 + greatest(0, coalesce((m.metrics_json->'likes'->>'exact')::numeric, (m.metrics_json->'likes'->>'lowerBound')::numeric, 0))) +
+  ln(1 + greatest(0, coalesce((m.metrics_json->'saves'->>'exact')::numeric, (m.metrics_json->'saves'->>'lowerBound')::numeric, 0))) +
+  ln(1 + greatest(0, coalesce((m.metrics_json->'comments'->>'exact')::numeric, (m.metrics_json->'comments'->>'lowerBound')::numeric, 0)))
+  from metric_snapshots m where m.note_id=n.id order by m.observed_at desc limit 1)`;
+const koreaKeywords = `concat_ws(' ', n.title, n.body_excerpt, array_to_string(n.provider_tags, ' ')) ~* '(韩国|韓國|首尔|首爾|釜山|济州|濟州|仁川|弘大|圣水|聖水|明洞|江南|东大门|東大門|한국|서울|부산|제주|인천|홍대|성수|명동|korea|seoul|busan|jeju)'`;
+const ORDER: Record<'reference' | 'popular' | 'saves' | 'recent', string> = {
+  reference: `(coalesce(${referenceOrder},0) + case when ${koreaKeywords} and coalesce(${referenceOrder},0)>0 then 2 else 0 end) desc,`,
+  popular: metricOrder('likes'), saves: metricOrder('saves'), recent: '',
+};
 
 const HAS_ORIGINAL_LINK = `exists (select 1 from notes linked where linked.org_id=n.org_id and linked.platform_note_id=n.platform_note_id and linked.data_mode=n.data_mode and (linked.expires_at is null or linked.expires_at>now()) and app.has_note_access_link(linked.id))`;
 

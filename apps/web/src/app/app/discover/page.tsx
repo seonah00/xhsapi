@@ -55,7 +55,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
         <input id="q" name="q" defaultValue={sp.q} placeholder="검색어·해시태그" className={`${input} col-span-2 sm:col-span-1`} />
         <select name="topic" defaultValue={sp.topic ?? ''} className={input} aria-label="주제"><option value="">모든 주제</option>{Object.entries(TOPIC_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
         <select name="format" defaultValue={sp.format ?? ''} className={input} aria-label="형식"><option value="">모든 형식</option>{Object.entries(FORMAT_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
-        <select name="sort" defaultValue={sp.sort ?? 'popular'} className={input} aria-label="정렬"><option value="popular">좋아요 많은 순</option><option value="saves">저장 많은 순</option><option value="recent">최신순</option></select>
+        <select name="sort" defaultValue={sp.sort ?? 'reference'} className={input} aria-label="정렬"><option value="reference">추천순 · 반응과 한국 관련성</option><option value="popular">좋아요 많은 순</option><option value="saves">저장 많은 순</option><option value="recent">최신순</option></select>
         <select name="days" defaultValue={sp.days ?? ''} className={input} aria-label="기간"><option value="">전체 기간</option><option value="7">최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option></select>
         {canManage && <PendingButton formAction={quoteRefresh} className={btn.primary} pendingText="검색 준비 중…">새 게시물 검색</PendingButton>}
         <button formAction={searchAutomatically} className={`${canManage ? btn.secondary : btn.primary} ${canManage ? "" : "col-span-2 sm:col-span-1"}`}>{canManage ? '저장된 게시물 검색' : '검색'}</button>
@@ -78,7 +78,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
         <div className="p-3"><SearchLanguage query={searchQuery} notes={result.notes} dictionary={keywordDictionary}/></div>
       </details>}
 
-      <p className="mb-3 text-xs text-muted">저장된 게시물에서 찾습니다. 검색으로 새 수집을 시작하지 않습니다.</p>
+      <p className="mb-3 text-xs text-muted">저장된 게시물에서 찾습니다. 추천순은 좋아요·저장·댓글 반응과 한국 관련 키워드를 함께 고려합니다.</p>
       {sp.auto && <AutoSearchStatus requestId={sp.auto}/>}
       {result.expansion && (
         <div className="mb-4 rounded-2xl border border-line bg-surface p-3 text-sm">

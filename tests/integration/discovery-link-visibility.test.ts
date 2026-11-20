@@ -38,7 +38,7 @@ it('filters before pagination and retains every stored note and sharing link',as
  expect((await pool.query('select count(*)::int as n from note_access_links where org_id=$1',[org])).rows[0].n).toBe(75);
 });
 it('applies visibility to every stored search and sort including original-only results',async()=>{
- for(const sort of ['popular','saves','recent'] as const){
+ for(const sort of ['reference','popular','saves','recent'] as const){
   const result=await user(student,ctx=>discover(ctx,{q:'可见性测试',original:'1',sort,topic}));
   expect(result.notes).toHaveLength(50);
   expect(result.notes.every(n=>visible.includes(n.id)&&n.hasOriginalLink)).toBe(true);
@@ -56,4 +56,27 @@ it('prevents non-members from reading checks and students from changing visibili
  await expect(asUser(student,db=>db.query(`update note_link_checks set status='opened' where note_id=$1`,[hidden[0]]))).rejects.toThrow(/permission denied/);
  await expect(asUser(student,db=>db.query(`delete from note_link_checks where note_id=$1`,[hidden[0]]))).rejects.toThrow(/permission denied/);
  expect((await user(outsider,ctx=>discover(ctx,{}))).notes).toEqual([]);
+});
+
+it('recommends Korean keyword matches with reactions while preserving explicit metric sorts',async()=>{
+ const ids=visible.slice(0,5);
+ try {
+  for(const [index,id] of ids.entries()) {
+   await pool.query(`update notes set title=$2,provider_tags=$3,published_at='2026-01-01' where id=$1`,[id,'排名测试',index===1?['首尔美食']:[]]);
+  }
+  // Same likes: saves and comments must each contribute; a Korean tag wins a tie.
+  for(const [index,values] of [[0,[100,0,0]],[1,[100,0,0]],[2,[100,100,0]],[3,[100,0,100]]] as const){
+   const metrics=Object.fromEntries(['likes','saves','comments'].map((key,i)=>[key,{exact:values[i],precision:'exact',raw:String(values[i])}]));
+   await pool.query(`insert into metric_snapshots(note_id,observed_at,metrics_json) values($1,now(),$2)`,[ids[index],metrics]);
+  }
+  const result=await user(student,ctx=>discover(ctx,{q:'排名测试'}));
+  const order=result.notes.map(n=>n.id);
+  expect(new Set(order.slice(0,2))).toEqual(new Set([ids[2],ids[3]]));
+  expect(order.slice(2)).toEqual([ids[1],ids[0],ids[4]]);
+  const saves=await user(student,ctx=>discover(ctx,{q:'排名测试',sort:'saves'}));
+  expect(saves.notes[0]?.id).toBe(ids[2]);
+ } finally {
+  await pool.query('delete from metric_snapshots where note_id=any($1::uuid[])',[ids]);
+  await pool.query(`update notes set title='可见性测试',provider_tags='{}' where id=any($1::uuid[])`,[ids]);
+ }
 });
