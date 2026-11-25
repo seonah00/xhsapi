@@ -4,6 +4,7 @@ test('REDi picker requires login and keeps unrelated matches out', async ({ page
   await page.goto('/app/dictionary/redi');
   await expect(page).toHaveURL(/\/login/);
   await page.getByRole('button', { name: /student-a@demo.invalid/ }).click();
+  await page.waitForURL(/\/app(?:$|\/)/);
   await page.goto('/app/dictionary/redi');
   await expect(page.getByRole('heading', { name: 'REDi에 사용할 표현 선택' })).toBeVisible();
   await expect(page.getByRole('checkbox')).toHaveCount(0);
